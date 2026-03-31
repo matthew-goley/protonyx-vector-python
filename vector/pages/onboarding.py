@@ -74,6 +74,7 @@ class PositionDialog(QDialog):
         cancel_button.clicked.connect(self.reject)
         self.submit_button = LoadingButton('Validate & Add')
         self.submit_button.setProperty('accent', True)
+        self.submit_button.setDefault(True)
         self.submit_button.clicked.connect(self.submit)
         self.equity_label = QLabel('')
         self.equity_label.setStyleSheet('color: #a0c8ff; font-weight: bold;')
@@ -126,7 +127,6 @@ class PositionDialog(QDialog):
             self.submit_button.stop_loading('Validate & Add')
             self.error_label.setText(str(exc))
             return
-        self.submit_button.stop_loading('Validate & Add')
         equity = shares * snapshot['price']
         self.position_data = {
             'ticker': snapshot['ticker'],
