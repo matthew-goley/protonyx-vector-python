@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 import time
 from datetime import datetime
 from functools import partial
@@ -24,7 +25,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .analytics import compute_portfolio_analytics
-from .constants import APP_NAME, APP_VERSION, COMPANY_NAME, LOGO_PATH, TASKBAR_LOGO_PATH, VOLATILITY_LOOKBACK_PERIODS
+from .constants import APP_NAME, APP_VERSION, COMMON_TICKERS, COMPANY_NAME, LOGO_PATH, TASKBAR_LOGO_PATH, VOLATILITY_LOOKBACK_PERIODS
 from .paths import resource_path
 from .pages.dashboard import DashboardPage
 from .pages.lens_page import VectorLensPage
@@ -553,6 +554,14 @@ def main() -> int:
 
     # Heavy init happens here; splash is already painted and visible above
     window = VectorMainWindow()
+
+    # Prefetch prices for common tickers in the background so the Add Position
+    # dialog can show instant equity estimates without waiting for validation.
+    threading.Thread(
+        target=lambda: window.store.prefetch_common_prices(COMMON_TICKERS),
+        daemon=True,
+        name='vector-price-prefetch',
+    ).start()
 
     # Ensure splash is on screen for at least 2 seconds total
     elapsed_ms = int((time.monotonic() - t_start) * 1000)

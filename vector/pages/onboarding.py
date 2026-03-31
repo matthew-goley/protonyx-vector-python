@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QDoubleValidator, QFont
 from PyQt6.QtWidgets import (
     QApplication,
@@ -55,9 +55,11 @@ class PositionDialog(QDialog):
         self.ticker_input = QLineEdit()
         self.ticker_input.setPlaceholderText('AAPL')
         self.ticker_input.textChanged.connect(self._uppercase_ticker)
+        self.ticker_input.editingFinished.connect(self._try_update_equity_label)
         self.shares_input = QLineEdit()
         self.shares_input.setValidator(QDoubleValidator(0.0, 10_000_000.0, 4, self))
         self.shares_input.setPlaceholderText('10')
+        self.shares_input.textChanged.connect(self._try_update_equity_label)
         form.addRow('Ticker Symbol', self.ticker_input)
         form.addRow('Number of Shares', self.shares_input)
         layout.addLayout(form)
@@ -67,13 +69,19 @@ class PositionDialog(QDialog):
         self.error_label.setWordWrap(True)
         layout.addWidget(self.error_label)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        btn_row = QHBoxLayout()
+        cancel_button = QPushButton('Cancel')
+        cancel_button.clicked.connect(self.reject)
         self.submit_button = LoadingButton('Validate & Add')
         self.submit_button.setProperty('accent', True)
         self.submit_button.clicked.connect(self.submit)
-        buttons.addButton(self.submit_button, QDialogButtonBox.ButtonRole.AcceptRole)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        self.equity_label = QLabel('')
+        self.equity_label.setStyleSheet('color: #a0c8ff; font-weight: bold;')
+        btn_row.addWidget(cancel_button)
+        btn_row.addStretch(1)
+        btn_row.addWidget(self.equity_label)
+        btn_row.addWidget(self.submit_button)
+        layout.addLayout(btn_row)
 
     def _uppercase_ticker(self, text: str) -> None:
         cursor = self.ticker_input.cursorPosition()
@@ -81,6 +89,23 @@ class PositionDialog(QDialog):
         self.ticker_input.setText(text.upper())
         self.ticker_input.setCursorPosition(cursor)
         self.ticker_input.blockSignals(False)
+
+    def _try_update_equity_label(self) -> None:
+        """Show an estimated equity from cached price as soon as both fields are filled."""
+        ticker = self.ticker_input.text().strip().upper()
+        shares_text = self.shares_input.text().strip()
+        if not ticker or not shares_text:
+            return
+        try:
+            shares = float(shares_text)
+            if shares <= 0:
+                return
+        except ValueError:
+            return
+        price = self.store.get_quote(ticker).get('price')
+        if not price:
+            return
+        self.equity_label.setText(f'≈ ${shares * price:,.2f}')
 
     def submit(self) -> None:
         ticker = self.ticker_input.text().strip().upper()
@@ -102,15 +127,17 @@ class PositionDialog(QDialog):
             self.error_label.setText(str(exc))
             return
         self.submit_button.stop_loading('Validate & Add')
+        equity = shares * snapshot['price']
         self.position_data = {
             'ticker': snapshot['ticker'],
             'shares': shares,
             'current_price': snapshot['price'],
-            'equity': shares * snapshot['price'],
+            'equity': equity,
             'sector': snapshot['sector'],
             'name': snapshot['name'],
         }
-        self.accept()
+        self.equity_label.setText(f'≈ ${equity:,.2f}')
+        QTimer.singleShot(700, self.accept)
 
 
 class PositionCard(CardFrame):

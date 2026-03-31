@@ -537,6 +537,62 @@ class DataStore:
         self._write_json(LAYOUT_FILE, layout)
 
     # ------------------------------------------------------------------
+    # Prefetch — batch price load for common tickers (background startup)
+    # ------------------------------------------------------------------
+
+    def prefetch_common_prices(self, tickers: list[str]) -> None:
+        """
+        Batch-fetch last close prices for a list of tickers and write them into
+        the market data cache.  Skips tickers whose quote is already fresh (< 60 min old).
+        Called from a daemon thread at startup so onboarding can show instant equity estimates.
+        """
+        mdata = self._load_market_data()
+        to_fetch = [
+            t for t in tickers
+            if not self._is_fresh(mdata.get(t, {}).get('quote_updated_at'), 60)
+        ]
+        if not to_fetch:
+            return
+        try:
+            raw = yf.download(
+                to_fetch, period='5d', interval='1d',
+                progress=False, auto_adjust=False, actions=False,
+            )
+        except Exception:  # noqa: BLE001
+            return
+        if raw.empty:
+            return
+        now_iso = self._now().isoformat()
+        try:
+            close = raw['Close']
+            # Multi-ticker download → DataFrame with ticker columns
+            # Single-ticker download → plain Series
+            if hasattr(close, 'columns'):
+                last = close.iloc[-1]
+                for t in to_fetch:
+                    if t not in last.index:
+                        continue
+                    try:
+                        val = float(last[t])
+                        if val and val == val:  # reject NaN
+                            entry = mdata.setdefault(t, {})
+                            entry.setdefault('quote', {})['price'] = val
+                            entry['quote_updated_at'] = now_iso
+                    except (TypeError, ValueError):
+                        pass
+            else:
+                clean = close.dropna()
+                if not clean.empty and to_fetch:
+                    val = float(clean.iloc[-1])
+                    if val:
+                        entry = mdata.setdefault(to_fetch[0], {})
+                        entry.setdefault('quote', {})['price'] = val
+                        entry['quote_updated_at'] = now_iso
+        except Exception:  # noqa: BLE001
+            return
+        self._save_market_data(mdata)
+
+    # ------------------------------------------------------------------
     # Reset
     # ------------------------------------------------------------------
 

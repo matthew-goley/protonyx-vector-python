@@ -102,6 +102,34 @@ LOW_BETA_BY_SECTOR: dict[str, list[str]] = {
     'Basic Materials':        ['LIN', 'APD', 'SHW', 'ECL', 'NEM'],
 }
 
+# ~100 commonly traded tickers — prices are batch-prefetched at startup so
+# the Add Position dialog can show an estimated equity instantly (no validation wait).
+COMMON_TICKERS: list[str] = [
+    # Technology
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'AMD', 'INTC',
+    'QCOM', 'AVGO', 'TXN', 'ACN', 'IBM', 'ORCL', 'ADBE', 'CRM', 'NFLX',
+    'UBER', 'PYPL',
+    # Financial Services
+    'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'BLK', 'V', 'MA', 'AXP', 'BRK-B',
+    # Healthcare
+    'UNH', 'JNJ', 'PFE', 'ABBV', 'MRK', 'LLY', 'BMY', 'AMGN', 'GILD',
+    'ABT', 'MDT', 'TMO', 'DHR', 'ISRG', 'REGN', 'VRTX', 'MRNA',
+    # Consumer
+    'WMT', 'COST', 'HD', 'LOW', 'MCD', 'SBUX', 'TGT', 'NKE', 'PG',
+    'KO', 'PEP', 'CL', 'YUM', 'DIS', 'CMCSA',
+    # Energy & Industrials
+    'XOM', 'CVX', 'COP', 'VLO', 'PSX', 'HON', 'MMM', 'ITW', 'EMR',
+    'BA', 'CAT', 'DE', 'UNP', 'LMT', 'RTX', 'FDX', 'UPS', 'GE',
+    # Telecom & Utilities
+    'T', 'VZ', 'NEE', 'SO', 'DUK', 'AEP', 'WEC',
+    # Real Estate
+    'O', 'PLD', 'SPG', 'PSA', 'EQR', 'AMT', 'EQIX',
+    # Basic Materials
+    'LIN', 'APD', 'SHW', 'ECL', 'NEM',
+    # ETFs
+    'SPY', 'VOO', 'VTI', 'QQQ', 'IVV',
+]
+
 # Representative tickers per sector — used for the underrepresented-sector signal.
 SECTOR_SUGGESTIONS: dict[str, list[str]] = {
     'Technology':             ['AAPL', 'MSFT', 'GOOGL'],
