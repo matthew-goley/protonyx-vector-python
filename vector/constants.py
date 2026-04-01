@@ -30,17 +30,6 @@ DEFAULT_SETTINGS = {
         'low_cutoff': 30,
         'high_cutoff': 60,
     },
-    'lens_signals': {
-        'stock_concentration_pct': 35,
-        'sector_concentration_pct': 50,
-        'steep_downtrend_pct': -20,
-        'high_beta_threshold': 1.3,
-        'stock_vol_threshold_pct': 35,
-    },
-    'monte_carlo': {
-        'projection_period': '1 year',
-        'simulations': 500,
-    },
 }
 
 DEFAULT_APP_STATE = {
@@ -69,15 +58,6 @@ VOLATILITY_LOOKBACK_PERIODS = {
     '1 year': '1y',
 }
 
-MONTE_CARLO_HORIZON_DAYS: dict[str, int] = {
-    '3 months': 63,
-    '6 months': 126,
-    '1 year': 252,
-    '2 years': 504,
-}
-
-MONTE_CARLO_SIMULATIONS: list[int] = [100, 200, 500, 1000]
-
 # Broad-market index ETFs — treated as instant diversification, not single-stock concentration.
 INDEX_ETFS: frozenset[str] = frozenset({
     'SPY', 'VOO', 'VTI', 'IVV', 'QQQ', 'VT', 'VXUS', 'ITOT', 'SCHB',
@@ -101,34 +81,6 @@ LOW_BETA_BY_SECTOR: dict[str, list[str]] = {
     'Real Estate':            ['O', 'PLD', 'SPG', 'PSA', 'EQR'],
     'Basic Materials':        ['LIN', 'APD', 'SHW', 'ECL', 'NEM'],
 }
-
-# ~100 commonly traded tickers — prices are batch-prefetched at startup so
-# the Add Position dialog can show an estimated equity instantly (no validation wait).
-COMMON_TICKERS: list[str] = [
-    # Technology
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'AMD', 'INTC',
-    'QCOM', 'AVGO', 'TXN', 'ACN', 'IBM', 'ORCL', 'ADBE', 'CRM', 'NFLX',
-    'UBER', 'PYPL',
-    # Financial Services
-    'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'BLK', 'V', 'MA', 'AXP', 'BRK-B',
-    # Healthcare
-    'UNH', 'JNJ', 'PFE', 'ABBV', 'MRK', 'LLY', 'BMY', 'AMGN', 'GILD',
-    'ABT', 'MDT', 'TMO', 'DHR', 'ISRG', 'REGN', 'VRTX', 'MRNA',
-    # Consumer
-    'WMT', 'COST', 'HD', 'LOW', 'MCD', 'SBUX', 'TGT', 'NKE', 'PG',
-    'KO', 'PEP', 'CL', 'YUM', 'DIS', 'CMCSA',
-    # Energy & Industrials
-    'XOM', 'CVX', 'COP', 'VLO', 'PSX', 'HON', 'MMM', 'ITW', 'EMR',
-    'BA', 'CAT', 'DE', 'UNP', 'LMT', 'RTX', 'FDX', 'UPS', 'GE',
-    # Telecom & Utilities
-    'T', 'VZ', 'NEE', 'SO', 'DUK', 'AEP', 'WEC',
-    # Real Estate
-    'O', 'PLD', 'SPG', 'PSA', 'EQR', 'AMT', 'EQIX',
-    # Basic Materials
-    'LIN', 'APD', 'SHW', 'ECL', 'NEM',
-    # ETFs
-    'SPY', 'VOO', 'VTI', 'QQQ', 'IVV',
-]
 
 # Representative tickers per sector — used for the underrepresented-sector signal.
 SECTOR_SUGGESTIONS: dict[str, list[str]] = {
