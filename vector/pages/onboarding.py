@@ -3,13 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QDoubleValidator, QFont
+from PyQt6.QtGui import QColor, QDoubleValidator, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -167,6 +168,107 @@ class PositionCard(CardFrame):
         self.setFixedWidth(220)
 
 
+_RISK_TIERS = [
+    {
+        'key': 'low',
+        'label': 'Conservative',
+        'subtitle': 'Prioritize stability over growth',
+        'description': (
+            'Tighter guardrails. The Lens will flag smaller dips, lower '
+            'volatility, and suggest action sooner. Best if you prefer '
+            'steady, predictable returns.'
+        ),
+        'color': '#4da6ff',
+    },
+    {
+        'key': 'regular',
+        'label': 'Moderate',
+        'subtitle': 'Balance between growth and safety',
+        'description': (
+            'Standard thresholds. The Lens gives you room to ride out '
+            'normal market swings but flags meaningful risks. Good for '
+            'most investors.'
+        ),
+        'color': '#a256f6',
+    },
+    {
+        'key': 'high',
+        'label': 'Aggressive',
+        'subtitle': 'Maximize growth potential',
+        'description': (
+            'Wider guardrails. The Lens tolerates higher volatility and '
+            'steeper dips before flagging anything. Best if you\'re '
+            'comfortable with big swings for bigger potential upside.'
+        ),
+        'color': '#fd8a83',
+    },
+]
+
+
+class _RiskTierCard(QFrame):
+    """Clickable card representing a single risk tier option."""
+
+    def __init__(self, tier: dict, selected: bool = False, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.tier_key = tier['key']
+        self._accent = tier['color']
+        self._selected = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(200)
+
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(24)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        self.setGraphicsEffect(shadow)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(8)
+
+        label = QLabel(tier['label'])
+        label.setStyleSheet('font-size: 16pt; font-weight: 700; background: transparent; border: none;')
+        layout.addWidget(label)
+
+        sub = QLabel(tier['subtitle'])
+        sub.setStyleSheet('font-size: 11pt; color: #8d98af; background: transparent; border: none;')
+        layout.addWidget(sub)
+
+        desc = QLabel(tier['description'])
+        desc.setWordWrap(True)
+        desc.setStyleSheet('font-size: 10pt; color: #6b7a94; background: transparent; border: none;')
+        layout.addWidget(desc)
+        layout.addStretch(1)
+
+        if selected:
+            self.set_selected(True)
+        else:
+            self._apply_style()
+
+    def set_selected(self, selected: bool) -> None:
+        self._selected = selected
+        self._apply_style()
+
+    def _apply_style(self) -> None:
+        if self._selected:
+            self.setStyleSheet(
+                f'_RiskTierCard {{ background: #161b26; border: 2px solid {self._accent}; border-radius: 14px; }}'
+            )
+        else:
+            self.setStyleSheet(
+                '_RiskTierCard { background: #161b26; border: 1px solid #2a3142; border-radius: 14px; }'
+            )
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Notify parent to update selection
+            parent = self.parentWidget()
+            while parent and not isinstance(parent, OnboardingPage):
+                parent = parent.parentWidget()
+            if parent:
+                parent._select_risk_tier(self.tier_key)
+
+
 class OnboardingPage(QWidget):
     def __init__(self, window: 'VectorMainWindow') -> None:
         super().__init__()
@@ -176,6 +278,8 @@ class OnboardingPage(QWidget):
         self.launch_button: QPushButton | None = None
         self.overlay: DimOverlay | None = None
         self.blur_wrapper: BlurrableStack | None = None
+        self._selected_risk_tier: str = 'regular'
+        self._tier_cards: dict[str, _RiskTierCard] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -237,6 +341,39 @@ class OnboardingPage(QWidget):
         cards_scroll.setWidget(self.cards_container)
         inner_layout.addWidget(cards_scroll)
 
+        # ── Risk tier selection ──
+        risk_card = CardFrame()
+        risk_layout = QVBoxLayout(risk_card)
+        risk_layout.setContentsMargins(24, 24, 24, 24)
+        risk_layout.setSpacing(12)
+
+        risk_title = QLabel('How do you want to invest?')
+        risk_title_font = QFont()
+        risk_title_font.setPointSize(18)
+        risk_title_font.setBold(True)
+        risk_title.setFont(risk_title_font)
+        risk_title.setStyleSheet('font-size: 18pt;')
+        risk_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        risk_layout.addWidget(risk_title)
+
+        risk_subtitle = QLabel(
+            'This shapes how aggressively the Lens flags risks and suggests actions. '
+            'You can change this later in Settings.'
+        )
+        risk_subtitle.setWordWrap(True)
+        risk_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        risk_subtitle.setStyleSheet('color: #8d98af;')
+        risk_layout.addWidget(risk_subtitle)
+
+        tier_row = QHBoxLayout()
+        tier_row.setSpacing(14)
+        for tier in _RISK_TIERS:
+            card = _RiskTierCard(tier, selected=(tier['key'] == 'regular'))
+            self._tier_cards[tier['key']] = card
+            tier_row.addWidget(card)
+        risk_layout.addLayout(tier_row)
+        inner_layout.addWidget(risk_card)
+
         self.launch_button = LoadingButton('Launch Portfolio')
         self.launch_button.setProperty('accent', True)
         self.launch_button.setEnabled(False)
@@ -292,12 +429,21 @@ class OnboardingPage(QWidget):
         self.cards_container.updateGeometry()
         self.cards_container.update()
 
+    def _select_risk_tier(self, tier_key: str) -> None:
+        self._selected_risk_tier = tier_key
+        for key, card in self._tier_cards.items():
+            card.set_selected(key == tier_key)
+
     def launch(self) -> None:
         self.launch_button.start_loading('Launching...')
         QApplication.processEvents()
         self.window.positions = list(self.pending_positions)
         self.window.store.save_positions(self.window.positions)
+        # Save risk tier to settings
+        self.window.settings['risk_tier'] = self._selected_risk_tier
+        self.window.store.save_settings(self.window.settings)
         state = self.window.store.load_app_state()
         state['onboarding_complete'] = True
+        state['risk_tier_selected'] = True
         self.window.store.save_app_state(state)
         self.window.load_main_shell()

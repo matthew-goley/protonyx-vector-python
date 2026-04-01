@@ -22,7 +22,7 @@ Vector is a desktop portfolio analytics app built with PyQt6. It pulls live mark
 | **Beta** | How much does my portfolio move relative to the market? |
 | **Vector Lens** | What is the single most important thing I should do with my portfolio right now? |
 
-The Vector Lens generates a two-sentence verdict: one that explains the outlook, and one that tells you what to do — specific to your tickers, your sector exposure, and your current direction and volatility profile.
+The Vector Lens generates a three-sentence verdict: one that explains the outlook, and one that tells you what to do — specific to your tickers, your sector exposure, and your current direction and volatility profile.
 
 ---
 

@@ -28,7 +28,7 @@ def load_risk_profile(settings: dict[str, Any]) -> dict[str, Any]:
     # Apply user overrides from Settings → Lens Signal Thresholds
     ls = settings.get('lens_signals', {})
     if ls:
-        # Map legacy settings keys → analyzer threshold overrides
+        # Map settings keys → analyzer threshold overrides
         if 'stock_concentration_pct' in ls:
             profile.setdefault('concentration', {})
             profile['concentration']['moderate'] = float(ls['stock_concentration_pct'])
@@ -44,5 +44,12 @@ def load_risk_profile(settings: dict[str, Any]) -> dict[str, Any]:
         if 'stock_vol_threshold_pct' in ls:
             profile.setdefault('volatility', {})
             profile['volatility']['high'] = float(ls['stock_vol_threshold_pct'])
+        if 'dead_weight_pct' in ls:
+            profile['dead_weight_pct'] = float(ls['dead_weight_pct'])
+        if 'loss_threshold' in ls:
+            profile.setdefault('performance', {})
+            profile['performance']['moderate'] = float(ls['loss_threshold'])
+        if 'winner_drift_multiple' in ls:
+            profile['winner_drift_multiple'] = float(ls['winner_drift_multiple'])
 
     return profile

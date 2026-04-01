@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import QEasingCurve, QPointF, QPropertyAnimation, Qt, pyqtProperty
+from PyQt6.QtCore import QEasingCurve, QPointF, QPropertyAnimation, Qt, QTimer, pyqtProperty
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QApplication,
@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -181,6 +182,82 @@ class QDoubleSpinBoxCompat(QSpinBox):
         super().setValue(int(round(value * 100)))
 
 
+_RISK_TIERS_SETTINGS = [
+    {
+        'key': 'low',
+        'label': 'Conservative',
+        'description': 'Tighter guardrails \u2014 flags smaller risks sooner',
+        'color': '#4da6ff',
+    },
+    {
+        'key': 'regular',
+        'label': 'Moderate',
+        'description': 'Balanced \u2014 standard thresholds for most investors',
+        'color': '#a256f6',
+    },
+    {
+        'key': 'high',
+        'label': 'Aggressive',
+        'description': 'Wider guardrails \u2014 tolerates bigger swings',
+        'color': '#fd8a83',
+    },
+]
+
+_TIER_DISPLAY_NAME = {'low': 'Conservative', 'regular': 'Moderate', 'high': 'Aggressive'}
+
+
+class _RiskTierOption(QFrame):
+    """Compact clickable risk tier option for the settings page."""
+
+    def __init__(self, tier: dict, selected: bool = False, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.tier_key = tier['key']
+        self._accent = tier['color']
+        self._selected = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedHeight(80)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(4)
+
+        label = QLabel(tier['label'])
+        label.setStyleSheet('font-size: 13pt; font-weight: 700; background: transparent; border: none;')
+        layout.addWidget(label)
+
+        desc = QLabel(tier['description'])
+        desc.setWordWrap(True)
+        desc.setStyleSheet('font-size: 10pt; color: #8d98af; background: transparent; border: none;')
+        layout.addWidget(desc)
+
+        if selected:
+            self.set_selected(True)
+        else:
+            self._apply_style()
+
+    def set_selected(self, selected: bool) -> None:
+        self._selected = selected
+        self._apply_style()
+
+    def _apply_style(self) -> None:
+        if self._selected:
+            self.setStyleSheet(
+                f'_RiskTierOption {{ background: #161b26; border: 2px solid {self._accent}; border-radius: 12px; }}'
+            )
+        else:
+            self.setStyleSheet(
+                '_RiskTierOption { background: #161b26; border: 1px solid #2a3142; border-radius: 12px; }'
+            )
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            parent = self.parentWidget()
+            while parent and not isinstance(parent, SettingsPage):
+                parent = parent.parentWidget()
+            if parent:
+                parent._select_risk_tier(self.tier_key)
+
+
 class SettingsPage(QWidget):
     def __init__(self, window: 'VectorMainWindow') -> None:
         super().__init__()
@@ -229,6 +306,30 @@ class SettingsPage(QWidget):
         general.addRow('Default Currency', self.currency_combo)
         general.addRow('Date Format', self.date_combo)
 
+        # ── Investment Style ──
+        style_card = CardFrame()
+        style_layout = QVBoxLayout(style_card)
+        style_layout.setContentsMargins(20, 20, 20, 20)
+        style_layout.setSpacing(10)
+        style_heading = QLabel('Investment Style')
+        style_heading.setStyleSheet('font-size: 16pt; font-weight: 700;')
+        style_layout.addWidget(style_heading)
+
+        tier_row = QHBoxLayout()
+        tier_row.setSpacing(10)
+        self._tier_options: dict[str, _RiskTierOption] = {}
+        for tier in _RISK_TIERS_SETTINGS:
+            opt = _RiskTierOption(tier, selected=False)
+            self._tier_options[tier['key']] = opt
+            tier_row.addWidget(opt)
+        style_layout.addLayout(tier_row)
+
+        self._style_note = QLabel('Lens will update on the next refresh.')
+        self._style_note.setStyleSheet('color: #6b7a94; font-size: 10pt;')
+        self._style_note.setVisible(False)
+        style_layout.addWidget(self._style_note)
+        layout.addWidget(style_card)
+
         refresh = self._add_accordion(layout, 'Data & Refresh')
         self.refresh_combo = QComboBox(); self.refresh_combo.addItems(['1 min', '5 min', '15 min', 'Manual only'])
         clear_cache_button = LoadingButton('Clear Cached Price Data')
@@ -260,16 +361,26 @@ class SettingsPage(QWidget):
         volatility.addRow('High cutoff', self.high_vol_spin)
 
         lens_signals = self._add_accordion(layout, 'Lens Signal Thresholds')
+        self._lens_tier_note = QLabel('')
+        self._lens_tier_note.setWordWrap(True)
+        self._lens_tier_note.setStyleSheet('color: #8d98af; font-size: 10pt; margin-bottom: 8px;')
+        lens_signals.addRow(self._lens_tier_note)
         self.stock_conc_spin = QSpinBox(); self.stock_conc_spin.setRange(1, 100); self.stock_conc_spin.setSuffix('%'); self.stock_conc_spin.setMinimumWidth(120)
         self.sector_conc_spin = QSpinBox(); self.sector_conc_spin.setRange(1, 100); self.sector_conc_spin.setSuffix('%'); self.sector_conc_spin.setMinimumWidth(120)
         self.steep_dt_spin = QSpinBox(); self.steep_dt_spin.setRange(-100, -1); self.steep_dt_spin.setSuffix('%'); self.steep_dt_spin.setMinimumWidth(120)
         self.high_beta_spin = QDoubleSpinBox(); self.high_beta_spin.setRange(0.5, 5.0); self.high_beta_spin.setSingleStep(0.1); self.high_beta_spin.setDecimals(1); self.high_beta_spin.setMinimumWidth(120)
         self.stock_vol_spin = QSpinBox(); self.stock_vol_spin.setRange(1, 100); self.stock_vol_spin.setSuffix('%'); self.stock_vol_spin.setMinimumWidth(120)
-        lens_signals.addRow('Stock concentration', self.stock_conc_spin)
-        lens_signals.addRow('Sector concentration', self.sector_conc_spin)
-        lens_signals.addRow('Steep downtrend cutoff', self.steep_dt_spin)
+        self.dead_weight_spin = QSpinBox(); self.dead_weight_spin.setRange(1, 50); self.dead_weight_spin.setSuffix('%'); self.dead_weight_spin.setMinimumWidth(120)
+        self.loss_threshold_spin = QSpinBox(); self.loss_threshold_spin.setRange(-100, -1); self.loss_threshold_spin.setSuffix('%'); self.loss_threshold_spin.setMinimumWidth(120)
+        self.winner_drift_spin = QDoubleSpinBox(); self.winner_drift_spin.setRange(1.0, 10.0); self.winner_drift_spin.setSingleStep(0.5); self.winner_drift_spin.setDecimals(1); self.winner_drift_spin.setMinimumWidth(120); self.winner_drift_spin.setSuffix('×')
+        lens_signals.addRow('Stock concentration threshold %', self.stock_conc_spin)
+        lens_signals.addRow('Sector concentration threshold %', self.sector_conc_spin)
+        lens_signals.addRow('Steep downtrend threshold %', self.steep_dt_spin)
         lens_signals.addRow('High beta threshold', self.high_beta_spin)
-        lens_signals.addRow('Vol threshold', self.stock_vol_spin)
+        lens_signals.addRow('High volatility threshold %', self.stock_vol_spin)
+        lens_signals.addRow('Dead weight threshold %', self.dead_weight_spin)
+        lens_signals.addRow('Unrealized loss alert %', self.loss_threshold_spin)
+        lens_signals.addRow('Winner drift multiple', self.winner_drift_spin)
 
         monte_carlo = self._add_accordion(layout, 'Monte Carlo')
         self.mc_period_combo = QComboBox(); self.mc_period_combo.addItems(list(MONTE_CARLO_HORIZON_DAYS.keys()))
@@ -307,6 +418,17 @@ class SettingsPage(QWidget):
         self.currency_combo.setCurrentText(settings['currency'])
         self.date_combo.setCurrentText(settings['date_format'])
         self.refresh_combo.setCurrentText(settings['refresh_interval'])
+        # Risk tier
+        tier = settings.get('risk_tier', 'regular')
+        self._current_risk_tier = tier
+        for key, opt in self._tier_options.items():
+            opt.set_selected(key == tier)
+        tier_name = _TIER_DISPLAY_NAME.get(tier, 'Moderate')
+        self._lens_tier_note.setText(
+            f'Your investment style is set to <b>{tier_name}</b>. '
+            f'The defaults below reflect that profile. Changing any value '
+            f'overrides the default for that specific threshold.'
+        )
         thresholds = settings['direction_thresholds']
         self.strong_spin.setValue(float(thresholds['strong']))
         self.steady_spin.setValue(float(thresholds['steady']))
@@ -323,6 +445,9 @@ class SettingsPage(QWidget):
         self.steep_dt_spin.setValue(int(ls.get('steep_downtrend_pct', -20)))
         self.high_beta_spin.setValue(float(ls.get('high_beta_threshold', 1.3)))
         self.stock_vol_spin.setValue(int(ls.get('stock_vol_threshold_pct', 45)))
+        self.dead_weight_spin.setValue(int(ls.get('dead_weight_pct', 2)))
+        self.loss_threshold_spin.setValue(int(ls.get('loss_threshold', -15)))
+        self.winner_drift_spin.setValue(float(ls.get('winner_drift_multiple', 2.0)))
         mc = settings.get('monte_carlo', {})
         self.mc_period_combo.setCurrentText(mc.get('projection_period', '1 year'))
         self.mc_sims_combo.setCurrentText(str(mc.get('simulations', 500)))
@@ -332,6 +457,25 @@ class SettingsPage(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, position['ticker'])
             self.remove_list.addItem(item)
 
+    def _select_risk_tier(self, tier_key: str) -> None:
+        self._current_risk_tier = tier_key
+        for key, opt in self._tier_options.items():
+            opt.set_selected(key == tier_key)
+        # Immediate save
+        self.window.settings['risk_tier'] = tier_key
+        self.window.store.save_settings(self.window.settings)
+        # Update the lens tier note
+        tier_name = _TIER_DISPLAY_NAME.get(tier_key, 'Moderate')
+        self._lens_tier_note.setText(
+            f'Your investment style is set to <b>{tier_name}</b>. '
+            f'The defaults below reflect that profile. Changing any value '
+            f'overrides the default for that specific threshold.'
+        )
+        # Show confirmation note briefly
+        self._style_note.setText('Updated \u2014 Lens will update on the next refresh.')
+        self._style_note.setVisible(True)
+        QTimer.singleShot(2000, lambda: self._style_note.setVisible(False))
+
     def save_settings(self) -> None:
         self.save_button.start_loading('Saving...')
         QApplication.processEvents()
@@ -340,6 +484,7 @@ class SettingsPage(QWidget):
         settings['currency'] = self.currency_combo.currentText()
         settings['date_format'] = self.date_combo.currentText()
         settings['refresh_interval'] = self.refresh_combo.currentText()
+        settings['risk_tier'] = getattr(self, '_current_risk_tier', 'regular')
         settings['direction_thresholds'] = {
             'strong': self.strong_spin.value(),
             'steady': self.steady_spin.value(),
@@ -359,6 +504,9 @@ class SettingsPage(QWidget):
             'steep_downtrend_pct': self.steep_dt_spin.value(),
             'high_beta_threshold': round(self.high_beta_spin.value(), 1),
             'stock_vol_threshold_pct': self.stock_vol_spin.value(),
+            'dead_weight_pct': self.dead_weight_spin.value(),
+            'loss_threshold': self.loss_threshold_spin.value(),
+            'winner_drift_multiple': round(self.winner_drift_spin.value(), 1),
         }
         settings['monte_carlo'] = {
             'projection_period': self.mc_period_combo.currentText(),

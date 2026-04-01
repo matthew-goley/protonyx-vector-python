@@ -38,9 +38,9 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `main()` — all page classes live in `vector/pages/` |
 | `vector/pages/dashboard.py` | `DashboardPage`, `DashboardGrid`, `WidgetPickerDialog`, grid constants (`_UNIT`, `_GAP`, `_CELL`, `_CONTENT_W`) |
 | `vector/pages/lens_page.py` | `VectorLensPage`, `_GraphCard` (Monte Carlo), `_PieCard` (diversification pie), `_CTAReportCard` (full CTA list), `_CautionCard`, `_MCContextCard` |
-| `vector/pages/onboarding.py` | `OnboardingPage`, `PositionDialog`, `PositionCard` |
+| `vector/pages/onboarding.py` | `OnboardingPage`, `PositionDialog`, `PositionCard`, `_RiskTierCard` (risk tier selection during onboarding) |
 | `vector/pages/profile.py` | `ProfilePage` |
-| `vector/pages/settings.py` | `SettingsPage`, `_AccordionSection`, `_AnimatedChevron`, `QDoubleSpinBoxCompat` |
+| `vector/pages/settings.py` | `SettingsPage`, `_AccordionSection`, `_AnimatedChevron`, `QDoubleSpinBoxCompat`, `_RiskTierOption` (investment style card) |
 | `vector/analytics.py` | Portfolio math: trend slope, volatility, Sharpe ratio, beta, insight HTML generation |
 | `vector/store.py` | `DataStore` — single source of truth: positions, settings, app state, market data, layout; replaces `storage.py` |
 | `vector/market.py` | Legacy `MarketDataService`; superseded by `DataStore` but may still be referenced |
@@ -167,7 +167,7 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 10. Unrealized loss (hold)
 11. Portfolio healthy (hold)
 
-**Risk profiles:** Three tiers (`high`/`regular`/`low`) with different severity thresholds per analyzer. Stored in `constants.py` as `DEFAULT_RISK_PROFILES`. User overrides from `settings.json` → `lens_signals` take precedence. Risk tier stored in `settings.json` → `risk_tier` (default `"regular"`).
+**Risk profiles:** Three tiers (`high`/`regular`/`low`) with different severity thresholds per analyzer. Stored in `constants.py` as `DEFAULT_RISK_PROFILES`. User overrides from `settings.json` → `lens_signals` take precedence (manual overrides always win over risk tier defaults). Risk tier stored in `settings.json` → `risk_tier` (default `"regular"`), selectable during onboarding and in Settings → Investment Style.
 
 **Sentence templates:** All templates live in `vector/lens/templates/sentences.json`, organized by sentence type → signal category → severity. Each leaf has 5+ variations. Selection is deterministic (SHA-256 hash of portfolio state). All language is observational — no directives.
 
@@ -199,15 +199,16 @@ Returns `projected_positions` (list) and `net_cta_delta` (net cash flow: buys mi
 
 ### Settings Page (`pages/settings.py`)
 
-Six accordion sections plus two static sections:
+Seven accordion sections plus three static sections:
 
 | Section | Type | Contents |
 |---|---|---|
 | General | Static card | Theme, currency, date format |
+| Investment Style | Static card | Risk tier selection (Conservative/Moderate/Aggressive) — immediate save on click |
 | Data & Refresh | Accordion | Auto-refresh interval, clear cache, reset all data |
 | Portfolio Direction Thresholds | Accordion | Strong/steady/neutral/weak/depreciating slope cutoffs |
 | Volatility | Accordion | Lookback period, low/high vol cutoffs |
-| Lens Signal Thresholds | Accordion | Stock/sector concentration %, steep downtrend %, high beta threshold, vol threshold % |
+| Lens Signal Thresholds | Accordion | Stock/sector concentration %, steep downtrend %, high beta, vol %, dead weight %, loss alert %, winner drift multiple. Shows active risk tier note. |
 | Monte Carlo | Accordion | Projection period combo, simulation count combo |
 | Positions | Static card | Add/remove positions |
 | About | Static card | Version, brand, credits |
@@ -219,6 +220,8 @@ Six accordion sections plus two static sections:
 ### Onboarding (`pages/onboarding.py`)
 
 `OnboardingPage` keyboard shortcut: pressing **A** opens the Add Position dialog (calls `open_add_modal()`).
+
+**Risk tier selection:** After adding positions, a "How do you want to invest?" card presents three clickable options — Conservative (`low`), Moderate (`regular`, default), Aggressive (`high`). The selection is saved to `settings.json` → `risk_tier` and `app_state.json` → `risk_tier_selected` on launch. Existing users who completed onboarding before this step silently default to `"regular"` — no re-onboarding.
 
 ### DataStore (`store.py`)
 
@@ -255,8 +258,8 @@ All files live under `%LOCALAPPDATA%/Protonyx/Vector/` (Windows) or `~/Vector/da
 | File | Contents |
 |---|---|
 | `positions.json` | List of position objects: `ticker`, `shares`, `equity`, `sector`, `name`, `price`, `added_at` |
-| `settings.json` | Theme, currency, date_format, refresh_interval, direction_thresholds, volatility, lens_signals, monte_carlo |
-| `app_state.json` | `onboarding_complete`, `first_launch_date` |
+| `settings.json` | Theme, currency, date_format, refresh_interval, risk_tier, direction_thresholds, volatility, lens_signals, monte_carlo |
+| `app_state.json` | `onboarding_complete`, `first_launch_date`, `risk_tier_selected` |
 | `market_data.json` | Per-ticker: quote, meta, history, history_ohlcv, history_intraday, dividends, earnings — with UTC timestamps |
 | `dashboard_layout.json` | Ordered list of `{class_name, row, col, rowspan, colspan}` for the dashboard grid |
 | `price_cache.json` | Legacy cache — superseded by `market_data.json`; kept for backwards compat |

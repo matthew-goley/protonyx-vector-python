@@ -2,7 +2,7 @@ from .paths import resource_path, user_data_dir
 
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
-APP_VERSION = '0.3.7'
+APP_VERSION = '0.3.8'
 DATA_DIR = user_data_dir()
 POSITIONS_FILE = DATA_DIR / 'positions.json'
 SETTINGS_FILE = DATA_DIR / 'settings.json'
@@ -36,6 +36,9 @@ DEFAULT_SETTINGS = {
         'steep_downtrend_pct': -20,
         'high_beta_threshold': 1.3,
         'stock_vol_threshold_pct': 35,
+        'dead_weight_pct': 2,
+        'loss_threshold': -15,
+        'winner_drift_multiple': 2.0,
     },
     'monte_carlo': {
         'projection_period': '1 year',
@@ -46,6 +49,7 @@ DEFAULT_SETTINGS = {
 DEFAULT_APP_STATE = {
     'onboarding_complete': False,
     'first_launch_date': None,
+    'risk_tier_selected': False,
 }
 
 DEFAULT_POSITIONS = []
