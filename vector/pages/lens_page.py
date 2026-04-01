@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt, QRectF
@@ -21,51 +20,21 @@ if TYPE_CHECKING:
     from vector.app import VectorMainWindow
 
 
-# ── Monte Carlo context templates ─────────────────────────────────────────
-_MC_CONTEXT_TEMPLATES = [
-    (
-        "The tighter fan in the projection above comes from adding {deposit_str} across "
-        "{tickers_str}. {sector} has historically carried lower annualised volatility "
-        "than the current portfolio mix — that reduced vol is what compresses the range "
-        "of simulated outcomes."
-    ),
-    (
-        "{deposit_str} into {sector} names like {tickers_str} introduces a return stream "
-        "that has historically followed different cycle drivers. Lower correlation between "
-        "holdings narrows the Monte Carlo fan and tightens the projected outcome range."
-    ),
-    (
-        "The 'With Lens' projection uses {deposit_str} added to {tickers_str}. {sector} "
-        "has historically moved on different drivers than the current mix — that sector "
-        "diversification reduces the spread between the optimistic and pessimistic "
-        "simulation bands above."
-    ),
-    (
-        "Adding {deposit_str} to {sector} ({tickers_str}) reduces the portfolio's reliance "
-        "on any single sector's return cycle. Historically, that kind of diversification "
-        "tightens the Monte Carlo fan — fewer scenarios where the entire portfolio tracks "
-        "the same headwind."
-    ),
-    (
-        "When {deposit_str} is deployed into {sector} names like {tickers_str}, the "
-        "simulation spread narrows. Sectors with historically uncorrelated return streams "
-        "reduce the variance in portfolio outcomes — which is what the tighter fan "
-        "above reflects."
-    ),
-]
-
-_MC_CONTEXT_PLACEHOLDER = (
-    "The projection fan above reflects this portfolio's historical volatility profile. "
-    "A more diversified allocation across uncorrelated sectors would typically narrow "
-    "this range — let the Lens identify the opportunity."
-)
-
 _CAUTION_TIERS = [
     (25,  '#4ade80', 'Well balanced'),
     (50,  '#facc15', 'Manageable'),
     (75,  '#fb923c', 'Elevated risk'),
     (99,  '#ef4444', 'High caution'),
 ]
+
+# Action type → indicator color
+_ACTION_INDICATOR_COLORS: dict[str, str] = {
+    'sell':      '#ff4d4d',
+    'rebalance': '#ff9f43',
+    'buy_new':   '#4da6ff',
+    'buy_more':  '#4da6ff',
+    'hold':      '#8d98af',
+}
 
 
 def _caution_color(score: int) -> str:
@@ -184,7 +153,7 @@ class _CautionCard(QFrame):
 
 
 class _MCContextCard(QFrame):
-    """Right insight card — plain-English explanation of what the Monte Carlo fan means."""
+    """Right insight card — explains what the projected graph represents."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -199,7 +168,7 @@ class _MCContextCard(QFrame):
         layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(10)
 
-        title = QLabel('What the fan means')
+        title = QLabel('What the projection shows')
         f = QFont()
         f.setPointSize(12)
         f.setBold(True)
@@ -207,28 +176,63 @@ class _MCContextCard(QFrame):
         title.setStyleSheet('font-size: 12pt; font-weight: 700;')
         layout.addWidget(title)
 
-        self._body = QLabel(_MC_CONTEXT_PLACEHOLDER)
+        self._body = QLabel(
+            'The projection fan above reflects this portfolio\'s historical '
+            'volatility profile.'
+        )
         self._body.setWordWrap(True)
         self._body.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self._body.setStyleSheet('font-size: 11pt; color: #c7cedb; line-height: 1.5;')
         layout.addWidget(self._body, stretch=1)
 
-    def set_context(self, deposit_str: str, tickers: list[str], sector: str) -> None:
-        if not tickers or not sector:
-            self._body.setText(_MC_CONTEXT_PLACEHOLDER)
+    def set_multi_cta_context(self, ctas: list[dict], net_delta: float) -> None:
+        """Update the context card to describe all CTAs being applied."""
+        actionable = [c for c in ctas if c.get('action') != 'hold']
+        if not actionable:
+            self._body.setText(
+                'No active recommendations right now. Both projections use '
+                'your current portfolio composition.'
+            )
             return
-        tickers_str = ', '.join(tickers)
-        # Deterministic template selection
-        key = hashlib.md5(''.join(sorted(tickers)).encode()).digest()[0]
-        tmpl = _MC_CONTEXT_TEMPLATES[key % len(_MC_CONTEXT_TEMPLATES)]
-        self._body.setText(tmpl.format(
-            deposit_str=deposit_str,
-            tickers_str=tickers_str,
-            sector=sector,
-        ))
+
+        sell_dollars = sum(
+            c['dollars'] for c in actionable if c['action'] in ('sell', 'rebalance')
+        )
+        buy_dollars = sum(
+            c['dollars'] for c in actionable if c['action'] in ('buy_new', 'buy_more')
+        )
+        n = len(actionable)
+        parts: list[str] = []
+
+        if sell_dollars > 0 and buy_dollars > 0:
+            parts.append(
+                f'Graph B applies {n} recommendation{"s" if n != 1 else ""} '
+                f'— selling ${sell_dollars:,.0f} and adding ${buy_dollars:,.0f} '
+                f'— for a net {"deposit" if net_delta >= 0 else "reduction"} '
+                f'of ${abs(net_delta):,.0f}.'
+            )
+        elif sell_dollars > 0:
+            parts.append(
+                f'Graph B reflects trimming ${sell_dollars:,.0f} from the '
+                f'portfolio across {n} recommendation{"s" if n != 1 else ""}. '
+                f'The projection starts from a lower base but with a '
+                f'potentially more stable composition.'
+            )
+        else:
+            parts.append(
+                f'Graph B adds ${buy_dollars:,.0f} across {n} '
+                f'recommendation{"s" if n != 1 else ""}. '
+                f'The wider or narrower fan reflects how the new composition '
+                f'changes the portfolio\'s volatility profile.'
+            )
+
+        self._body.setText(' '.join(parts))
 
     def clear(self) -> None:
-        self._body.setText(_MC_CONTEXT_PLACEHOLDER)
+        self._body.setText(
+            'The projection fan above reflects this portfolio\'s historical '
+            'volatility profile.'
+        )
 
 
 class _GraphCard(QFrame):
@@ -466,12 +470,77 @@ class _PieCard(QFrame):
         self._donut.set_slices(slices)
 
 
+class _CTAReportCard(QFrame):
+    """Card displaying all CTA recommendations with action-type indicators."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName('cardFrame')
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(32)
+        shadow.setOffset(0, 10)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        self.setGraphicsEffect(shadow)
+
+        self._outer = QVBoxLayout(self)
+        self._outer.setContentsMargins(20, 16, 20, 16)
+        self._outer.setSpacing(10)
+
+        title = QLabel('All Recommendations')
+        f = QFont()
+        f.setPointSize(12)
+        f.setBold(True)
+        title.setFont(f)
+        title.setStyleSheet('font-size: 12pt; font-weight: 700;')
+        self._outer.addWidget(title)
+
+        self._items_layout = QVBoxLayout()
+        self._items_layout.setContentsMargins(0, 0, 0, 0)
+        self._items_layout.setSpacing(8)
+        self._outer.addLayout(self._items_layout)
+
+    def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
+        # Clear existing items
+        while self._items_layout.count():
+            item = self._items_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        if not full_report:
+            lbl = QLabel('No recommendations at this time.')
+            lbl.setStyleSheet('font-size: 10pt; color: #8d98af;')
+            self._items_layout.addWidget(lbl)
+            return
+
+        for i, sentence in enumerate(full_report):
+            action = ctas[i].get('action', 'hold') if i < len(ctas) else 'hold'
+            color = _ACTION_INDICATOR_COLORS.get(action, '#8d98af')
+            row = QHBoxLayout()
+            row.setSpacing(10)
+
+            dot = QLabel('●')
+            dot.setFixedWidth(16)
+            dot.setStyleSheet(f'font-size: 10pt; color: {color};')
+            dot.setAlignment(Qt.AlignmentFlag.AlignTop)
+            row.addWidget(dot)
+
+            text = QLabel(sentence)
+            text.setWordWrap(True)
+            text.setStyleSheet('font-size: 10pt; color: #c7cedb;')
+            row.addWidget(text, stretch=1)
+
+            wrapper = QWidget()
+            wrapper.setLayout(row)
+            self._items_layout.addWidget(wrapper)
+
+
 class VectorLensPage(QWidget):
     """Dedicated page for Vector Lens — projection graphs and pie charts."""
 
     def __init__(self, window: 'VectorMainWindow') -> None:
         super().__init__()
         self.window = window
+        self._lens_result: dict[str, Any] = {}
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -489,23 +558,27 @@ class VectorLensPage(QWidget):
 
         container = QWidget()
         container.setFixedWidth(_CONTENT_W)
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 8, 0, 24)
-        layout.setSpacing(16)
+        self._container_layout = QVBoxLayout(container)
+        self._container_layout.setContentsMargins(0, 8, 0, 24)
+        self._container_layout.setSpacing(16)
 
         self._lens = LensDisplay(window=self.window, show_button=False)
         self._lens.setFixedHeight(200)
-        layout.addWidget(self._lens)
+        self._container_layout.addWidget(self._lens)
+
+        # CTA report card (below the brief)
+        self._cta_report = _CTAReportCard()
+        self._container_layout.addWidget(self._cta_report)
 
         graphs_row = QWidget()
         graphs_layout = QHBoxLayout(graphs_row)
         graphs_layout.setContentsMargins(0, 0, 0, 0)
         graphs_layout.setSpacing(16)
         self._graph_a = _GraphCard('Current Portfolio')
-        self._graph_b = _GraphCard('With Lens')
+        self._graph_b = _GraphCard('With All Lens Recommendations')
         graphs_layout.addWidget(self._graph_a)
         graphs_layout.addWidget(self._graph_b)
-        layout.addWidget(graphs_row)
+        self._container_layout.addWidget(graphs_row)
 
         # ── Insight row (caution score + MC context) ──────────────────────
         insights_row = QWidget()
@@ -518,39 +591,55 @@ class VectorLensPage(QWidget):
         self._mc_context_card.setMinimumHeight(210)
         insights_layout.addWidget(self._caution_card, stretch=1)
         insights_layout.addWidget(self._mc_context_card, stretch=2)
-        layout.addWidget(insights_row)
+        self._container_layout.addWidget(insights_row)
 
         pies_row = QWidget()
         pies_layout = QHBoxLayout(pies_row)
         pies_layout.setContentsMargins(0, 0, 0, 0)
         pies_layout.setSpacing(16)
         self._pie_a = _PieCard('Current Allocation')
-        self._pie_b = _PieCard('With Lens')
+        self._pie_b = _PieCard('Projected Allocation')
         pies_layout.addWidget(self._pie_a)
         pies_layout.addWidget(self._pie_b)
-        layout.addWidget(pies_row)
+        self._container_layout.addWidget(pies_row)
 
-        layout.addStretch(1)
+        self._container_layout.addStretch(1)
         scroll.setWidget(container)
         outer.addWidget(scroll, stretch=1)
 
     def refresh(self) -> None:
-        self._lens.refresh()
-        recommended_tickers = list(getattr(self._lens, '_recommended_tickers', []))
-        self._update_graphs(recommended_tickers)
-        self._update_insights(recommended_tickers)
-        self._update_pies(recommended_tickers)
+        from vector.lens_engine import generate_lens_full
 
-    def _update_insights(self, recommended_tickers: list[str]) -> None:
-        caution = getattr(self._lens, '_caution_score', 0)
+        # Run the full Lens pipeline once
+        positions = self.window.positions or []
+        store = self.window.store
+        settings = self.window.settings
+
+        self._lens_result = generate_lens_full(positions, store, settings)
+
+        # Refresh the brief display (still uses the 7-tuple path internally)
+        self._lens.refresh()
+
+        # Update all sections from the full result
+        self._update_cta_report()
+        self._update_graphs()
+        self._update_insights()
+        self._update_pies()
+
+    def _update_cta_report(self) -> None:
+        full_report = self._lens_result.get('full_report', [])
+        ctas = self._lens_result.get('ctas', [])
+        self._cta_report.set_report(full_report, ctas)
+
+    def _update_insights(self) -> None:
+        caution = self._lens_result.get('caution_score', 0)
         self._caution_card.set_score(caution)
 
-        deposit = getattr(self._lens, '_deposit_amount', 0.0)
-        sector = getattr(self._lens, '_underweight_sector', '')
-        dep_str = f'${deposit:,.0f}' if deposit > 0 else ''
-        self._mc_context_card.set_context(dep_str, recommended_tickers, sector)
+        ctas = self._lens_result.get('ctas', [])
+        net_delta = self._lens_result.get('net_cta_delta', 0.0)
+        self._mc_context_card.set_multi_cta_context(ctas, net_delta)
 
-    def _update_graphs(self, recommended_tickers: list[str]) -> None:
+    def _update_graphs(self) -> None:
         from vector.monte_carlo import build_historical_curve, run_projection
 
         positions = self.window.positions or []
@@ -571,31 +660,31 @@ class VectorLensPage(QWidget):
             positions, store, refresh_interval, num_days=60,
         )
 
+        # Graph A — current portfolio
         try:
             result_a = run_projection(tickers, weights, total_equity, store, refresh_interval)
         except Exception:  # noqa: BLE001
             result_a = None
 
-        if recommended_tickers:
-            raw_deposit = getattr(self._lens, '_deposit_amount', 0.0)
-            deposit = raw_deposit if raw_deposit > 0 else 0.1 * total_equity
-            per_ticker = deposit / len(recommended_tickers)
-            new_total = total_equity + deposit
+        # Graph B — projected portfolio with ALL CTAs applied
+        projected = self._lens_result.get('projected_positions', [])
+        net_delta = self._lens_result.get('net_cta_delta', 0.0)
+        result_b = None
 
-            equity_map: dict[str, float] = {p['ticker']: p.get('equity', 0.0) for p in positions}
-            for t in recommended_tickers:
-                equity_map[t] = equity_map.get(t, 0.0) + per_ticker
+        if projected:
+            new_total = total_equity + net_delta
+            if new_total > 0:
+                b_tickers = [p['ticker'] for p in projected]
+                b_equity = [p.get('equity', 0.0) for p in projected]
+                b_total = sum(b_equity) or 1.0
+                b_weights = [e / b_total for e in b_equity]
 
-            all_tickers = list(equity_map.keys())
-            all_weights = [equity_map[t] / new_total for t in all_tickers]
-
-            try:
-                result_b = run_projection(all_tickers, all_weights, total_equity, store,
-                                          refresh_interval)
-            except Exception:  # noqa: BLE001
-                result_b = None
-        else:
-            result_b = None
+                try:
+                    result_b = run_projection(
+                        b_tickers, b_weights, total_equity, store, refresh_interval,
+                    )
+                except Exception:  # noqa: BLE001
+                    result_b = None
 
         display_b = result_b if result_b is not None else result_a
 
@@ -630,21 +719,34 @@ class VectorLensPage(QWidget):
 
         if display_b is not None:
             future_days_b, bands_b, median_b = display_b
-            if recommended_tickers and result_b is not None:
-                raw_deposit = getattr(self._lens, '_deposit_amount', 0.0)
-                deposit = raw_deposit if raw_deposit > 0 else 0.1 * total_equity
-                tickers_str = ', '.join(recommended_tickers)
-                dep_fmt = f'${deposit:,.0f}'
-                b_title = f'With Lens  —  {dep_fmt} into {tickers_str}'
+
+            # Build descriptive title
+            ctas = self._lens_result.get('ctas', [])
+            actionable = [c for c in ctas if c.get('action') != 'hold']
+            if actionable and result_b is not None:
+                sell_total = sum(
+                    c['dollars'] for c in actionable if c['action'] in ('sell', 'rebalance')
+                )
+                buy_total = sum(
+                    c['dollars'] for c in actionable if c['action'] in ('buy_new', 'buy_more')
+                )
+                parts: list[str] = []
+                if sell_total > 0:
+                    parts.append(f'-${sell_total:,.0f}')
+                if buy_total > 0:
+                    parts.append(f'+${buy_total:,.0f}')
+                delta_str = '  '.join(parts)
+                b_title = f'With All Lens Recommendations  —  {delta_str}'
             else:
-                b_title = 'With Lens'
+                b_title = 'With All Lens Recommendations'
+
             self._graph_b.set_title(b_title)
             self._graph_b.plot(hist_days, hist_values, future_days_b, bands_b, median_b,
                                fan_color='#a256f6', ylim=shared_ylim)
         else:
             self._graph_b.show_no_data('No lens guidance available.')
 
-    def _update_pies(self, recommended_tickers: list[str]) -> None:
+    def _update_pies(self) -> None:
         positions = self.window.positions or []
 
         if not positions:
@@ -652,27 +754,29 @@ class VectorLensPage(QWidget):
             self._pie_b.show_empty('Add positions to see allocation.')
             return
 
-        total_equity = sum(p.get('equity', 0.0) for p in positions) or 1.0
-
+        # Pie A — current allocation
         current_sector_map: dict[str, float] = {}
         for p in positions:
             sector = p.get('sector') or 'Unknown'
             current_sector_map[sector] = current_sector_map.get(sector, 0.0) + p.get('equity', 0.0)
-
         self._pie_a.refresh(current_sector_map)
 
-        if recommended_tickers:
-            deposit = getattr(self._lens, '_deposit_amount', 0.0)
-            if deposit <= 0:
-                deposit = 0.1 * total_equity
-            underweight_sector = getattr(self._lens, '_underweight_sector', '') or 'Unknown'
+        # Pie B — projected allocation from all CTAs
+        projected = self._lens_result.get('projected_positions', [])
+        if projected:
+            projected_sector_map: dict[str, float] = {}
+            for p in projected:
+                sector = p.get('sector') or 'Unknown'
+                projected_sector_map[sector] = (
+                    projected_sector_map.get(sector, 0.0) + p.get('equity', 0.0)
+                )
+            self._pie_b.refresh(projected_sector_map)
 
-            post_sector_map = dict(current_sector_map)
-            post_sector_map[underweight_sector] = post_sector_map.get(underweight_sector, 0.0) + deposit
-
-            self._pie_b.refresh(post_sector_map)
-            dep_fmt = f'${deposit:,.0f}'
-            self._pie_b.set_title(f'With Lens  —  {dep_fmt} into {underweight_sector}')
+            # Check if allocation is identical (all hold)
+            if projected_sector_map == current_sector_map:
+                self._pie_b.set_title('Projected Allocation — No changes suggested')
+            else:
+                self._pie_b.set_title('Projected Allocation')
         else:
             self._pie_b.refresh(current_sector_map)
-            self._pie_b.set_title('With Lens')
+            self._pie_b.set_title('Projected Allocation — No changes suggested')

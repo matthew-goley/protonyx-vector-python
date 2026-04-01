@@ -1,18 +1,16 @@
 """
-Lens engine for Vector.
+Lens engine wrapper for Vector.
 
-Placeholder module — the lens backend logic has been removed and will be
-rebuilt from scratch.  The function signature and return format are preserved
-so the UI framework (LensDisplay, VectorLensPage, Monte Carlo graphs,
-pie charts, caution gauge) continues to work with placeholder data.
+Thin shell that calls the modular ``vector.lens`` package and returns
+the canonical 7-tuple expected by ``LensDisplay.refresh()`` and all
+other existing call sites.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
-_log = logging.getLogger(__name__)
+from vector.lens.lens_output import build_lens_output
 
 
 def generate_lens(
@@ -20,31 +18,22 @@ def generate_lens(
     store: Any,
     settings: dict[str, Any],
 ) -> tuple[str, str, list[str], float, str, str, int]:
-    """
-    Placeholder — returns the canonical 7-tuple with stub values:
-
-    - ``text``                — placeholder message
-    - ``color``               — neutral grey
-    - ``recommended_tickers`` — empty list
-    - ``deposit_amount``      — 0.0
-    - ``underweight_sector``  — empty string
-    - ``action_type``         — 'hold'
-    - ``caution_score``       — 0
-    """
-    if not positions:
-        return (
-            'Add your first position to see Lens analytics tailored to your '
-            'actual holdings.',
-            '#8d98af', [], 0.0, '', 'hold', 0,
-        )
-
+    result = build_lens_output(positions, store, settings)
     return (
-        'Vector Lens is being rebuilt — a new analysis engine is coming soon. '
-        'Your positions are still being tracked and all market data is up to date.',
-        '#8d98af',
-        [],
-        0.0,
-        '',
-        'hold',
-        0,
+        result['brief'],
+        result['color'],
+        result['recommended_tickers'],
+        result['deposit_amount'],
+        result['underweight_sector'],
+        result['action_type'],
+        result['caution_score'],
     )
+
+
+def generate_lens_full(
+    positions: list[dict[str, Any]],
+    store: Any,
+    settings: dict[str, Any],
+) -> dict[str, Any]:
+    """Return the complete Lens result dict for the full Lens page."""
+    return build_lens_output(positions, store, settings)

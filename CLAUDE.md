@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Vector** is a PyQt6 desktop portfolio analytics app for stock investors. It tracks positions, fetches market data via Yahoo Finance (yfinance), and displays analytics (trend direction, volatility, sector allocation, Sharpe ratio, beta, dividends) in a customisable dark/light themed dashboard. Data is persisted locally in `%LOCALAPPDATA%/Protonyx/Vector/` (falls back to `~/Vector/data/`) as JSON files.
 
-Current version: **0.3.6**
+Current version: **0.3.8**
 
 ## Setup & Running
 
@@ -22,7 +22,7 @@ No build step, test suite, or linter is configured.
 ## Building (Nuitka)
 
 ```bash
-python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 --output-filename="Vector-v0.3.6.exe" --include-data-dir=assets=assets main.py
+python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 --output-filename="Vector-v0.3.8.exe" --include-data-dir=assets=assets main.py
 ```
 
 - `--include-data-dir=assets=assets` copies the entire `assets/` folder next to the exe
@@ -37,7 +37,7 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `main.py` | Entry point — calls `vector.app.main()` |
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `main()` — all page classes live in `vector/pages/` |
 | `vector/pages/dashboard.py` | `DashboardPage`, `DashboardGrid`, `WidgetPickerDialog`, grid constants (`_UNIT`, `_GAP`, `_CELL`, `_CONTENT_W`) |
-| `vector/pages/lens_page.py` | `VectorLensPage`, `_GraphCard` (Monte Carlo), `_PieCard` (diversification pie) |
+| `vector/pages/lens_page.py` | `VectorLensPage`, `_GraphCard` (Monte Carlo), `_PieCard` (diversification pie), `_CTAReportCard` (full CTA list), `_CautionCard`, `_MCContextCard` |
 | `vector/pages/onboarding.py` | `OnboardingPage`, `PositionDialog`, `PositionCard` |
 | `vector/pages/profile.py` | `ProfilePage` |
 | `vector/pages/settings.py` | `SettingsPage`, `_AccordionSection`, `_AnimatedChevron`, `QDoubleSpinBoxCompat` |
@@ -45,8 +45,25 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `vector/store.py` | `DataStore` — single source of truth: positions, settings, app state, market data, layout; replaces `storage.py` |
 | `vector/market.py` | Legacy `MarketDataService`; superseded by `DataStore` but may still be referenced |
 | `vector/storage.py` | Legacy `StorageManager`; superseded by `DataStore` |
-| `vector/lens_engine.py` | `generate_lens()` — computes portfolio state, selects templates, returns 6-tuple |
-| `vector/lens_templates.py` | `_TEMPLATES` dict and `_COLORS` dict (extracted from `lens_engine.py`) |
+| `vector/lens_engine.py` | Thin wrapper: `generate_lens()` returns 7-tuple, `generate_lens_full()` returns complete result dict |
+| `vector/lens_templates.py` | Legacy stub (empty) — templates now in `vector/lens/templates/sentences.json` |
+| `vector/lens/` | **Lens engine package** — modular analysis, CTA generation, sentence composition |
+| `vector/lens/lens_output.py` | Top-level assembler: orchestrates pool → CTAs → sentences → result dict |
+| `vector/lens/analysis_pool.py` | Runs all 8 analyzers, caches results, handles dependencies and post-processing |
+| `vector/lens/cta_engine.py` | Generates prioritized CTAs with dollar amounts from analyzer results |
+| `vector/lens/risk_profile.py` | Loads user risk tier (`high`/`regular`/`low`), returns threshold overrides |
+| `vector/lens/sentence1.py` | Portfolio state composer (slope + volatility → one sentence) |
+| `vector/lens/sentence2.py` | Timing/catalyst composer (earnings + dividends → one sentence) |
+| `vector/lens/sentence3.py` | CTA composer (top-priority action → one sentence) |
+| `vector/lens/analyzers/slope.py` | Per-ticker and portfolio slope (direction) analysis |
+| `vector/lens/analyzers/volatility.py` | Per-ticker and portfolio volatility analysis |
+| `vector/lens/analyzers/concentration.py` | Stock weight, sector weight, winner drift detection |
+| `vector/lens/analyzers/earnings.py` | Upcoming earnings dates + EPS estimates + outlook |
+| `vector/lens/analyzers/dividends.py` | Upcoming ex-dividend dates + trailing yield |
+| `vector/lens/analyzers/beta.py` | Per-ticker and portfolio beta vs SPY |
+| `vector/lens/analyzers/performance.py` | Unrealized P&L from cost basis |
+| `vector/lens/analyzers/index_fund.py` | Index ETF detection and classification |
+| `vector/lens/templates/sentences.json` | All sentence templates (5+ variations per category) |
 | `vector/monte_carlo.py` | `run_projection()`, `build_historical_curve()` — GBM Monte Carlo simulation |
 | `vector/widget_base.py` | `VectorWidget` — base `QFrame` for all dashboard widgets; handles edit-mode drag, context menu |
 | `vector/widget_registry.py` | `discover_widgets()` / `get_widget_class()` — registry of all concrete widget types |
@@ -117,51 +134,68 @@ All page-level QWidget classes live here. `vector/app.py` imports from this subp
 - **Beta**: Portfolio covariance / benchmark variance via `portfolio_beta()`.
 - **Insights**: `_direction_insight`, `_volatility_insight`, `_diversification_insight` return rich-text HTML with data-quality warnings when history is sparse.
 
-### Lens Engine (`lens_engine.py` + `lens_templates.py`)
+### Lens Engine (`vector/lens/` package)
 
-`generate_lens(positions, store, settings)` returns a **7-tuple**: `(text, color, recommended_tickers, deposit_amount, underweight_sector, action_type, caution_score)`.
+The Lens engine is a modular, tree-structured system: **analyzers → analysis pool → CTA engine → sentence composers → assembler**.
 
-- `text` — two plain-English sentences covering risk and next-deposit guidance (observational, not directive)
-- `color` — hex color reflecting portfolio state (from `_COLORS` in `lens_templates.py`)
-- `recommended_tickers` — list of tickers suggested for the next deposit (used by Monte Carlo Graph B)
-- `deposit_amount` — dollar amount to bring the underweight sector to equal weight (always non-zero)
-- `underweight_sector` — name of the recommended sector
-- `action_type` — one of `"buy"`, `"sell"`, `"rebalance"`, `"hold"`
+**Entry points:** `lens_engine.py` provides two functions:
+- `generate_lens()` — returns the canonical **7-tuple** `(text, color, recommended_tickers, deposit_amount, underweight_sector, action_type, caution_score)` for `LensDisplay.refresh()` and dashboard use.
+- `generate_lens_full()` — returns the complete result dict (all 7-tuple fields plus `full_report`, `ctas`, `threat_level`, `pool_results`, `projected_positions`, `net_cta_delta`) for the full Lens page.
 
-Template sentence banks (`_TEMPLATES`) and state color map (`_COLORS`) live in `vector/lens_templates.py`; `lens_engine.py` imports them from there.
+**Pipeline flow:**
+1. `risk_profile.py` loads the user's risk tier (`high`/`regular`/`low`) and returns threshold overrides
+2. `analysis_pool.py` runs all 8 analyzers (slope/vol first, then earnings with prior results, then rest)
+3. Post-processing: index-fund suppression forces `concentration` flags off for index ETF tickers
+4. `cta_engine.py` reads analyzer results and generates prioritized CTAs with dollar amounts
+5. `sentence1.py` composes a portfolio state sentence from slope + volatility data
+6. `sentence2.py` composes a timing/catalyst sentence from earnings + dividends data
+7. `sentence3.py` composes a CTA sentence from the highest-priority action
+8. `lens_output.py` joins the 3 sentences, computes caution score, applies all CTAs to build `projected_positions`, and returns the full result dict
 
-**Action priority (15 steps, first match wins):**
-1. Single position
-2. Steep downtrend (per-stock, configurable threshold, default ≤ −20% annualised)
-3. Excessive single-stock volatility (configurable, default > 45% annualised vol AND > 15% weight)
-4. Winner concentration drift (weight > 30% AND slope > +15% annualised)
-5. Index fund awareness (any INDEX_ETF > 30% weight)
-6. High portfolio beta (configurable threshold, default > 1.3)
-7. Sector over-concentration (configurable, default > 50%)
-8. Single-stock concentration (configurable, default > 35%, non-index)
-9. High-vol downtrend / weak downtrend / depreciating trend
-10. High-vol uptrend / strong momentum
-11. Negative Sharpe
-12. Low diversification (< 3 sectors)
-13. Dead weight (weight < 2% AND slope ≤ +2%)
-14. Underrepresented sector (1 stock, < 10% weight)
-15. Unrealized loss / low yield / neutral-diversified / hold fallback
+**Analyzer interface:** Every analyzer exposes `analyze(positions, store, settings, risk_profile) → dict` with `ticker_results` (per-ticker) and `portfolio_result` (aggregate). Each result has `value`, `severity` (`none`/`low`/`moderate`/`high`/`critical`), `flag` (bool), `weight`, and `details`.
 
-**Signal thresholds** are configurable via Settings → Lens Signal Thresholds and stored in `settings.json` under `lens_signals`.
+**CTA priorities (11 levels, 1 = highest):**
+1. Steep decline (sell)
+2. Excessive volatility (sell)
+3. Winner drift (rebalance)
+4. Index fund informational (hold)
+5. High portfolio beta (buy)
+6. Single-stock concentration (buy)
+7. Sector over-concentration (buy)
+8. Dead weight (sell)
+9. Underrepresented sector (buy)
+10. Unrealized loss (hold)
+11. Portfolio healthy (hold)
 
-`INDEX_ETFS` (frozenset, 25 tickers), `LOW_BETA_BY_SECTOR` (dict), `SECTOR_SUGGESTIONS` (dict) live in `constants.py`.
+**Risk profiles:** Three tiers (`high`/`regular`/`low`) with different severity thresholds per analyzer. Stored in `constants.py` as `DEFAULT_RISK_PROFILES`. User overrides from `settings.json` → `lens_signals` take precedence. Risk tier stored in `settings.json` → `risk_tier` (default `"regular"`).
 
-`LensDisplay.refresh()` in `widget_types/lens.py` handles all tuple lengths (6, 5, 4, 3, 2) for backwards compatibility.
+**Sentence templates:** All templates live in `vector/lens/templates/sentences.json`, organized by sentence type → signal category → severity. Each leaf has 5+ variations. Selection is deterministic (SHA-256 hash of portfolio state). All language is observational — no directives.
+
+**Color mapping:** Action type → hex color: `sell` → `#ff4d4d`, `rebalance` → `#ff9f43`, `buy_new`/`buy_more` → `#4da6ff`, `hold` → `#8d98af`.
+
+**Caution score:** 1–99, computed as `total CTA dollars / total equity × 100` (clamped). Represents what fraction of the portfolio the engine suggests moving.
+
+**Projected positions:** `_apply_all_ctas()` in `lens_output.py` applies every CTA to a deep copy of positions:
+- `sell`/`rebalance`: reduces position value (removes if fully sold)
+- `buy_more`: increases existing position value
+- `buy_new`: adds a new position (fetches sector/name from store)
+- `hold`: no change
+Returns `projected_positions` (list) and `net_cta_delta` (net cash flow: buys minus sells).
+
+`LensDisplay.refresh()` in `widget_types/lens.py` handles all tuple lengths (7, 6, 5, 4, 3, 2) for backwards compatibility.
 
 ### Monte Carlo (Lens page)
 
 `_GraphCard` in `pages/lens_page.py` renders GBM projections. Key notes:
-- Both Graph A (without lens) and Graph B (with lens) pass `total_equity` as `current_value` to `run_projection` so historical curves normalise to the same base.
-- `new_total` (portfolio + deposit) is used only to compute post-deposit weight proportions for Graph B.
+- Graph A ("Current Portfolio"): projects the portfolio as-is using current positions.
+- Graph B ("With All Lens Recommendations"): uses `projected_positions` (all CTAs applied) for Monte Carlo simulation. Title shows sell/buy totals: "With All Lens Recommendations — -$X  +$Y".
+- Both graphs pass `total_equity` as `current_value` to `run_projection` so historical curves normalise to the same base.
 - Projections display percentage change relative to current equity, not raw dollar values.
 - matplotlib `FigureCanvasQTAgg` captures wheel events — fixed with `self._canvas.wheelEvent = lambda event: event.ignore()` so scrolling works when the mouse is over a chart.
 - Monte Carlo parameters (projection period, simulation count) are configurable via Settings → Monte Carlo and stored under `monte_carlo` in `settings.json`. Mapping constants: `MONTE_CARLO_HORIZON_DAYS`, `MONTE_CARLO_SIMULATIONS` in `constants.py`.
-- Between the projection graphs and the pie charts, two insight cards are rendered side-by-side: `_CautionCard` (left, 1:2 ratio) shows a semi-circular arc gauge with the portfolio caution score (1–99); `_MCContextCard` (right) shows a plain-English template sentence explaining what the narrower projection fan means. Both are populated in `VectorLensPage._update_insights()`.
+- Between the projection graphs and the pie charts, two insight cards are rendered side-by-side: `_CautionCard` (left, 1:2 ratio) shows a semi-circular arc gauge with the portfolio caution score (1–99); `_MCContextCard` (right) shows a multi-CTA context description (sell total, buy total, net delta). Both are populated in `VectorLensPage._update_insights()`.
+- Below the pie charts, `_CTAReportCard` displays all CTA recommendations with colored action-type indicators (red=sell, blue=buy, orange=rebalance, grey=hold) and dollar amounts.
+- Pie A ("Current Allocation"): sector grouping from current positions. Pie B ("Projected Allocation"): sector grouping from `projected_positions`.
 
 ### Settings Page (`pages/settings.py`)
 

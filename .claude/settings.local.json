@@ -39,7 +39,9 @@
       "Bash(python -c \"from vector.pages.dashboard import DashboardPage; from vector.widget_types.lens import LensDisplay; print\\(''imports OK''\\)\")",
       "Bash(.venv/Scripts/python.exe -c \"from vector.lens_engine import generate_lens; print\\(generate_lens\\([], None, {}\\)\\)\")",
       "Bash(.venv/Scripts/python.exe -c \"from vector.lens_engine import generate_lens; print\\(generate_lens\\([{''ticker'':''AAPL'',''equity'':1000,''sector'':''Technology''}], None, {}\\)\\)\")",
-      "Bash(.venv/Scripts/python.exe -c \"from vector.app import main; print\\(''Import OK''\\)\")"
+      "Bash(.venv/Scripts/python.exe -c \"from vector.app import main; print\\(''Import OK''\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"from vector.app import main; print\\(''App import OK''\\)\")",
+      "Bash(python -c \"from vector.app import main; print\\(''Import OK''\\)\")"
     ]
   }
 }

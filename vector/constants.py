@@ -2,7 +2,7 @@ from .paths import resource_path, user_data_dir
 
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
-APP_VERSION = '0.3.6'
+APP_VERSION = '0.3.7'
 DATA_DIR = user_data_dir()
 POSITIONS_FILE = DATA_DIR / 'positions.json'
 SETTINGS_FILE = DATA_DIR / 'settings.json'
@@ -80,10 +80,26 @@ MONTE_CARLO_SIMULATIONS: list[int] = [100, 200, 500, 1000]
 
 # Broad-market index ETFs — treated as instant diversification, not single-stock concentration.
 INDEX_ETFS: frozenset[str] = frozenset({
-    'SPY', 'VOO', 'VTI', 'IVV', 'QQQ', 'VT', 'VXUS', 'ITOT', 'SCHB',
-    'VEA', 'VWO', 'SPDW', 'IEFA', 'EFA', 'SCHX', 'SCHD', 'VIG', 'MGK',
-    'QUAL', 'MOAT', 'RSP', 'DGRO', 'VYM', 'HDV', 'NOBL',
+    'SPY', 'VOO', 'VTI', 'IVV', 'QQQ', 'QQQM', 'VT', 'VXUS', 'ITOT',
+    'SCHB', 'VEA', 'VWO', 'SPDW', 'IEFA', 'EFA', 'SCHX', 'SCHD', 'VIG',
+    'MGK', 'QUAL', 'MOAT', 'RSP', 'DGRO', 'VYM', 'HDV', 'NOBL',
+    'DIA', 'IWM', 'IWF', 'IWD',
 })
+
+# Mapping of index ETFs to their type for Lens language
+INDEX_FUND_TYPES: dict[str, str] = {
+    'SPY': 'broad_market', 'VOO': 'broad_market', 'VTI': 'broad_market',
+    'IVV': 'broad_market', 'ITOT': 'broad_market', 'SCHB': 'broad_market',
+    'DIA': 'broad_market', 'IWM': 'broad_market', 'IWF': 'broad_market',
+    'IWD': 'broad_market', 'RSP': 'broad_market', 'SCHX': 'broad_market',
+    'QQQ': 'sector', 'QQQM': 'sector', 'MGK': 'sector',
+    'VT': 'international', 'VXUS': 'international', 'VEA': 'international',
+    'VWO': 'international', 'SPDW': 'international', 'IEFA': 'international',
+    'EFA': 'international',
+    'VIG': 'broad_market', 'SCHD': 'broad_market', 'QUAL': 'broad_market',
+    'MOAT': 'broad_market', 'DGRO': 'broad_market', 'VYM': 'broad_market',
+    'HDV': 'broad_market', 'NOBL': 'broad_market',
+}
 
 # Well-known lower-beta names per sector — used to suggest alternatives when portfolio beta is high.
 # These are examples of historically lower-beta equities; not investment advice.
@@ -130,18 +146,46 @@ COMMON_TICKERS: list[str] = [
     'SPY', 'VOO', 'VTI', 'QQQ', 'IVV',
 ]
 
-# Representative tickers per sector — used for the underrepresented-sector signal.
+# Representative tickers per sector — ordered by market cap (highest first).
 SECTOR_SUGGESTIONS: dict[str, list[str]] = {
-    'Technology':             ['AAPL', 'MSFT', 'GOOGL'],
-    'Healthcare':             ['JNJ', 'UNH', 'PFE'],
-    'Consumer Defensive':     ['PG', 'KO', 'WMT'],
-    'Financial Services':     ['JPM', 'V', 'MA'],
-    'Financials':             ['JPM', 'V', 'MA'],
-    'Industrials':            ['HON', 'CAT', 'UNP'],
-    'Energy':                 ['XOM', 'CVX', 'COP'],
-    'Consumer Cyclical':      ['AMZN', 'HD', 'MCD'],
-    'Communication Services': ['GOOGL', 'META', 'DIS'],
-    'Utilities':              ['NEE', 'SO', 'DUK'],
-    'Real Estate':            ['AMT', 'PLD', 'O'],
-    'Basic Materials':        ['LIN', 'APD', 'SHW'],
+    'Technology':             ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AVGO'],
+    'Healthcare':             ['UNH', 'JNJ', 'LLY', 'PFE', 'ABT'],
+    'Financial Services':     ['JPM', 'V', 'MA', 'BAC', 'GS'],
+    'Financials':             ['JPM', 'V', 'MA', 'BAC', 'GS'],
+    'Consumer Defensive':     ['PG', 'KO', 'PEP', 'COST', 'WMT'],
+    'Consumer Cyclical':      ['AMZN', 'TSLA', 'MCD', 'NKE', 'HD'],
+    'Industrials':            ['GE', 'CAT', 'HON', 'UPS', 'BA'],
+    'Energy':                 ['XOM', 'CVX', 'COP', 'SLB', 'EOG'],
+    'Communication Services': ['GOOGL', 'META', 'NFLX', 'DIS', 'T'],
+    'Utilities':              ['NEE', 'SO', 'DUK', 'AEP', 'SRE'],
+    'Real Estate':            ['PLD', 'AMT', 'EQIX', 'CCI', 'SPG'],
+    'Basic Materials':        ['LIN', 'APD', 'SHW', 'FCX', 'NEM'],
+}
+
+# ── Lens: Default Risk Profiles ──
+DEFAULT_RISK_PROFILES: dict[str, dict] = {
+    'high': {
+        'slope':         {'critical': -35, 'high': -25, 'moderate': -15},
+        'volatility':    {'critical': 70,  'high': 55,  'moderate': 40},
+        'concentration': {'critical': 60,  'high': 50,  'moderate': 40},
+        'beta':          {'critical': 2.2, 'high': 1.6, 'moderate': 1.2},
+        'performance':   {'critical': -50, 'high': -35, 'moderate': -20},
+        'sell_scale': 0.5,
+    },
+    'regular': {
+        'slope':         {'critical': -25, 'high': -15, 'moderate': -5},
+        'volatility':    {'critical': 55,  'high': 40,  'moderate': 28},
+        'concentration': {'critical': 50,  'high': 40,  'moderate': 30},
+        'beta':          {'critical': 1.8, 'high': 1.3, 'moderate': 1.0},
+        'performance':   {'critical': -40, 'high': -25, 'moderate': -15},
+        'sell_scale': 0.75,
+    },
+    'low': {
+        'slope':         {'critical': -15, 'high': -10, 'moderate': -3},
+        'volatility':    {'critical': 40,  'high': 28,  'moderate': 18},
+        'concentration': {'critical': 40,  'high': 30,  'moderate': 20},
+        'beta':          {'critical': 1.4, 'high': 1.1, 'moderate': 0.8},
+        'performance':   {'critical': -30, 'high': -15, 'moderate': -10},
+        'sell_scale': 1.0,
+    },
 }

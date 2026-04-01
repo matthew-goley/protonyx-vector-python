@@ -1,17 +1,12 @@
 """
-Lens templates for Vector.
+Legacy lens templates — superseded by vector/lens/templates/sentences.json.
 
-Placeholder module — all template banks and color maps have been removed
-and will be rebuilt from scratch.  Minimal stubs are kept so existing
-imports do not break.
+This module is kept as an empty stub so any stale imports do not crash
+the application.  All template data now lives in the ``vector.lens``
+package.
 """
 
 from __future__ import annotations
 
-# Minimal color map — only the fallback key used by the placeholder engine.
-_COLORS: dict[str, str] = {
-    'hold': '#8d98af',
-}
-
-# Empty template bank — the rebuilt engine will populate this.
+_COLORS: dict[str, str] = {}
 _TEMPLATES: dict[str, list[tuple[str, str]]] = {}
