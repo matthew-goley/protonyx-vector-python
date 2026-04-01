@@ -283,7 +283,7 @@ class _GraphCard(QFrame):
         from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
         from matplotlib.figure import Figure
         self._fig = Figure(facecolor='#161b26')
-        self._fig.subplots_adjust(left=0.04, right=0.86, top=0.95, bottom=0.14)
+        self._fig.subplots_adjust(left=0.04, right=0.86, top=0.92, bottom=0.16)
         self._ax = self._fig.add_subplot(111)
         self._canvas = FigureCanvasQTAgg(self._fig)
         self._canvas.setMinimumHeight(280)
@@ -473,6 +473,8 @@ class _PieCard(QFrame):
 class _CTAReportCard(QFrame):
     """Card displaying all CTA recommendations with action-type indicators."""
 
+    _MAX_VISIBLE_HEIGHT = 420
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName('cardFrame')
@@ -494,10 +496,24 @@ class _CTAReportCard(QFrame):
         title.setStyleSheet('font-size: 12pt; font-weight: 700;')
         self._outer.addWidget(title)
 
-        self._items_layout = QVBoxLayout()
+        # Scrollable area for recommendation items
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
+        self._scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+        )
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setMaximumHeight(self._MAX_VISIBLE_HEIGHT)
+
+        self._items_widget = QWidget()
+        self._items_layout = QVBoxLayout(self._items_widget)
         self._items_layout.setContentsMargins(0, 0, 0, 0)
-        self._items_layout.setSpacing(8)
-        self._outer.addLayout(self._items_layout)
+        self._items_layout.setSpacing(10)
+        self._scroll.setWidget(self._items_widget)
+        self._outer.addWidget(self._scroll)
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
         # Clear existing items
@@ -512,26 +528,44 @@ class _CTAReportCard(QFrame):
             self._items_layout.addWidget(lbl)
             return
 
+        _ACTION_LABELS: dict[str, str] = {
+            'sell': 'SELL',
+            'rebalance': 'REBALANCE',
+            'buy_new': 'BUY',
+            'buy_more': 'BUY MORE',
+            'hold': 'HOLD',
+        }
+
         for i, sentence in enumerate(full_report):
             action = ctas[i].get('action', 'hold') if i < len(ctas) else 'hold'
             color = _ACTION_INDICATOR_COLORS.get(action, '#8d98af')
-            row = QHBoxLayout()
-            row.setSpacing(10)
+            action_label = _ACTION_LABELS.get(action, 'HOLD')
 
-            dot = QLabel('●')
-            dot.setFixedWidth(16)
-            dot.setStyleSheet(f'font-size: 10pt; color: {color};')
-            dot.setAlignment(Qt.AlignmentFlag.AlignTop)
-            row.addWidget(dot)
+            card = QFrame()
+            card.setStyleSheet(
+                f'QFrame {{ background: #1a2035; border: 1px solid {color}40;'
+                f' border-left: 3px solid {color}; border-radius: 6px; }}'
+            )
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(14, 10, 14, 10)
+            card_layout.setSpacing(4)
+
+            tag = QLabel(action_label)
+            tag.setStyleSheet(
+                f'font-size: 8pt; font-weight: 700; color: {color};'
+                ' border: none; background: transparent;'
+            )
+            card_layout.addWidget(tag)
 
             text = QLabel(sentence)
             text.setWordWrap(True)
-            text.setStyleSheet('font-size: 10pt; color: #c7cedb;')
-            row.addWidget(text, stretch=1)
+            text.setStyleSheet(
+                'font-size: 10pt; color: #c7cedb; border: none;'
+                ' background: transparent;'
+            )
+            card_layout.addWidget(text)
 
-            wrapper = QWidget()
-            wrapper.setLayout(row)
-            self._items_layout.addWidget(wrapper)
+            self._items_layout.addWidget(card)
 
 
 class VectorLensPage(QWidget):
@@ -705,7 +739,7 @@ class VectorLensPage(QWidget):
 
         all_pct = _pct_extremes(result_a) + _pct_extremes(display_b)
         if all_pct:
-            pad = (max(all_pct) - min(all_pct)) * 0.06
+            pad = (max(all_pct) - min(all_pct)) * 0.10
             shared_ylim: tuple[float, float] | None = (min(all_pct) - pad, max(all_pct) + pad)
         else:
             shared_ylim = None
@@ -724,19 +758,9 @@ class VectorLensPage(QWidget):
             ctas = self._lens_result.get('ctas', [])
             actionable = [c for c in ctas if c.get('action') != 'hold']
             if actionable and result_b is not None:
-                sell_total = sum(
-                    c['dollars'] for c in actionable if c['action'] in ('sell', 'rebalance')
-                )
-                buy_total = sum(
-                    c['dollars'] for c in actionable if c['action'] in ('buy_new', 'buy_more')
-                )
-                parts: list[str] = []
-                if sell_total > 0:
-                    parts.append(f'-${sell_total:,.0f}')
-                if buy_total > 0:
-                    parts.append(f'+${buy_total:,.0f}')
-                delta_str = '  '.join(parts)
-                b_title = f'With All Lens Recommendations  —  {delta_str}'
+                net = self._lens_result.get('net_cta_delta', 0.0)
+                sign = '+' if net >= 0 else '-'
+                b_title = f'With All Lens Recommendations  —  {sign}${abs(net):,.0f}'
             else:
                 b_title = 'With All Lens Recommendations'
 
