@@ -7,7 +7,6 @@ DATA_DIR = user_data_dir()
 POSITIONS_FILE = DATA_DIR / 'positions.json'
 SETTINGS_FILE = DATA_DIR / 'settings.json'
 APP_STATE_FILE = DATA_DIR / 'app_state.json'
-PRICE_CACHE_FILE = DATA_DIR / 'price_cache.json'  # legacy - superseded by market_data.json
 MARKET_DATA_FILE = DATA_DIR / 'market_data.json'
 LAYOUT_FILE = DATA_DIR / 'dashboard_layout.json'
 LOGO_PATH = resource_path('assets', 'vector_full.png')
@@ -53,7 +52,6 @@ DEFAULT_APP_STATE = {
 }
 
 DEFAULT_POSITIONS = []
-DEFAULT_PRICE_CACHE = {}
 LENS_SNAPSHOT_FILE = 'lens_snapshot.json'
 LENS_HISTORY_MAX = 90
 TTL_META_MINUTES         = 1_440   # 24 h — company info rarely changes

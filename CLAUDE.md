@@ -43,10 +43,7 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `vector/pages/settings.py` | `SettingsPage`, `_AccordionSection`, `_AnimatedChevron`, `QDoubleSpinBoxCompat`, `_RiskTierOption` (investment style card) |
 | `vector/analytics.py` | Portfolio math: trend slope, volatility, Sharpe ratio, beta, insight HTML generation |
 | `vector/store.py` | `DataStore` — single source of truth: positions, settings, app state, market data, layout; replaces `storage.py` |
-| `vector/market.py` | Legacy `MarketDataService`; superseded by `DataStore` but may still be referenced |
-| `vector/storage.py` | Legacy `StorageManager`; superseded by `DataStore` |
 | `vector/lens_engine.py` | Thin wrapper: `generate_lens()` returns 7-tuple, `generate_lens_full()` returns complete result dict |
-| `vector/lens_templates.py` | Legacy stub (empty) — templates now in `vector/lens/templates/sentences.json` |
 | `vector/lens/` | **Lens engine package** — modular analysis, CTA generation, sentence composition |
 | `vector/lens/lens_output.py` | Top-level assembler: orchestrates pool → CTAs → sentences → result dict |
 | `vector/lens/analysis_pool.py` | Runs all 8 analyzers, caches results, handles dependencies and post-processing |
@@ -146,10 +143,10 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 1. `risk_profile.py` loads the user's risk tier (`high`/`regular`/`low`) and returns threshold overrides
 2. `analysis_pool.py` runs all 8 analyzers (slope/vol first, then earnings with prior results, then rest)
 3. Post-processing: index-fund suppression forces `concentration` flags off for index ETF tickers
-4. `cta_engine.py` reads analyzer results and generates prioritized CTAs with dollar amounts
+4. `cta_engine.py` reads analyzer results and generates prioritized CTAs with dollar amounts (sector-aware — never suggests tickers in the problem sector; diversification CTAs generate up to 3 buys across different underweight sectors)
 5. `sentence1.py` composes a portfolio state sentence from slope + volatility data
 6. `sentence2.py` composes a timing/catalyst sentence from earnings + dividends data
-7. `sentence3.py` composes a CTA sentence from the highest-priority action
+7. `sentence3.py` composes a CTA sentence — **always prefers diversification CTAs** (`reduce_concentration`, `sector_underweight`) for the brief, regardless of priority; falls back to top-priority CTA only if no diversification CTAs exist
 8. `lens_output.py` joins the 3 sentences, computes caution score, applies all CTAs to build `projected_positions`, and returns the full result dict
 
 **Analyzer interface:** Every analyzer exposes `analyze(positions, store, settings, risk_profile) → dict` with `ticker_results` (per-ticker) and `portfolio_result` (aggregate). Each result has `value`, `severity` (`none`/`low`/`moderate`/`high`/`critical`), `flag` (bool), `weight`, and `details`.
@@ -159,13 +156,15 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 2. Excessive volatility (sell)
 3. Winner drift (rebalance)
 4. Index fund informational (hold)
-5. High portfolio beta (buy)
-6. Single-stock concentration (buy)
-7. Sector over-concentration (buy)
+5. High portfolio beta (buy) — prefers low-beta tickers from underweight sectors, avoids overconcentrated sectors
+6. Single-stock concentration (buy — up to 3 CTAs) — splits dollars across up to 3 underweight sectors, excludes the concentrated ticker's sector
+7. Sector over-concentration (buy — up to 3 CTAs) — splits dollars across up to 3 underweight sectors, always excludes the overweight sector
 8. Dead weight (sell)
-9. Underrepresented sector (buy)
+9. Underrepresented sector (buy — up to 3 CTAs) — one CTA per thin sector (<10% weight), up to 3
 10. Unrealized loss (hold)
 11. Portfolio healthy (hold)
+
+**Sector awareness:** `_get_ticker_sector()` in `cta_engine.py` looks up a ticker's sector via `SECTOR_SUGGESTIONS`. Every buy CTA verifies the suggested ticker is NOT in the problem sector. `_underweight_sectors_sorted()` returns all sectors sorted lightest-first, with an `exclude_sectors` parameter to skip problem sectors. `_split_dollars_by_underweight()` allocates dollars proportionally to how underweight each target sector is.
 
 **Risk profiles:** Three tiers (`high`/`regular`/`low`) with different severity thresholds per analyzer. Stored in `constants.py` as `DEFAULT_RISK_PROFILES`. User overrides from `settings.json` → `lens_signals` take precedence (manual overrides always win over risk tier defaults). Risk tier stored in `settings.json` → `risk_tier` (default `"regular"`), selectable during onboarding and in Settings → Investment Style.
 
@@ -267,7 +266,6 @@ All files live under `%LOCALAPPDATA%/Protonyx/Vector/` (Windows) or `~/Vector/da
 | `app_state.json` | `onboarding_complete`, `first_launch_date`, `risk_tier_selected` |
 | `market_data.json` | Per-ticker: quote, meta, history, history_ohlcv, history_intraday, dividends, earnings — with UTC timestamps |
 | `dashboard_layout.json` | Ordered list of `{class_name, row, col, rowspan, colspan}` for the dashboard grid |
-| `price_cache.json` | Legacy cache — superseded by `market_data.json`; kept for backwards compat |
 
 ### Assets
 

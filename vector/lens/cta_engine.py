@@ -14,6 +14,14 @@ def _round10(v: float) -> float:
     return round(v / 10) * 10
 
 
+def _get_ticker_sector(ticker: str) -> str:
+    """Look up which sector a ticker belongs to using SECTOR_SUGGESTIONS."""
+    for sector, tickers in SECTOR_SUGGESTIONS.items():
+        if ticker in tickers:
+            return sector
+    return 'Unknown'
+
+
 def _pick_sector_tickers(
     target_sector: str, held_tickers: set[str], n: int = 2,
 ) -> list[str]:
@@ -23,20 +31,38 @@ def _pick_sector_tickers(
     return picks or candidates[:n]
 
 
+def _underweight_sectors_sorted(
+    sector_weights: dict[str, float],
+    held_sectors: set[str],
+    exclude_sectors: set[str] | None = None,
+) -> list[str]:
+    """Return sectors sorted lightest-first, excluding specified sectors.
+
+    Sectors not held at all come first, then held sectors by ascending weight.
+    """
+    exclude = exclude_sectors or set()
+    all_sectors = list(SECTOR_SUGGESTIONS.keys())
+
+    # Sectors not held at all (and not excluded)
+    unheld = [s for s in all_sectors if s not in held_sectors and s not in exclude]
+    # Held sectors sorted by weight ascending (excluding problem sectors)
+    held_sorted = sorted(
+        ((s, w) for s, w in sector_weights.items() if s not in exclude),
+        key=lambda x: x[1],
+    )
+    held_names = [s for s, _ in held_sorted]
+
+    return unheld + held_names
+
+
 def _best_underweight_sector(
     sector_weights: dict[str, float],
     held_sectors: set[str],
+    exclude_sectors: set[str] | None = None,
 ) -> str:
-    """Find the most underweight sector or a sector not yet held."""
-    all_sectors = list(SECTOR_SUGGESTIONS.keys())
-    # Prefer a sector not held at all
-    for s in all_sectors:
-        if s not in held_sectors:
-            return s
-    # All sectors held: pick the lightest
-    if sector_weights:
-        return min(sector_weights, key=sector_weights.get)
-    return 'Technology'
+    """Find the most underweight sector, excluding specified sectors."""
+    ranked = _underweight_sectors_sorted(sector_weights, held_sectors, exclude_sectors)
+    return ranked[0] if ranked else 'Technology'
 
 
 def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
@@ -152,20 +178,30 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     # --- Priority 5: High portfolio beta (BUY) ---
     port_beta = beta_res.get('portfolio_result', {})
     if port_beta.get('severity') in ('high', 'critical') and port_beta.get('flag'):
-        # Pick low-beta tickers from sectors user already holds
+        # Identify sectors with concentration issues to avoid
+        heavy_sector = conc_res.get('portfolio_result', {}).get(
+            'details', {},
+        ).get('heaviest_sector', '')
+        avoid_sectors = {heavy_sector} if heavy_sector else set()
+
+        # Pick low-beta tickers from underweight sectors, avoiding problem sectors
         suggestions: list[str] = []
-        for s in held_sectors:
-            for lb_sector, lb_tickers in LOW_BETA_BY_SECTOR.items():
-                if lb_sector == s:
-                    for lt in lb_tickers:
-                        if lt not in held_tickers and lt not in suggestions:
-                            suggestions.append(lt)
-                            if len(suggestions) >= 2:
-                                break
+        uw_sectors = _underweight_sectors_sorted(
+            sector_weights, held_sectors, avoid_sectors,
+        )
+        for s in uw_sectors:
+            lb_tickers = LOW_BETA_BY_SECTOR.get(s, [])
+            for lt in lb_tickers:
+                if lt not in held_tickers and lt not in suggestions:
+                    if _get_ticker_sector(lt) not in avoid_sectors:
+                        suggestions.append(lt)
+                        if len(suggestions) >= 2:
+                            break
             if len(suggestions) >= 2:
                 break
+
         if not suggestions:
-            # Fallback: pick from any sector
+            # Fallback: pick from any sector (still checking sector)
             for lb_tickers in LOW_BETA_BY_SECTOR.values():
                 for lt in lb_tickers:
                     if lt not in held_tickers and lt not in suggestions:
@@ -190,77 +226,130 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 },
             })
 
-    # --- Priority 6: Single-stock concentration (BUY) ---
+    # --- Priority 6: Single-stock concentration (BUY — up to 3 CTAs) ---
     for t, data in conc_res.get('ticker_results', {}).items():
         subs = data.get('details', {}).get('sub_signals', [])
         if 'stock_concentration' in subs and data.get('flag'):
             if t in INDEX_ETFS or t in index_cta_tickers:
                 continue
-            target_weight = conc_res.get('_risk_profile', {}).get('concentration', {}).get(
-                'moderate', 30,
-            ) / 100
-            # Actually get moderate from risk profile in pool results
             rp = pool_results.get('_risk_profile', {})
             target_weight = rp.get('concentration', {}).get('moderate', 30) / 100
             v_stock = ticker_weights.get(t, 0) * total_equity
             if target_weight > 0:
                 v_total_new = v_stock / target_weight
-                dollars = _round10(v_total_new - total_equity)
+                total_dollars = _round10(v_total_new - total_equity)
             else:
-                dollars = 0.0
+                total_dollars = 0.0
 
-            uw_sector = _best_underweight_sector(sector_weights, held_sectors)
-            suggested = _pick_sector_tickers(uw_sector, held_tickers)
+            if total_dollars <= 0:
+                continue
 
-            if dollars > 0:
+            # Find the sector of the concentrated ticker to exclude it
+            ticker_sector = _get_ticker_sector(t)
+            # Also check positions for actual sector
+            for pos in pool_results.get('_positions_summary', {}).get('positions', []):
+                if isinstance(pos, dict) and pos.get('ticker') == t:
+                    ticker_sector = pos.get('sector', ticker_sector)
+                    break
+            if ticker_sector == 'Unknown':
+                for s, sw in sector_weights.items():
+                    if sw > 0.4:
+                        ticker_sector = s
+                        break
+
+            exclude = {ticker_sector} if ticker_sector != 'Unknown' else set()
+            uw_sectors = _underweight_sectors_sorted(
+                sector_weights, held_sectors, exclude,
+            )[:3]
+
+            if not uw_sectors:
+                uw_sectors = _underweight_sectors_sorted(
+                    sector_weights, held_sectors,
+                )[:3]
+
+            # Split dollars across underweight sectors proportionally
+            allocations = _split_dollars_by_underweight(
+                uw_sectors, sector_weights, total_dollars,
+            )
+
+            for sector, alloc_dollars in allocations:
+                suggested = _pick_sector_tickers(sector, held_tickers, n=1)
+                if suggested and _get_ticker_sector(suggested[0]) in exclude:
+                    suggested = []
+                if not suggested:
+                    continue
                 ctas.append({
                     'priority': 6,
                     'action': 'buy_new',
-                    'ticker': suggested[0] if suggested else '',
-                    'dollars': dollars,
+                    'ticker': suggested[0],
+                    'dollars': alloc_dollars,
                     'reason': 'reduce_concentration',
                     'severity': data['severity'],
                     'details': {
                         'heavy_ticker': t,
                         'current_weight': data.get('weight', 0) * 100,
                         'target_weight': target_weight * 100,
-                        'target_sector': uw_sector,
+                        'target_sector': sector,
                         'suggested_tickers': suggested,
                     },
                 })
 
-    # --- Priority 7: Sector over-concentration (BUY) ---
+    # --- Priority 7: Sector over-concentration (BUY — up to 3 CTAs) ---
     port_conc = conc_res.get('portfolio_result', {})
     if port_conc.get('flag'):
         heavy_sector = port_conc['details'].get('heaviest_sector', '')
         heavy_pct = port_conc['details'].get('heaviest_sector_weight', 0)
-        uw_sector = _best_underweight_sector(sector_weights, held_sectors - {heavy_sector})
-        suggested = _pick_sector_tickers(uw_sector, held_tickers)
 
-        # Amount to bring heaviest below 50%
+        # Calculate total dollars needed
         if heavy_pct > 50:
             sector_eq = (heavy_pct / 100) * total_equity
             target = 0.50
             v_total_new = sector_eq / target
-            dollars = _round10(v_total_new - total_equity)
+            total_dollars = _round10(v_total_new - total_equity)
         else:
-            dollars = _round10(0.10 * total_equity)
+            total_dollars = _round10(0.10 * total_equity)
 
-        if dollars > 0:
-            ctas.append({
-                'priority': 7,
-                'action': 'buy_new',
-                'ticker': suggested[0] if suggested else '',
-                'dollars': dollars,
-                'reason': 'sector_underweight',
-                'severity': port_conc['severity'],
-                'details': {
-                    'heavy_sector': heavy_sector,
-                    'sector_weight': heavy_pct,
-                    'target_sector': uw_sector,
-                    'suggested_tickers': suggested,
-                },
-            })
+        if total_dollars > 0:
+            exclude = {heavy_sector} if heavy_sector else set()
+            uw_sectors = _underweight_sectors_sorted(
+                sector_weights, held_sectors, exclude,
+            )[:3]
+
+            if not uw_sectors:
+                uw_sectors = _underweight_sectors_sorted(
+                    sector_weights, held_sectors,
+                )[:3]
+
+            allocations = _split_dollars_by_underweight(
+                uw_sectors, sector_weights, total_dollars,
+            )
+
+            for sector, alloc_dollars in allocations:
+                suggested = _pick_sector_tickers(sector, held_tickers, n=1)
+                # Verify suggested ticker is NOT in the heavy sector
+                if suggested and _get_ticker_sector(suggested[0]) == heavy_sector:
+                    suggested = []
+                    candidates = SECTOR_SUGGESTIONS.get(sector, [])
+                    for c in candidates:
+                        if c not in held_tickers and _get_ticker_sector(c) != heavy_sector:
+                            suggested = [c]
+                            break
+                if not suggested:
+                    continue
+                ctas.append({
+                    'priority': 7,
+                    'action': 'buy_new',
+                    'ticker': suggested[0],
+                    'dollars': alloc_dollars,
+                    'reason': 'sector_underweight',
+                    'severity': port_conc['severity'],
+                    'details': {
+                        'heavy_sector': heavy_sector,
+                        'sector_weight': heavy_pct,
+                        'target_sector': sector,
+                        'suggested_tickers': suggested,
+                    },
+                })
 
     # --- Priority 8: Dead weight (SELL) ---
     for t, s_data in slope_res.get('ticker_results', {}).items():
@@ -281,39 +370,39 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 },
             })
 
-    # --- Priority 9: Underrepresented sector (BUY) ---
+    # --- Priority 9: Underrepresented sector (BUY — up to 3 CTAs) ---
     conc_details = port_conc.get('details', {})
     sector_wts = conc_details.get('sector_weights', {})
     sector_count = conc_details.get('sector_count', 0)
     if sector_count >= 3:
-        # Find sectors with only 1 ticker and < 10% weight
-        # Need to count tickers per sector from positions
-        sector_ticker_map: dict[str, list[str]] = {}
-        for t2 in held_tickers:
-            # We need sector info — use sector_weights keys as proxy
-            pass
-        # Simpler: check from sector_wts
-        for sector, sw_pct in sector_wts.items():
-            if sw_pct < 10 and sector not in ('Unknown', ''):
-                suggested = _pick_sector_tickers(sector, held_tickers)
-                sector_val = (sw_pct / 100) * total_equity
-                deposit = _round10((0.10 * total_equity - sector_val) / 0.90)
-                if deposit > 0:
-                    ctas.append({
-                        'priority': 9,
-                        'action': 'buy_new',
-                        'ticker': suggested[0] if suggested else '',
-                        'dollars': deposit,
-                        'reason': 'sector_underweight',
-                        'severity': 'low',
-                        'details': {
-                            'heavy_sector': sector,
-                            'sector_weight': sw_pct,
-                            'target_sector': sector,
-                            'suggested_tickers': suggested,
-                        },
-                    })
-                    break  # only flag the smallest underrepresented sector
+        thin_sectors = sorted(
+            ((s, w) for s, w in sector_wts.items()
+             if w < 10 and s not in ('Unknown', '')),
+            key=lambda x: x[1],
+        )
+        cta_count = 0
+        for sector, sw_pct in thin_sectors:
+            if cta_count >= 3:
+                break
+            suggested = _pick_sector_tickers(sector, held_tickers, n=1)
+            sector_val = (sw_pct / 100) * total_equity
+            deposit = _round10((0.10 * total_equity - sector_val) / 0.90)
+            if deposit > 0 and suggested:
+                ctas.append({
+                    'priority': 9,
+                    'action': 'buy_new',
+                    'ticker': suggested[0],
+                    'dollars': deposit,
+                    'reason': 'sector_underweight',
+                    'severity': 'low',
+                    'details': {
+                        'heavy_sector': sector,
+                        'sector_weight': sw_pct,
+                        'target_sector': sector,
+                        'suggested_tickers': suggested,
+                    },
+                })
+                cta_count += 1
 
     # --- Priority 10: Unrealized loss (HOLD) ---
     for t, data in perf_res.get('ticker_results', {}).items():
@@ -356,3 +445,41 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
         ]
 
     return ctas
+
+
+def _split_dollars_by_underweight(
+    sectors: list[str],
+    sector_weights: dict[str, float],
+    total_dollars: float,
+) -> list[tuple[str, float]]:
+    """Split total_dollars across sectors proportional to how underweight each is.
+
+    Sectors not held at all get the largest share. Returns list of
+    (sector, dollars) sorted by allocation descending.
+    """
+    if not sectors:
+        return []
+
+    # Compute "underweight score" — higher means more underweight
+    avg_weight = (100.0 / max(len(SECTOR_SUGGESTIONS), 1))
+    scores: list[tuple[str, float]] = []
+    for s in sectors:
+        current = sector_weights.get(s, 0.0)
+        score = max(avg_weight - current, 1.0)
+        scores.append((s, score))
+
+    total_score = sum(sc for _, sc in scores)
+    if total_score <= 0:
+        # Equal split fallback
+        per = _round10(total_dollars / len(sectors))
+        return [(s, per) for s in sectors]
+
+    allocations: list[tuple[str, float]] = []
+    for s, sc in scores:
+        alloc = _round10((sc / total_score) * total_dollars)
+        if alloc > 0:
+            allocations.append((s, alloc))
+
+    # Sort largest allocation first
+    allocations.sort(key=lambda x: x[1], reverse=True)
+    return allocations

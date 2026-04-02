@@ -82,17 +82,35 @@ def _render_cta(cta: dict, pool_results: dict, hash_key: str) -> str:
         return tmpl
 
 
+_DIVERSIFICATION_REASONS = frozenset({
+    'reduce_concentration', 'sector_underweight',
+})
+
+
 def compose(cta_list: list[dict], pool_results: dict) -> str:
     """
-    Take the CTA list (already sorted by priority), pick #1,
-    and return one sentence from sentences.json.
+    Take the CTA list (already sorted by priority) and return one sentence.
+
+    Diversification CTAs (reduce_concentration, sector_underweight) are
+    always preferred for the brief because they're the most actionable
+    and approachable recommendation for casual investors.
     """
     if not cta_list:
         templates = _load_templates().get('sentence3', {})
         tmpls = templates.get('hold', {}).get('portfolio_healthy', {}).get('default', [])
         return _pick(tmpls, 'empty') or 'No action signals detected.'
 
-    top = cta_list[0]
+    # Prefer diversification CTAs — pick the first (largest dollar amount)
+    top = None
+    for cta in cta_list:
+        if cta.get('reason') in _DIVERSIFICATION_REASONS:
+            top = cta
+            break
+
+    # Fall back to highest-priority CTA
+    if top is None:
+        top = cta_list[0]
+
     sorted_tickers = sorted(
         pool_results.get('_positions_summary', {}).get('ticker_weights', {}).keys()
     )
