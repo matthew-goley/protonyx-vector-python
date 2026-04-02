@@ -168,7 +168,7 @@ class _MCContextCard(QFrame):
         layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(10)
 
-        title = QLabel('What the projection shows')
+        title = QLabel('What the Lens Projection shows')
         f = QFont()
         f.setPointSize(12)
         f.setBold(True)
@@ -190,7 +190,7 @@ class _MCContextCard(QFrame):
         actionable = [c for c in ctas if c.get('action') != 'hold']
         if not actionable:
             self._body.setText(
-                'No active recommendations right now. Both projections use '
+                'No active projections right now. Both graphs use '
                 'your current portfolio composition.'
             )
             return
@@ -206,7 +206,7 @@ class _MCContextCard(QFrame):
 
         if sell_dollars > 0 and buy_dollars > 0:
             parts.append(
-                f'Graph B applies {n} recommendation{"s" if n != 1 else ""} '
+                f'Graph B applies {n} projection{"s" if n != 1 else ""} '
                 f'— selling ${sell_dollars:,.0f} and adding ${buy_dollars:,.0f} '
                 f'— for a net {"deposit" if net_delta >= 0 else "reduction"} '
                 f'of ${abs(net_delta):,.0f}.'
@@ -214,14 +214,14 @@ class _MCContextCard(QFrame):
         elif sell_dollars > 0:
             parts.append(
                 f'Graph B reflects trimming ${sell_dollars:,.0f} from the '
-                f'portfolio across {n} recommendation{"s" if n != 1 else ""}. '
+                f'portfolio across {n} projection{"s" if n != 1 else ""}. '
                 f'The projection starts from a lower base but with a '
                 f'potentially more stable composition.'
             )
         else:
             parts.append(
                 f'Graph B adds ${buy_dollars:,.0f} across {n} '
-                f'recommendation{"s" if n != 1 else ""}. '
+                f'projection{"s" if n != 1 else ""}. '
                 f'The wider or narrower fan reflects how the new composition '
                 f'changes the portfolio\'s volatility profile.'
             )
@@ -473,7 +473,7 @@ class _PieCard(QFrame):
 class _CTAReportCard(QFrame):
     """Card displaying all CTA recommendations with action-type indicators."""
 
-    _MAX_VISIBLE_HEIGHT = 420
+    _MAX_VISIBLE_HEIGHT = 1500
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -488,7 +488,7 @@ class _CTAReportCard(QFrame):
         self._outer.setContentsMargins(20, 16, 20, 16)
         self._outer.setSpacing(10)
 
-        title = QLabel('All Recommendations')
+        title = QLabel('All Projections')
         f = QFont()
         f.setPointSize(12)
         f.setBold(True)
@@ -523,7 +523,7 @@ class _CTAReportCard(QFrame):
                 item.widget().deleteLater()
 
         if not full_report:
-            lbl = QLabel('No recommendations at this time.')
+            lbl = QLabel('No projections at this time.')
             lbl.setStyleSheet('font-size: 10pt; color: #8d98af;')
             self._items_layout.addWidget(lbl)
             return
@@ -609,7 +609,7 @@ class VectorLensPage(QWidget):
         graphs_layout.setContentsMargins(0, 0, 0, 0)
         graphs_layout.setSpacing(16)
         self._graph_a = _GraphCard('Current Portfolio')
-        self._graph_b = _GraphCard('With All Lens Recommendations')
+        self._graph_b = _GraphCard('With All Lens Projections')
         graphs_layout.addWidget(self._graph_a)
         graphs_layout.addWidget(self._graph_b)
         self._container_layout.addWidget(graphs_row)
@@ -760,9 +760,9 @@ class VectorLensPage(QWidget):
             if actionable and result_b is not None:
                 net = self._lens_result.get('net_cta_delta', 0.0)
                 sign = '+' if net >= 0 else '-'
-                b_title = f'With All Lens Recommendations  —  {sign}${abs(net):,.0f}'
+                b_title = f'With All Lens Projections  —  {sign}${abs(net):,.0f}'
             else:
-                b_title = 'With All Lens Recommendations'
+                b_title = 'With All Lens Projections'
 
             self._graph_b.set_title(b_title)
             self._graph_b.plot(hist_days, hist_values, future_days_b, bands_b, median_b,
