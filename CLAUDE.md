@@ -168,6 +168,11 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 
 **Risk profiles:** Three tiers (`high`/`regular`/`low`) with different severity thresholds per analyzer. Stored in `constants.py` as `DEFAULT_RISK_PROFILES`. User overrides from `settings.json` → `lens_signals` take precedence (manual overrides always win over risk tier defaults). Risk tier stored in `settings.json` → `risk_tier` (default `"regular"`), selectable during onboarding and in Settings → Investment Style.
 
+**Sell aggressiveness:** Sell thresholds are raised across all tiers — stocks must be performing truly badly before a sell is suggested. `sell_scale` controls what fraction of the calculated sell amount is actually recommended: `high` = 0.3, `regular` = 0.5, `low` (conservative) = 0.15. Conservative tier (`low`) has additional gates:
+- **Priorities 1 & 2 (steep decline, excessive vol):** Only fire on `critical` severity — `high` severity is suppressed.
+- **Priority 3 (winner drift):** Converted to informational `hold` with `winner_drift_informational` reason (no sell/rebalance suggested). Uses dedicated templates in `sentences.json`.
+- **Priority 8 (dead weight):** Suppressed entirely — conservative users never see dead weight sell suggestions.
+
 **Sentence templates:** All templates live in `vector/lens/templates/sentences.json`, organized by sentence type → signal category → severity. Each leaf has 5+ variations. Selection is deterministic (SHA-256 hash of portfolio state). All language is observational — no directives.
 
 **Color mapping:** Action type → hex color: `sell` → `#ff4d4d`, `rebalance` → `#ff9f43`, `buy_new`/`buy_more` → `#4da6ff`, `hold` → `#8d98af`.

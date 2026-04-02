@@ -209,6 +209,15 @@
                     "The {ticker} position ({weight:.0f}%) offers built-in sector spread — the trade-off is that returns will track the broader market."
                 ]
             },
+            "winner_drift_informational": {
+                "default": [
+                    "{ticker} has grown to {weight:.0f}% of your portfolio through price appreciation alone — that's concentration by success, not by choice.",
+                    "Price gains pushed {ticker} to {weight:.0f}% of your holdings. It's worth being aware of, even if you're comfortable holding.",
+                    "{ticker} drifted to {weight:.0f}% of your portfolio just from performance. Not necessarily a problem, but it's a lot of weight in one name.",
+                    "{ticker} now makes up {weight:.0f}% of your portfolio — all from appreciation. Something to keep an eye on over time.",
+                    "Through gains alone, {ticker} grew into {weight:.0f}% of your portfolio. That's not a red flag, but it's worth knowing."
+                ]
+            },
             "unrealized_loss": {
                 "default": [
                     "{ticker} is down {unrealized_pct:.0f}% from entry (${unrealized_dollar:,.0f}) — the position is underwater but no additional action is indicated by current signals.",

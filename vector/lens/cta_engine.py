@@ -82,6 +82,7 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
 
     risk_profile = pool_results.get('_risk_profile', {})
     sell_scale = risk_profile.get('sell_scale', 0.75)
+    risk_tier = risk_profile.get('tier', 'regular')
 
     slope_res = pool_results.get('slope', {})
     vol_res = pool_results.get('volatility', {})
@@ -97,6 +98,8 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     for t, data in slope_res.get('ticker_results', {}).items():
         if data.get('severity') in ('high', 'critical') and data.get('flag'):
             sev = data['severity']
+            if risk_tier == 'low' and sev != 'critical':
+                continue
             sev_factor = 1.0 if sev == 'critical' else 0.7
             pos_value = ticker_weights.get(t, 0) * total_equity
             dollars = _round10(pos_value * sell_scale * sev_factor)
@@ -117,6 +120,8 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     for t, data in vol_res.get('ticker_results', {}).items():
         if data.get('flag'):
             sev = data['severity']
+            if risk_tier == 'low' and sev != 'critical':
+                continue
             sev_factor = 1.0 if sev == 'critical' else 0.5
             pos_value = ticker_weights.get(t, 0) * total_equity
             dollars = _round10(pos_value * sell_scale * sev_factor)
@@ -136,7 +141,7 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                         },
                     })
 
-    # --- Priority 3: Winner drift (REBALANCE) ---
+    # --- Priority 3: Winner drift (REBALANCE / informational HOLD for conservative) ---
     for t, data in conc_res.get('ticker_results', {}).items():
         subs = data.get('details', {}).get('sub_signals', [])
         if 'winner_drift' in subs and data.get('flag'):
@@ -144,19 +149,34 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             current_w = data.get('weight', 0)
             dollars = _round10((current_w - entry_w) * total_equity)
             if dollars > 0:
-                ctas.append({
-                    'priority': 3,
-                    'action': 'rebalance',
-                    'ticker': t,
-                    'dollars': dollars,
-                    'reason': 'winner_drift',
-                    'severity': data['severity'],
-                    'details': {
-                        'current_weight': current_w * 100,
-                        'entry_weight': entry_w * 100,
-                        'drift_multiple': data['details'].get('drift_multiple', 1),
-                    },
-                })
+                if risk_tier == 'low':
+                    ctas.append({
+                        'priority': 3,
+                        'action': 'hold',
+                        'ticker': t,
+                        'dollars': 0.0,
+                        'reason': 'winner_drift_informational',
+                        'severity': data['severity'],
+                        'details': {
+                            'current_weight': current_w * 100,
+                            'entry_weight': entry_w * 100,
+                            'drift_multiple': data['details'].get('drift_multiple', 1),
+                        },
+                    })
+                else:
+                    ctas.append({
+                        'priority': 3,
+                        'action': 'rebalance',
+                        'ticker': t,
+                        'dollars': dollars,
+                        'reason': 'winner_drift',
+                        'severity': data['severity'],
+                        'details': {
+                            'current_weight': current_w * 100,
+                            'entry_weight': entry_w * 100,
+                            'drift_multiple': data['details'].get('drift_multiple', 1),
+                        },
+                    })
 
     # --- Priority 4: Index fund informational (HOLD) ---
     for t, data in idx_res.get('ticker_results', {}).items():
@@ -351,24 +371,25 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                     },
                 })
 
-    # --- Priority 8: Dead weight (SELL) ---
-    for t, s_data in slope_res.get('ticker_results', {}).items():
-        w = ticker_weights.get(t, 0)
-        ann = s_data.get('details', {}).get('annualized_pct', 0)
-        if w < 0.02 and ann <= 2.0 and t not in INDEX_ETFS:
-            pos_value = w * total_equity
-            ctas.append({
-                'priority': 8,
-                'action': 'sell',
-                'ticker': t,
-                'dollars': _round10(pos_value),
-                'reason': 'dead_weight',
-                'severity': 'low',
-                'details': {
-                    'weight_pct': w * 100,
-                    'position_value': pos_value,
-                },
-            })
+    # --- Priority 8: Dead weight (SELL — suppressed for conservative) ---
+    if risk_tier != 'low':
+        for t, s_data in slope_res.get('ticker_results', {}).items():
+            w = ticker_weights.get(t, 0)
+            ann = s_data.get('details', {}).get('annualized_pct', 0)
+            if w < 0.02 and ann <= 2.0 and t not in INDEX_ETFS:
+                pos_value = w * total_equity
+                ctas.append({
+                    'priority': 8,
+                    'action': 'sell',
+                    'ticker': t,
+                    'dollars': _round10(pos_value),
+                    'reason': 'dead_weight',
+                    'severity': 'low',
+                    'details': {
+                        'weight_pct': w * 100,
+                        'position_value': pos_value,
+                    },
+                })
 
     # --- Priority 9: Underrepresented sector (BUY — up to 3 CTAs) ---
     conc_details = port_conc.get('details', {})
