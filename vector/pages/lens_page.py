@@ -506,6 +506,7 @@ class _CTAReportCard(QFrame):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded,
         )
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setMinimumHeight(400)
         self._scroll.setMaximumHeight(self._MAX_VISIBLE_HEIGHT)
 
         self._items_widget = QWidget()
@@ -537,9 +538,19 @@ class _CTAReportCard(QFrame):
         }
 
         for i, sentence in enumerate(full_report):
-            action = ctas[i].get('action', 'hold') if i < len(ctas) else 'hold'
+            cta = ctas[i] if i < len(ctas) else {}
+            action = cta.get('action', 'hold')
             color = _ACTION_INDICATOR_COLORS.get(action, '#8d98af')
             action_label = _ACTION_LABELS.get(action, 'HOLD')
+
+            # Build tag text with dollar amount
+            dollars = cta.get('dollars', 0.0)
+            if dollars and action in ('sell', 'rebalance'):
+                tag_text = f'{action_label}  -${dollars:,.0f}'
+            elif dollars and action in ('buy_new', 'buy_more'):
+                tag_text = f'{action_label}  +${dollars:,.0f}'
+            else:
+                tag_text = action_label
 
             card = QFrame()
             card.setStyleSheet(
@@ -550,7 +561,7 @@ class _CTAReportCard(QFrame):
             card_layout.setContentsMargins(14, 10, 14, 10)
             card_layout.setSpacing(4)
 
-            tag = QLabel(action_label)
+            tag = QLabel(tag_text)
             tag.setStyleSheet(
                 f'font-size: 8pt; font-weight: 700; color: {color};'
                 ' border: none; background: transparent;'
@@ -566,6 +577,12 @@ class _CTAReportCard(QFrame):
             card_layout.addWidget(text)
 
             self._items_layout.addWidget(card)
+
+        # Extra spacing at the bottom so the last item isn't clipped
+        spacer = QWidget()
+        spacer.setFixedHeight(4)
+        spacer.setStyleSheet('background: transparent; border: none;')
+        self._items_layout.addWidget(spacer)
 
 
 class VectorLensPage(QWidget):

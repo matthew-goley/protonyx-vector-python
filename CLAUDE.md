@@ -37,7 +37,7 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `main.py` | Entry point — calls `vector.app.main()` |
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `main()` — all page classes live in `vector/pages/` |
 | `vector/pages/dashboard.py` | `DashboardPage`, `DashboardGrid`, `WidgetPickerDialog`, grid constants (`_UNIT`, `_GAP`, `_CELL`, `_CONTENT_W`) |
-| `vector/pages/lens_page.py` | `VectorLensPage`, `_GraphCard` (Monte Carlo), `_PieCard` (diversification pie), `_CTAReportCard` (full CTA list), `_CautionCard`, `_MCContextCard` |
+| `vector/pages/lens_page.py` | `VectorLensPage`, `_GraphCard` (Lens Projection graphs), `_PieCard` (diversification pie), `_CTAReportCard` (scrollable projections list with bordered cards), `_CautionCard`, `_MCContextCard` |
 | `vector/pages/onboarding.py` | `OnboardingPage`, `PositionDialog`, `PositionCard`, `_RiskTierCard` (risk tier selection during onboarding) |
 | `vector/pages/profile.py` | `ProfilePage` |
 | `vector/pages/settings.py` | `SettingsPage`, `_AccordionSection`, `_AnimatedChevron`, `QDoubleSpinBoxCompat`, `_RiskTierOption` (investment style card) |
@@ -184,17 +184,22 @@ Returns `projected_positions` (list) and `net_cta_delta` (net cash flow: buys mi
 
 `LensDisplay.refresh()` in `widget_types/lens.py` handles all tuple lengths (7, 6, 5, 4, 3, 2) for backwards compatibility.
 
-### Monte Carlo (Lens page)
+### Lens Projections (Lens page)
 
-`_GraphCard` in `pages/lens_page.py` renders GBM projections. Key notes:
+`_GraphCard` in `pages/lens_page.py` renders GBM projection graphs (referred to as "Lens Projections" in the UI, not "Monte Carlo"). Key notes:
 - Graph A ("Current Portfolio"): projects the portfolio as-is using current positions.
-- Graph B ("With All Lens Recommendations"): uses `projected_positions` (all CTAs applied) for Monte Carlo simulation. Title shows sell/buy totals: "With All Lens Recommendations — -$X  +$Y".
+- Graph B ("With All Lens Projections"): uses `projected_positions` (all CTAs applied) for simulation. Title shows the **net** dollar change as a single value: "With All Lens Projections — +$X" or "— -$X" (not separate sell/buy totals).
 - Both graphs pass `total_equity` as `current_value` to `run_projection` so historical curves normalise to the same base.
 - Projections display percentage change relative to current equity, not raw dollar values.
+- Graph margins: `subplots_adjust(left=0.04, right=0.86, top=0.92, bottom=0.16)` with 10% y-axis padding to prevent fan bands from being clipped at the edges.
 - matplotlib `FigureCanvasQTAgg` captures wheel events — fixed with `self._canvas.wheelEvent = lambda event: event.ignore()` so scrolling works when the mouse is over a chart.
 - Monte Carlo parameters (projection period, simulation count) are configurable via Settings → Monte Carlo and stored under `monte_carlo` in `settings.json`. Mapping constants: `MONTE_CARLO_HORIZON_DAYS`, `MONTE_CARLO_SIMULATIONS` in `constants.py`.
-- Between the projection graphs and the pie charts, two insight cards are rendered side-by-side: `_CautionCard` (left, 1:2 ratio) shows a semi-circular arc gauge with the portfolio caution score (1–99); `_MCContextCard` (right) shows a multi-CTA context description (sell total, buy total, net delta). Both are populated in `VectorLensPage._update_insights()`.
-- Below the pie charts, `_CTAReportCard` displays all CTA recommendations with colored action-type indicators (red=sell, blue=buy, orange=rebalance, grey=hold) and dollar amounts.
+- Between the projection graphs and the pie charts, two insight cards are rendered side-by-side: `_CautionCard` (left, 1:2 ratio) shows a semi-circular arc gauge with the portfolio caution score (1–99); `_MCContextCard` (right, titled "What the Lens Projection shows") shows a multi-CTA context description using "projection" terminology. Both are populated in `VectorLensPage._update_insights()`.
+- Above the graphs, `_CTAReportCard` (titled "All Projections") displays all CTA projections in a **scrollable list** (min height 400px, max 1500px) of individually bordered cards. Each card has:
+  - A colored left border (3px) matching the action type (red=sell, blue=buy, orange=rebalance, grey=hold)
+  - A bold action tag with dollar amount (e.g. `SELL  -$1,200`, `BUY  +$500`, `HOLD`)
+  - The projection description text below
+  - A bottom spacer to prevent the last item from being clipped
 - Pie A ("Current Allocation"): sector grouping from current positions. Pie B ("Projected Allocation"): sector grouping from `projected_positions`.
 
 ### Settings Page (`pages/settings.py`)
