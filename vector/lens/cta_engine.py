@@ -138,6 +138,7 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                         'severity': sev,
                         'details': {
                             'vol_pct': data['details'].get('annualized_vol', 0),
+                            'weight_pct': data.get('weight', 0) * 100,
                         },
                     })
 

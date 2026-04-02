@@ -387,6 +387,7 @@ class _PieCard(QFrame):
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName('cardFrame')
+        self.setStyleSheet('QFrame#cardFrame { border-radius: 0px; }')
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(32)
         shadow.setOffset(0, 10)
@@ -473,8 +474,6 @@ class _PieCard(QFrame):
 class _CTAReportCard(QFrame):
     """Card displaying all CTA recommendations with action-type indicators."""
 
-    _MAX_VISIBLE_HEIGHT = 1500
-
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName('cardFrame')
@@ -496,25 +495,10 @@ class _CTAReportCard(QFrame):
         title.setStyleSheet('font-size: 12pt; font-weight: 700;')
         self._outer.addWidget(title)
 
-        # Scrollable area for recommendation items
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
-        )
-        self._scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded,
-        )
-        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll.setMinimumHeight(400)
-        self._scroll.setMaximumHeight(self._MAX_VISIBLE_HEIGHT)
-
-        self._items_widget = QWidget()
-        self._items_layout = QVBoxLayout(self._items_widget)
+        self._items_layout = QVBoxLayout()
         self._items_layout.setContentsMargins(0, 0, 0, 0)
-        self._items_layout.setSpacing(10)
-        self._scroll.setWidget(self._items_widget)
-        self._outer.addWidget(self._scroll)
+        self._items_layout.setSpacing(8)
+        self._outer.addLayout(self._items_layout)
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
         # Clear existing items
@@ -558,10 +542,11 @@ class _CTAReportCard(QFrame):
                 f' border-left: 3px solid {color}; border-radius: 6px; }}'
             )
             card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(14, 10, 14, 10)
-            card_layout.setSpacing(4)
+            card_layout.setContentsMargins(12, 6, 12, 6)
+            card_layout.setSpacing(2)
 
             tag = QLabel(tag_text)
+            tag.setFixedHeight(16)
             tag.setStyleSheet(
                 f'font-size: 8pt; font-weight: 700; color: {color};'
                 ' border: none; background: transparent;'
@@ -572,17 +557,12 @@ class _CTAReportCard(QFrame):
             text.setWordWrap(True)
             text.setStyleSheet(
                 'font-size: 10pt; color: #c7cedb; border: none;'
-                ' background: transparent;'
+                ' background: transparent; line-height: 1.2;'
             )
             card_layout.addWidget(text)
 
             self._items_layout.addWidget(card)
 
-        # Extra spacing at the bottom so the last item isn't clipped
-        spacer = QWidget()
-        spacer.setFixedHeight(4)
-        spacer.setStyleSheet('background: transparent; border: none;')
-        self._items_layout.addWidget(spacer)
 
 
 class VectorLensPage(QWidget):

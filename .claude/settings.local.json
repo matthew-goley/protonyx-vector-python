@@ -44,7 +44,8 @@
       "Bash(python -c \"from vector.app import main; print\\(''Import OK''\\)\")",
       "Bash(python -c \"import vector.lens.cta_engine; print\\('OK'\\)\")",
       "Bash(python -c \"import vector.lens.sentence3; print\\('OK'\\)\")",
-      "Bash(python -c \"import json; json.load\\(open\\('vector/lens/templates/sentences.json'\\)\\); print\\('JSON OK'\\)\")"
+      "Bash(python -c \"import json; json.load\\(open\\('vector/lens/templates/sentences.json'\\)\\); print\\('JSON OK'\\)\")",
+      "Bash(python -c \"import vector.pages.lens_page; print\\('OK'\\)\")"
     ]
   }
 }

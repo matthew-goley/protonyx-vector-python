@@ -38,7 +38,7 @@ def _build_ctx(cta: dict, pool_results: dict) -> dict[str, Any]:
     return {
         'ticker': cta.get('ticker', ''),
         'dollars': cta.get('dollars', 0),
-        'weight': details.get('current_weight', details.get('weight_pct', 0)),
+        'weight': details.get('current_weight', details.get('weight_pct', details.get('weight', 0))),
         'slope': details.get('slope_pct', 0),
         'vol': details.get('vol_pct', 0),
         'sector': details.get('target_sector', details.get('heavy_sector', '')),

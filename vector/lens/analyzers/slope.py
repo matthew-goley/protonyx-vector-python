@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 from vector.analytics import linear_regression_slope_percent
 
 _log = logging.getLogger(__name__)
+
+_MIN_DATA_POINTS = 30
+_SLOPE_CLAMP_MIN = -100.0
+_SLOPE_CLAMP_MAX = 200.0
 
 
 def _classify(annualized_pct: float, thresholds: dict[str, float]) -> str:
@@ -41,19 +46,37 @@ def analyze(
         weight = eq / total_equity
         try:
             hist = store.get_history(t, '6mo', refresh) or []
-            raw_slope = linear_regression_slope_percent(hist)
-            annualized = raw_slope * 252
+            if len(hist) < _MIN_DATA_POINTS:
+                raw_slope = 0.0
+                annualized = 0.0
+                insufficient_data = True
+            else:
+                raw_slope = linear_regression_slope_percent(hist)
+                annualized = raw_slope * 252
+                insufficient_data = False
         except Exception:
             raw_slope = 0.0
             annualized = 0.0
+            insufficient_data = True
 
-        sev = _classify(annualized, thresholds)
+        # Guard against NaN/Inf and clamp extreme values
+        if not math.isfinite(annualized):
+            annualized = 0.0
+            raw_slope = 0.0
+            insufficient_data = True
+        else:
+            annualized = max(_SLOPE_CLAMP_MIN, min(_SLOPE_CLAMP_MAX, annualized))
+
+        if insufficient_data:
+            sev = 'none'
+        else:
+            sev = _classify(annualized, thresholds)
         direction = 'up' if annualized > 5 else ('down' if annualized < -5 else 'flat')
 
         ticker_results[t] = {
             'value': annualized,
             'severity': sev,
-            'flag': sev in ('moderate', 'high', 'critical'),
+            'flag': sev in ('moderate', 'high', 'critical') and not insufficient_data,
             'weight': weight,
             'details': {
                 'direction': direction,
