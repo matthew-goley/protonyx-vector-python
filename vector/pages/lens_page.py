@@ -387,7 +387,6 @@ class _PieCard(QFrame):
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName('cardFrame')
-        self.setStyleSheet('QFrame#cardFrame { border-radius: 0px; }')
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(32)
         shadow.setOffset(0, 10)

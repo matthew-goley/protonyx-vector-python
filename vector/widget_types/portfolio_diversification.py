@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QWidget, QSizePolicy
-from PyQt6.QtGui import QFont, QColor, QPainter, QPen
+from PyQt6.QtGui import QFont, QColor, QPainter
 from PyQt6.QtCore import Qt, QRectF
 
 from vector.widget_base import VectorWidget
@@ -28,7 +28,7 @@ def _title_font(size: int = 22) -> QFont:
 
 
 class _DonutChart(QWidget):
-    """Modern donut pie chart with rounded segment ends and a dark center hole."""
+    """Simple filled pie chart."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -47,41 +47,22 @@ class _DonutChart(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Square area centered in the widget
         side = min(self.width(), self.height())
         x_off = (self.width() - side) / 2
         y_off = (self.height() - side) / 2
         margin = 6.0
         rect = QRectF(x_off + margin, y_off + margin, side - margin * 2, side - margin * 2)
 
-        thickness = side * 0.18  # donut ring width
-        pen_width = thickness
+        painter.setPen(Qt.PenStyle.NoPen)
 
-        # Draw each arc segment
-        start_angle = 90 * 16  # start from top (Qt uses 1/16th degrees, 0 = 3 o'clock)
+        start_angle = 90 * 16  # top (Qt: 0 = 3 o'clock, angles in 1/16 deg)
         for pct, color in self._slices:
             span = int(round(pct / 100.0 * 360 * 16))
             if span == 0:
                 continue
-
-            pen = QPen(color, pen_width)
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-
-            # Inset the rect so the thick pen stays inside
-            inset = pen_width / 2
-            arc_rect = rect.adjusted(inset, inset, -inset, -inset)
-            painter.drawArc(arc_rect, start_angle, -span)  # negative = clockwise
+            painter.setBrush(color)
+            painter.drawPie(rect, start_angle, -span)
             start_angle -= span
-
-        # Dark center circle for the "donut hole"
-        hole_r = (side / 2 - margin) - thickness
-        if hole_r > 0:
-            center = rect.center()
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor('#0b1020'))
-            painter.drawEllipse(center, hole_r, hole_r)
 
         painter.end()
 
