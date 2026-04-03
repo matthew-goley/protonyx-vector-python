@@ -495,14 +495,27 @@ class _CTAReportCard(QFrame):
         title.setStyleSheet('font-size: 12pt; font-weight: 700;')
         self._outer.addWidget(title)
 
-        self._items_layout = QVBoxLayout()
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setStyleSheet('QScrollArea { background: transparent; border: none; }')
+        self._scroll.setMinimumHeight(120)
+        self._scroll.setMaximumHeight(500)
+
+        items_container = QWidget()
+        items_container.setStyleSheet('background: transparent;')
+        self._items_layout = QVBoxLayout(items_container)
         self._items_layout.setContentsMargins(0, 0, 0, 0)
         self._items_layout.setSpacing(8)
-        self._outer.addLayout(self._items_layout)
+        self._items_layout.addStretch(1)
+        self._scroll.setWidget(items_container)
+        self._outer.addWidget(self._scroll)
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
-        # Clear existing items
-        while self._items_layout.count():
+        # Clear existing items (leave the trailing stretch)
+        while self._items_layout.count() > 1:
             item = self._items_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
@@ -510,7 +523,7 @@ class _CTAReportCard(QFrame):
         if not full_report:
             lbl = QLabel('No projections at this time.')
             lbl.setStyleSheet('font-size: 10pt; color: #8d98af;')
-            self._items_layout.addWidget(lbl)
+            self._items_layout.insertWidget(0, lbl)
             return
 
         _ACTION_LABELS: dict[str, str] = {
@@ -561,8 +574,7 @@ class _CTAReportCard(QFrame):
             )
             card_layout.addWidget(text)
 
-            self._items_layout.addWidget(card)
-
+            self._items_layout.insertWidget(i, card)
 
 
 class VectorLensPage(QWidget):
