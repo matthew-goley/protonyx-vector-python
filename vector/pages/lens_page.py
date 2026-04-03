@@ -502,7 +502,7 @@ class _CTAReportCard(QFrame):
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setStyleSheet('QScrollArea { background: transparent; border: none; }')
         self._scroll.setMinimumHeight(120)
-        self._scroll.setMaximumHeight(500)
+        self._scroll.setMaximumHeight(700)
 
         items_container = QWidget()
         items_container.setStyleSheet('background: transparent;')
