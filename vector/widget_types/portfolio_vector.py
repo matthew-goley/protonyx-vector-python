@@ -1,7 +1,7 @@
 """
 Portfolio Vector widget — directional arrow + plain-language verdict.
 
-The arrow always renders with the app's signature blue-to-purple gradient.
+The arrow always renders with the app's signature teal-to-navy gradient.
 Direction is communicated through angle alone. A verdict sentence on the right
 explains what the data means in plain terms, similar to the Lens display.
 """
@@ -16,10 +16,9 @@ from vector.analytics import classify_direction, linear_regression_slope_percent
 from vector.widget_base import VectorWidget
 
 _MUTED = '#8d98af'
-_GRAD_START = '#34a7ff'
-_GRAD_MID1   = '#a256f6'
-_GRAD_MID2   = '#e34ec6'
-_GRAD_END   = '#fd8a83'
+_GRAD_START = '#2dd4bf'
+_GRAD_MID   = '#38bdf8'
+_GRAD_END   = '#1e3a8a'
 
 # Plain-language verdicts per direction label.
 # Picked deterministically by slope magnitude so the text is stable across refreshes.
@@ -62,7 +61,7 @@ def _font(size: int, bold: bool = True) -> QFont:
 class _VectorArrow(QWidget):
     """
     Arrow spanning its width, tilted by angle degrees.
-    Always renders with the app's blue-to-purple gradient — direction
+    Always renders with the app's teal-to-navy gradient — direction
     is read from the angle alone, not colour.
     """
 
@@ -103,19 +102,18 @@ class _VectorArrow(QWidget):
         path.moveTo(x0, y0)
         path.quadTo(x_ctrl, y_ctrl, x_end, y_end)
 
-        # --- glow (soft purple halo) ---
+        # --- glow (soft teal halo) ---
         glow = QColor(_GRAD_END)
         glow.setAlpha(35)
         painter.strokePath(path, QPen(glow, 22, Qt.PenStyle.SolidLine,
                                       Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
 
-        # --- gradient shaft: 4-key gradient, left to right ---
+        # --- gradient shaft: 3-key gradient, left to right ---
         grad = QLinearGradient(x0, 0.0, x_end, 0.0)
         c_start = QColor(_GRAD_START)
         c_start.setAlpha(170)
         grad.setColorAt(0.0, c_start)
-        grad.setColorAt(0.33, QColor(_GRAD_MID1))
-        grad.setColorAt(0.66, QColor(_GRAD_MID2))
+        grad.setColorAt(0.5, QColor(_GRAD_MID))
         grad.setColorAt(1.0, QColor(_GRAD_END))
         painter.strokePath(path, QPen(grad, 7, Qt.PenStyle.SolidLine,
                                       Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))

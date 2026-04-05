@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Vector** is a PyQt6 desktop portfolio analytics app for stock investors. It tracks positions, fetches market data via Yahoo Finance (yfinance), and displays analytics (trend direction, volatility, sector allocation, Sharpe ratio, beta, dividends) in a customisable dark/light themed dashboard. Data is persisted locally in `%LOCALAPPDATA%/Protonyx/Vector/` (falls back to `~/Vector/data/`) as JSON files.
 
-Current version: **0.3.8**
+Current version: **0.3.9**
 
 ## Setup & Running
 
@@ -22,7 +22,7 @@ No build step, test suite, or linter is configured.
 ## Building (Nuitka)
 
 ```bash
-python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 --output-filename="Vector-v0.3.8.exe" --include-data-dir=assets=assets main.py
+python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 --output-filename="Vector-v0.3.9.exe" --include-data-dir=assets=assets main.py
 ```
 
 - `--include-data-dir=assets=assets` copies the entire `assets/` folder next to the exe
@@ -175,7 +175,7 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 
 **Sentence templates:** All templates live in `vector/lens/templates/sentences.json`, organized by sentence type → signal category → severity. Each leaf has 5+ variations. Selection is deterministic (SHA-256 hash of portfolio state). All language is observational — no directives.
 
-**Color mapping:** Action type → hex color: `sell` → `#ff4d4d`, `rebalance` → `#ff9f43`, `buy_new`/`buy_more` → `#4da6ff`, `hold` → `#8d98af`.
+**Color mapping:** Action type → hex color: `sell` → `#ff4d4d`, `rebalance` → `#ff9f43`, `buy_new`/`buy_more` → `#38bdf8`, `hold` → `#8d98af`.
 
 **Caution score:** 1–99, computed as `total CTA dollars / total equity × 100` (clamped). Represents what fraction of the portfolio the engine suggests moving.
 
@@ -200,7 +200,7 @@ Returns `projected_positions` (list) and `net_cta_delta` (net cash flow: buys mi
 - Monte Carlo parameters (projection period, simulation count) are configurable via Settings → Monte Carlo and stored under `monte_carlo` in `settings.json`. Mapping constants: `MONTE_CARLO_HORIZON_DAYS`, `MONTE_CARLO_SIMULATIONS` in `constants.py`.
 - Between the projection graphs and the pie charts, two insight cards are rendered side-by-side: `_CautionCard` (left, 1:2 ratio) shows a semi-circular arc gauge with the portfolio caution score (1–99); `_MCContextCard` (right, titled "What the Lens Projection shows") shows a multi-CTA context description using "projection" terminology. Both are populated in `VectorLensPage._update_insights()`.
 - Above the graphs, `_CTAReportCard` (titled "All Projections") displays all CTA projections in a **scrollable list** (min height 400px, max 1500px) of individually bordered cards. Each card has:
-  - A colored left border (3px) matching the action type (red=sell, blue=buy, orange=rebalance, grey=hold)
+  - A colored left border (3px) matching the action type (red=sell, sky-blue=buy, orange=rebalance, grey=hold)
   - A bold action tag with dollar amount (e.g. `SELL  -$1,200`, `BUY  +$500`, `HOLD`)
   - The projection description text below
   - A bottom spacer to prevent the last item from being clipped

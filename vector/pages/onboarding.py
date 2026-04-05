@@ -178,7 +178,7 @@ _RISK_TIERS = [
             'volatility, and suggest action sooner. Best if you prefer '
             'steady, predictable returns.'
         ),
-        'color': '#4da6ff',
+        'color': '#2dd4bf',
     },
     {
         'key': 'regular',
@@ -189,7 +189,7 @@ _RISK_TIERS = [
             'normal market swings but flags meaningful risks. Good for '
             'most investors.'
         ),
-        'color': '#a256f6',
+        'color': '#38bdf8',
     },
     {
         'key': 'high',
@@ -200,7 +200,7 @@ _RISK_TIERS = [
             'steeper dips before flagging anything. Best if you\'re '
             'comfortable with big swings for bigger potential upside.'
         ),
-        'color': '#fd8a83',
+        'color': '#1e3a8a',
     },
 ]
 

@@ -253,10 +253,10 @@ class _PickerCard(QFrame):
 
     def _set_style(self, hovered: bool) -> None:
         if self._featured:
-            border = '#34a7ff' if not hovered else '#6aaaff'
+            border = '#2dd4bf' if not hovered else '#4ee8d3'
             bg = '#131e35' if hovered else '#0f1a2e'
         else:
-            border = '#34a7ff' if hovered else '#2c364a'
+            border = '#2dd4bf' if hovered else '#2c364a'
             bg = '#151e30' if hovered else '#121828'
         self.setStyleSheet(f"""
             QFrame {{
@@ -332,7 +332,7 @@ def _circle_btn_style(font_size: int, active: bool = False) -> str:
         return f"""
             QPushButton {{
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #5cc0ff, stop:0.33 #b87af8, stop:0.66 #ea6ed4, stop:1 #fea69c);
+                    stop:0 #4ee8d3, stop:0.5 #5dd1ff, stop:1 #2d52b2);
                 color: #ffffff;
                 font-size: {font_size}pt;
                 font-weight: 700;
@@ -343,7 +343,7 @@ def _circle_btn_style(font_size: int, active: bool = False) -> str:
     return f"""
         QPushButton {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #34a7ff, stop:0.33 #a256f6, stop:0.66 #e34ec6, stop:1 #fd8a83);
+                stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);
             color: #ffffff;
             font-size: {font_size}pt;
             font-weight: 300;
@@ -352,11 +352,11 @@ def _circle_btn_style(font_size: int, active: bool = False) -> str:
         }}
         QPushButton:hover {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #5cc0ff, stop:0.33 #b87af8, stop:0.66 #ea6ed4, stop:1 #fea69c);
+                stop:0 #4ee8d3, stop:0.5 #5dd1ff, stop:1 #2d52b2);
         }}
         QPushButton:pressed {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                stop:0 #2a8fee, stop:0.33 #8a3fd6, stop:0.66 #c63aaa, stop:1 #d9705f);
+                stop:0 #20a892, stop:0.5 #1f9fd0, stop:1 #142a68);
         }}
     """
 

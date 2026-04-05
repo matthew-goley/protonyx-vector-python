@@ -187,19 +187,19 @@ _RISK_TIERS_SETTINGS = [
         'key': 'low',
         'label': 'Conservative',
         'description': 'Tighter guardrails \u2014 flags smaller risks sooner',
-        'color': '#4da6ff',
+        'color': '#2dd4bf',
     },
     {
         'key': 'regular',
         'label': 'Moderate',
         'description': 'Balanced \u2014 standard thresholds for most investors',
-        'color': '#a256f6',
+        'color': '#38bdf8',
     },
     {
         'key': 'high',
         'label': 'Aggressive',
         'description': 'Wider guardrails \u2014 tolerates bigger swings',
-        'color': '#fd8a83',
+        'color': '#1e3a8a',
     },
 ]
 

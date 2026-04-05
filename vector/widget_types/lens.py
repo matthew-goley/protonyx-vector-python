@@ -8,10 +8,9 @@ from vector.lens_engine import generate_lens
 
 _MUTED      = '#8d98af'
 _BG         = '#121828'
-_GRAD_START = '#34a7ff'
-_GRAD_MID   = '#a256f6'
-_GRAD_MID2  = '#e34ec6'
-_GRAD_END   = '#fd8a83'
+_GRAD_START = '#2dd4bf'
+_GRAD_MID   = '#38bdf8'
+_GRAD_END   = '#1e3a8a'
 
 # Sector names → mid gradient
 _SECTORS = {
@@ -51,11 +50,11 @@ def _apply_to_text(s: str, fn) -> str:
 def _highlight_html(text: str) -> str:
     """
     Return HTML where important parts are gradient-colored:
-      - ticker symbols (ALL-CAPS 2-5 letters)  → blue  #34a7ff
-      - known sector names                      → mid   #a256f6
-      - financial / portfolio terms             → mid   #a256f6
-      - action phrases ("next deposit" etc.)    → blue  #34a7ff
-      - numbers / percentages / $ amounts       → purple #fd8a83
+      - ticker symbols (ALL-CAPS 2-5 letters)  → teal  #2dd4bf
+      - known sector names                      → mid   #38bdf8
+      - financial / portfolio terms             → mid   #38bdf8
+      - action phrases ("next deposit" etc.)    → teal  #2dd4bf
+      - numbers / percentages / $ amounts       → navy  #1e3a8a
       - everything else                         → white #e7ebf3
     """
     s = (text
@@ -71,7 +70,7 @@ def _highlight_html(text: str) -> str:
             chunk, flags=re.IGNORECASE,
         ))
 
-    # 2. Numbers, percentages, dollar amounts → purple
+    # 2. Numbers, percentages, dollar amounts → navy
     s = _apply_to_text(s, lambda chunk: re.sub(
         r'([+\-]?\$?[\d,]+\.?\d*\s*%|[+\-]?\$[\d,]+\.?\d*|\b\d+\.?\d*\b)',
         lambda m: _wrap(m.group(), _GRAD_END) if re.search(r'\d', m.group()) else m.group(),
@@ -113,7 +112,7 @@ def _font(size: int, bold: bool = True) -> QFont:
 
 
 class _AccentFrame(QFrame):
-    """Card with a blue→purple gradient left accent bar and border."""
+    """Card with a teal→navy gradient left accent bar and border."""
 
     def paintEvent(self, _event) -> None:  # noqa: N802
         painter = QPainter(self)
@@ -124,8 +123,7 @@ class _AccentFrame(QFrame):
         painter.drawRoundedRect(QRectF(self.rect()), 12, 12)
         bar_grad = QLinearGradient(0, 16, 0, h - 16)
         bar_grad.setColorAt(0.0, QColor(_GRAD_START))
-        bar_grad.setColorAt(0.33, QColor(_GRAD_MID))
-        bar_grad.setColorAt(0.66, QColor(_GRAD_MID2))
+        bar_grad.setColorAt(0.5, QColor(_GRAD_MID))
         bar_grad.setColorAt(1.0, QColor(_GRAD_END))
         painter.setBrush(bar_grad)
         painter.drawRoundedRect(QRectF(0, 16, 4, h - 32), 2, 2)
@@ -133,8 +131,7 @@ class _AccentFrame(QFrame):
         c0 = QColor(_GRAD_START); c0.setAlpha(80)
         c1 = QColor(_GRAD_END);   c1.setAlpha(80)
         border_grad.setColorAt(0.0, c0)
-        border_grad.setColorAt(0.33, QColor(_GRAD_MID))
-        border_grad.setColorAt(0.66, QColor(_GRAD_MID2))
+        border_grad.setColorAt(0.5, QColor(_GRAD_MID))
         border_grad.setColorAt(1.0, c1)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(border_grad, 1))
@@ -192,7 +189,7 @@ class LensDisplay(QFrame):
             self._open_btn.setStyleSheet("""
                 QPushButton {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #34a7ff, stop:0.33 #a256f6, stop:0.66 #e34ec6, stop:1 #fd8a83);
+                        stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);
                     color: #ffffff;
                     border: none;
                     border-radius: 10px;
@@ -202,7 +199,7 @@ class LensDisplay(QFrame):
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #5cc0ff, stop:0.33 #b87af8, stop:0.66 #ea6ed4, stop:1 #fea69c);
+                        stop:0 #4ee8d3, stop:0.5 #5dd1ff, stop:1 #2d52b2);
                 }
             """)
             self._open_btn.clicked.connect(self.open_lens_clicked.emit)

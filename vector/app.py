@@ -55,7 +55,7 @@ QPushButton {
 QPushButton:hover { background: #202b41; }
 QPushButton:pressed { background: #121929; }
 QPushButton[accent='true'] {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #34a7ff, stop:0.33 #a256f6, stop:0.66 #e34ec6, stop:1 #fd8a83);
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);
     color: #ffffff;
     border: none;
     font-weight: 600;
@@ -65,7 +65,7 @@ QPushButton[accent='true']:disabled {
     color: #6a8fc4;
 }
 QPushButton[accent='true'][loading='true']:disabled {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #34a7ff, stop:0.33 #a256f6, stop:0.66 #e34ec6, stop:1 #fd8a83);
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);
     color: rgba(255, 255, 255, 180);
 }
 QLineEdit, QComboBox, QListWidget, QSpinBox, QTableWidget {
@@ -149,7 +149,7 @@ QFrame#vectorWidget {
     border: 1px solid #2c364a;
     border-radius: 12px;
 }
-QFrame#vectorWidget[editing="true"] { border-color: #34a7ff; }
+QFrame#vectorWidget[editing="true"] { border-color: #2dd4bf; }
 QPushButton#navButton {
     background: transparent;
     border: 1px solid transparent;
@@ -179,13 +179,13 @@ QPushButton {
     padding: 10px 16px;
 }
 QPushButton[accent='true'] {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #34a7ff, stop:0.33 #a256f6, stop:0.66 #e34ec6, stop:1 #fd8a83);
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);
     color: #ffffff;
     border: none;
     font-weight: 600;
 }
 QPushButton[accent='true'][loading='true']:disabled {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #34a7ff, stop:0.33 #a256f6, stop:0.66 #e34ec6, stop:1 #fd8a83);
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);
     color: rgba(255, 255, 255, 180);
 }
 QLineEdit, QComboBox, QListWidget, QSpinBox, QTableWidget {
@@ -269,7 +269,7 @@ QFrame#vectorWidget {
     border: 1px solid #ccd5e5;
     border-radius: 12px;
 }
-QFrame#vectorWidget[editing="true"] { border-color: #34a7ff; }
+QFrame#vectorWidget[editing="true"] { border-color: #2dd4bf; }
 QPushButton#navButton {
     background: transparent;
     border: 1px solid transparent;
@@ -445,7 +445,7 @@ class VectorMainWindow(QMainWindow):
         path.moveTo(size * 0.22, size * 0.24)
         path.lineTo(size * 0.50, size * 0.76)
         path.lineTo(size * 0.78, size * 0.24)
-        accent_pen = QPen(QColor('#34a7ff'))
+        accent_pen = QPen(QColor('#2dd4bf'))
         accent_pen.setWidth(max(3, size // 12))
         accent_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         accent_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)

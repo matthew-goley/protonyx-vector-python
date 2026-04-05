@@ -31,8 +31,8 @@ _CAUTION_TIERS = [
 _ACTION_INDICATOR_COLORS: dict[str, str] = {
     'sell':      '#ff4d4d',
     'rebalance': '#ff9f43',
-    'buy_new':   '#4da6ff',
-    'buy_more':  '#4da6ff',
+    'buy_new':   '#38bdf8',
+    'buy_more':  '#38bdf8',
     'hold':      '#8d98af',
 }
 
@@ -305,7 +305,7 @@ class _GraphCard(QFrame):
         future_days: list[int],
         bands: dict,
         median: Any,
-        fan_color: str = '#34a7ff',
+        fan_color: str = '#2dd4bf',
         ylim: tuple[float, float] | None = None,
     ) -> None:
         """Draw historical curve + Monte Carlo fan on the embedded axes."""
@@ -343,7 +343,7 @@ class _GraphCard(QFrame):
             ax.plot(
                 list(hist_days) + [0],
                 list(to_pct(np.array(hist_values))) + [0.0],
-                color='#34a7ff', lw=1.5, zorder=3,
+                color='#2dd4bf', lw=1.5, zorder=3,
             )
 
         ax.axvline(x=0, color='#8d98af', lw=1.0, ls='--', alpha=0.55, zorder=2)
@@ -754,7 +754,7 @@ class VectorLensPage(QWidget):
         if result_a is not None:
             future_days, bands_a, median_a = result_a
             self._graph_a.plot(hist_days, hist_values, future_days, bands_a, median_a,
-                               fan_color='#34a7ff', ylim=shared_ylim)
+                               fan_color='#2dd4bf', ylim=shared_ylim)
         else:
             self._graph_a.show_no_data('Insufficient history for projection.')
 
@@ -773,7 +773,7 @@ class VectorLensPage(QWidget):
 
             self._graph_b.set_title(b_title)
             self._graph_b.plot(hist_days, hist_values, future_days_b, bands_b, median_b,
-                               fan_color='#a256f6', ylim=shared_ylim)
+                               fan_color='#38bdf8', ylim=shared_ylim)
         else:
             self._graph_b.show_no_data('No lens guidance available.')
 

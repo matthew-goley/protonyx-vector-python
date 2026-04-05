@@ -5,18 +5,18 @@ from PyQt6.QtCore import Qt, QRectF
 from vector.widget_base import VectorWidget
 
 _MUTED = '#8d98af'
-# Gradient-themed palette: solid picks inspired by the 4-key gradient
+# Gradient-themed palette: solid picks inspired by the 3-key gradient
 _PIE_COLORS = [
-    '#34a7ff',  # blue
-    '#a256f6',  # purple
-    '#e34ec6',  # pink
-    '#fd8a83',  # coral
+    '#2dd4bf',  # teal
+    '#38bdf8',  # sky blue
+    '#1e3a8a',  # navy
     '#54BFFF',  # light blue
     '#FF6B2B',  # orange
     '#4ade80',  # green
     '#f3b84b',  # amber
     '#f87171',  # red
-    '#38bdf8',  # sky
+    '#a5f3fc',  # pale cyan
+    '#6ee7b7',  # light teal
 ]
 
 

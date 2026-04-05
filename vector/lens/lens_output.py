@@ -17,8 +17,8 @@ _log = logging.getLogger(__name__)
 _ACTION_COLORS: dict[str, str] = {
     'sell':      '#ff4d4d',
     'rebalance': '#ff9f43',
-    'buy_new':   '#4da6ff',
-    'buy_more':  '#4da6ff',
+    'buy_new':   '#38bdf8',
+    'buy_more':  '#38bdf8',
     'hold':      '#8d98af',
 }
 
