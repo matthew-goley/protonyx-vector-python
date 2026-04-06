@@ -279,7 +279,7 @@ All assets live in `assets/` and are loaded via `resource_path()`:
 | File | Purpose |
 |---|---|
 | `assets/vector_full.png` | Full logo used in the UI |
-| `assets/vector_taskbar.png` | Taskbar / window icon |
+| `assets/vector.ico` | Taskbar / window icon |
 | `assets/splashboard.png` | Splash screen image (1400×800 source, displayed at 700×400) |
 
 `resource_path()` in `vector/paths.py` handles three environments:
@@ -287,4 +287,4 @@ All assets live in `assets/` and are loaded via `resource_path()`:
 - **PyInstaller**: resolves from `sys._MEIPASS`
 - **Nuitka standalone**: resolves from `Path(sys.executable).parent` (detected via `sys.frozen`)
 
-The app falls back to a procedurally generated placeholder logo if `vector_full.png` or `vector_taskbar.png` are missing. The splash screen is silently skipped if `splashboard.png` is missing (pixmap will be null).
+The app falls back to a procedurally generated placeholder logo if `vector_full.png` or `vector.ico` are missing. The splash screen is silently skipped if `splashboard.png` is missing (pixmap will be null).

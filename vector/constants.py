@@ -10,7 +10,7 @@ APP_STATE_FILE = DATA_DIR / 'app_state.json'
 MARKET_DATA_FILE = DATA_DIR / 'market_data.json'
 LAYOUT_FILE = DATA_DIR / 'dashboard_layout.json'
 LOGO_PATH = resource_path('assets', 'vector_full.png')
-TASKBAR_LOGO_PATH = resource_path('assets', 'vector_taskbar.png')
+TASKBAR_LOGO_PATH = resource_path('assets', 'vector.ico')
 
 DEFAULT_SETTINGS = {
     'theme': 'Dark',

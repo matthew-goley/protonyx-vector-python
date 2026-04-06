@@ -550,10 +550,10 @@ def main(
         app = QApplication(sys.argv)
 
     app.setApplicationName(APP_NAME)
-    taskbar_pixmap = QPixmap(str(TASKBAR_LOGO_PATH))
+    taskbar_icon = QIcon(str(TASKBAR_LOGO_PATH))
     app.setWindowIcon(
-        QIcon(taskbar_pixmap if not taskbar_pixmap.isNull()
-              else VectorMainWindow.create_placeholder_logo(128))
+        taskbar_icon if not taskbar_icon.isNull()
+        else QIcon(VectorMainWindow.create_placeholder_logo(128))
     )
 
     if splash is None:

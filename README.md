@@ -75,7 +75,7 @@ Nothing is sent externally. Market data is fetched from Yahoo Finance on demand 
 Place logo files at:
 
 - `assets/vector_full.png` — full wordmark, shown on the onboarding screen
-- `assets/vector_taskbar.png` — icon, shown in the window title bar
+- `assets/vector.ico` — icon, shown in the window title bar and taskbar
 
 If either file is missing, Vector renders a generated placeholder automatically and launches normally.
 
