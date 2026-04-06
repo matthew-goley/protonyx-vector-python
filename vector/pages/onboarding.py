@@ -727,17 +727,11 @@ class OnboardingPage(QWidget):
         self._refresh_nav()
 
     def _refresh_stepper(self) -> None:
-        _done = (
-            'background: qlineargradient(x1:0, y1:0, x2:1, y2:0,'
-            ' stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);'
-            ' color: #ffffff; border: none; border-radius: 14px;'
-        )
-        _active = (
-            'background: #1a2233;'
-            ' border: 2px solid #1e3a8a;'
-            ' color: #38bdf8;'
-            ' border-radius: 14px;'
-        )
+        # Each dot samples the app gradient at an evenly spaced position:
+        # Dot 1 → 0% (#2dd4bf), Dot 2 → 33% (#34c5e5),
+        # Dot 3 → 66% (#3093d5), Dot 4 → 100% (#1e3a8a)
+        _dot_colors = ['#2dd4bf', '#34c5e5', '#3093d5', '#1e3a8a']
+        _lit_tpl = 'background: {color}; color: #ffffff; border: none; border-radius: 14px;'
         _idle = (
             'background: #1e2a3a;'
             ' border: none;'
@@ -746,10 +740,8 @@ class OnboardingPage(QWidget):
         )
 
         for i, dot in enumerate(self._dots):
-            if i < self._current_step:
-                dot.setStyleSheet(_done)
-            elif i == self._current_step:
-                dot.setStyleSheet(_active)
+            if i <= self._current_step:
+                dot.setStyleSheet(_lit_tpl.format(color=_dot_colors[i]))
             else:
                 dot.setStyleSheet(_idle)
 
