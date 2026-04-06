@@ -3,30 +3,39 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor, QDoubleValidator, QFont, QPainter, QPen
+from PyQt6.QtGui import QColor, QDoubleValidator, QFont, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
-    QDialogButtonBox,
-    QFormLayout,
     QFrame,
-    QGraphicsDropShadowEffect,
+    QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from ..constants import APP_NAME, COMPANY_NAME
+from ..paths import resource_path
 from ..store import DataStore
 from ..widgets import BlurrableStack, CardFrame, DimOverlay, EmptyState, LoadingButton
 
 if TYPE_CHECKING:
     from vector.app import VectorMainWindow
 
+
+# ── Panel geometry ─────────────────────────────────────────────────────────────
+_PANEL_W = 640
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PositionDialog
+# ──────────────────────────────────────────────────────────────────────────────
 
 class PositionDialog(QDialog):
     def __init__(self, store: DataStore, parent: QWidget | None = None) -> None:
@@ -94,7 +103,6 @@ class PositionDialog(QDialog):
         self.ticker_input.blockSignals(False)
 
     def _try_update_equity_label(self) -> None:
-        """Show an estimated equity from cached price as soon as both fields are filled."""
         ticker = self.ticker_input.text().strip().upper()
         shares_text = self.shares_input.text().strip()
         if not ticker or not shares_text:
@@ -142,6 +150,10 @@ class PositionDialog(QDialog):
         QTimer.singleShot(700, self.accept)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# PositionCard
+# ──────────────────────────────────────────────────────────────────────────────
+
 class PositionCard(CardFrame):
     def __init__(self, position: dict[str, Any], currency_formatter, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -168,38 +180,30 @@ class PositionCard(CardFrame):
         self.setFixedWidth(220)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Risk tier data & card
+# ──────────────────────────────────────────────────────────────────────────────
+
 _RISK_TIERS = [
     {
         'key': 'low',
         'label': 'Conservative',
-        'subtitle': 'Prioritize stability over growth',
-        'description': (
-            'Tighter guardrails. The Lens will flag smaller dips, lower '
-            'volatility, and suggest action sooner. Best if you prefer '
-            'steady, predictable returns.'
-        ),
+        'subtitle': 'Stability first',
+        'description': 'Flags risks early. Tighter thresholds, quicker action suggestions.',
         'color': '#2dd4bf',
     },
     {
         'key': 'regular',
         'label': 'Moderate',
-        'subtitle': 'Balance between growth and safety',
-        'description': (
-            'Standard thresholds. The Lens gives you room to ride out '
-            'normal market swings but flags meaningful risks. Good for '
-            'most investors.'
-        ),
+        'subtitle': 'Balanced approach',
+        'description': 'Standard thresholds. Flags meaningful risks while riding out normal swings.',
         'color': '#38bdf8',
     },
     {
         'key': 'high',
         'label': 'Aggressive',
-        'subtitle': 'Maximize growth potential',
-        'description': (
-            'Wider guardrails. The Lens tolerates higher volatility and '
-            'steeper dips before flagging anything. Best if you\'re '
-            'comfortable with big swings for bigger potential upside.'
-        ),
+        'subtitle': 'Growth focused',
+        'description': 'Wide tolerance. Only flags serious risks — suited for high-swing portfolios.',
         'color': '#1e3a8a',
     },
 ]
@@ -216,6 +220,7 @@ class _RiskTierCard(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedHeight(200)
 
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(24)
         shadow.setOffset(0, 6)
@@ -261,7 +266,6 @@ class _RiskTierCard(QFrame):
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
-            # Notify parent to update selection
             parent = self.parentWidget()
             while parent and not isinstance(parent, OnboardingPage):
                 parent = parent.parentWidget()
@@ -269,124 +273,518 @@ class _RiskTierCard(QFrame):
                 parent._select_risk_tier(self.tier_key)
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Shared QSS helpers
+# ──────────────────────────────────────────────────────────────────────────────
+
+_CARD_QSS = '''
+    QFrame {{
+        background-color: #151b26;
+        border: 1px solid #1e3a8a;
+        border-radius: 10px;
+    }}
+'''
+
+_BACK_BTN_QSS = '''
+    QPushButton {
+        background: transparent;
+        border: 1px solid #1e3a8a;
+        border-radius: 10px;
+        color: #8d98af;
+        padding: 8px 16px;
+        font-size: 12px;
+    }
+    QPushButton:hover {
+        background: #1a2233;
+        color: #c0cce0;
+    }
+    QPushButton:pressed {
+        background: #111a2c;
+    }
+'''
+
+_NEXT_BTN_QSS = '''
+    QPushButton {
+        background: transparent;
+        border: 1px solid #38bdf8;
+        border-radius: 10px;
+        color: #38bdf8;
+        padding: 8px 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    QPushButton:hover {
+        background: #0d1e30;
+        border-color: #5dd1ff;
+        color: #5dd1ff;
+    }
+    QPushButton:pressed {
+        background: #081624;
+    }
+    QPushButton:disabled {
+        border-color: #2a3a4a;
+        color: #3a5060;
+    }
+'''
+
+_ADD_BTN_QSS = '''
+    QPushButton {
+        background: transparent;
+        border: 1px solid #2dd4bf;
+        border-radius: 10px;
+        color: #2dd4bf;
+        padding: 8px 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    QPushButton:hover {
+        background: #0d1f1e;
+        border-color: #4ee8d3;
+        color: #4ee8d3;
+    }
+    QPushButton:pressed {
+        background: #071412;
+    }
+'''
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OnboardingPage
+# ──────────────────────────────────────────────────────────────────────────────
+
 class OnboardingPage(QWidget):
     def __init__(self, window: 'VectorMainWindow') -> None:
         super().__init__()
         self.window = window
         self.pending_positions: list[dict[str, Any]] = []
         self.cards_layout: QHBoxLayout | None = None
-        self.launch_button: QPushButton | None = None
+        self.launch_button: LoadingButton | None = None   # aliased to _next_btn after build
         self.overlay: DimOverlay | None = None
         self.blur_wrapper: BlurrableStack | None = None
         self._selected_risk_tier: str = 'regular'
         self._tier_cards: dict[str, _RiskTierCard] = {}
+        self._current_step: int = 0
+        self._dots: list[QLabel] = []
+        self._connectors: list[QFrame] = []
+        self._back_btn: QPushButton | None = None
+        self._next_btn: LoadingButton | None = None
+        self.cards_container: QWidget | None = None
         self._build_ui()
 
-    def _build_ui(self) -> None:
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(40, 40, 40, 40)
-        outer.setSpacing(16)
+    # ── Build ──────────────────────────────────────────────────────────────
 
+    def _build_ui(self) -> None:
+        self.setStyleSheet('background-color: #0d1117;')
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # Blurrable wrapper covers entire page content
         content = QWidget()
+        content.setStyleSheet('background: transparent;')
         self.blur_wrapper = BlurrableStack(content, self)
         self.overlay = DimOverlay(self)
         outer.addWidget(self.blur_wrapper)
 
-        layout = QVBoxLayout(content)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(20)
+        # Centering layout inside the blurrable content
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(40, 40, 40, 40)
+        content_layout.addStretch(1)
 
-        # Use a scroll area so content is never clipped on small windows
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        inner = QWidget()
-        inner_layout = QVBoxLayout(inner)
-        inner_layout.setContentsMargins(0, 0, 0, 0)
-        inner_layout.setSpacing(20)
-        inner_layout.addStretch(1)
+        h_layout = QHBoxLayout()
+        h_layout.setContentsMargins(0, 0, 0, 0)
+        h_layout.addStretch(1)
 
-        title = QLabel(f'Welcome to {APP_NAME}')
-        title_font = QFont()
-        title_font.setPointSize(26)
-        title_font.setBold(True)
-        title.setFont(title_font)
-        title.setStyleSheet('font-size: 26pt;')
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # ── Panel frame ───────────────────────────────────────────────────
+        panel = QFrame()
+        panel.setObjectName('onboardingPanel')
+        panel.setFixedWidth(_PANEL_W)
+        panel.setStyleSheet(
+            'QFrame#onboardingPanel {'
+            '    background-color: #151b26;'
+            '    border: 1px solid #1e3a8a;'
+            '    border-radius: 12px;'
+            '}'
+        )
+
+        h_layout.addWidget(panel)
+        h_layout.addStretch(1)
+        content_layout.addLayout(h_layout)
+        content_layout.addStretch(1)
+
+        # Panel inner layout
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(32, 28, 32, 28)
+        panel_layout.setSpacing(18)
+
+        # Logo
+        panel_layout.addWidget(self._build_logo(), alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # Stepper
+        panel_layout.addWidget(self._build_stepper())
+
+        # Divider
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setFixedHeight(1)
+        sep.setStyleSheet('background: #1e2a3a; border: none;')
+        panel_layout.addWidget(sep)
+
+        # Pages
+        self._stack = QStackedWidget()
+        self._stack.setMinimumHeight(340)
+        self._stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._stack.addWidget(self._build_step_terms())
+        self._stack.addWidget(self._build_step_account())
+        self._stack.addWidget(self._build_step_risk())
+        self._stack.addWidget(self._build_step_portfolio())
+        panel_layout.addWidget(self._stack, stretch=1)
+
+        # Navigation footer
+        panel_layout.addLayout(self._build_nav())
+
+        # Alias so existing internal callers of launch_button still work
+        self.launch_button = self._next_btn
+
+        # Initialise to step 0
+        self._go_to(0)
+
+    def _build_logo(self) -> QLabel:
+        lbl = QLabel()
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setStyleSheet('border: none; background: transparent;')
+        try:
+            px = QPixmap(str(resource_path('assets', 'vector_full.png')))
+            if not px.isNull():
+                px = px.scaledToHeight(44, Qt.TransformationMode.SmoothTransformation)
+                lbl.setPixmap(px)
+                return lbl
+        except Exception:  # noqa: BLE001
+            pass
+        lbl.setText(APP_NAME)
+        f = QFont()
+        f.setPointSize(18)
+        f.setBold(True)
+        lbl.setFont(f)
+        return lbl
+
+    def _build_stepper(self) -> QWidget:
+        container = QWidget()
+        container.setStyleSheet('background: transparent;')
+        row = QHBoxLayout(container)
+        row.setContentsMargins(8, 4, 8, 4)
+        row.setSpacing(0)
+
+        step_names = ['Terms & Privacy', 'Account', 'Risk Profile', 'Portfolio Setup']
+
+        for i, name in enumerate(step_names):
+            # Column: dot above, label below
+            col_widget = QWidget()
+            col_widget.setStyleSheet('background: transparent;')
+            col = QVBoxLayout(col_widget)
+            col.setContentsMargins(0, 0, 0, 0)
+            col.setSpacing(5)
+            col.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+            dot = QLabel(str(i + 1))
+            dot.setFixedSize(28, 28)
+            dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            f = QFont()
+            f.setPointSize(10)
+            f.setBold(True)
+            dot.setFont(f)
+            self._dots.append(dot)
+            col.addWidget(dot, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+            name_lbl = QLabel(name)
+            nf = QFont()
+            nf.setPointSize(8)
+            name_lbl.setFont(nf)
+            name_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+            name_lbl.setStyleSheet('color: #4b5563; background: transparent; border: none;')
+            col.addWidget(name_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+            row.addWidget(col_widget, 0, Qt.AlignmentFlag.AlignVCenter)
+
+            if i < 3:
+                # Connector — sits at the same vertical level as the dot centres
+                line_wrap = QWidget()
+                line_wrap.setStyleSheet('background: transparent;')
+                lw_layout = QVBoxLayout(line_wrap)
+                lw_layout.setContentsMargins(0, 0, 0, 0)
+                lw_layout.setSpacing(0)
+                # Push line down by half a dot (14px) to align with dot centre
+                lw_layout.addSpacing(14)
+                line = QFrame()
+                line.setFrameShape(QFrame.Shape.HLine)
+                line.setFixedHeight(2)
+                self._connectors.append(line)
+                lw_layout.addWidget(line)
+                lw_layout.addStretch(1)
+                row.addWidget(line_wrap, 1)   # stretch=1 fills space between dots
+
+        return container
+
+    def _build_nav(self) -> QHBoxLayout:
+        layout = QHBoxLayout()
+        layout.setSpacing(12)
+
+        self._back_btn = QPushButton('← Back')
+        self._back_btn.setFixedWidth(110)
+        self._back_btn.setStyleSheet(_BACK_BTN_QSS)
+        self._back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._back_btn.clicked.connect(lambda: self._go_to(self._current_step - 1))
+        layout.addWidget(self._back_btn)
+
+        layout.addStretch(1)
+
+        self._next_btn = LoadingButton('Skip for now')
+        self._next_btn.setStyleSheet(_NEXT_BTN_QSS)
+        self._next_btn.setMinimumWidth(170)
+        self._next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._next_btn.clicked.connect(self._on_next)
+        layout.addWidget(self._next_btn)
+
+        return layout
+
+    # ── Step pages ────────────────────────────────────────────────────────
+
+    def _build_step_terms(self) -> QWidget:
+        page = QWidget()
+        page.setStyleSheet('background: transparent;')
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(6)
+
+        title = QLabel('Terms & Privacy')
+        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        title.setFont(tf)
+        title.setStyleSheet('color: #e8eaf0; border: none;')
+        layout.addWidget(title)
+
+        subtitle = QLabel('Legal terms and privacy policy will be available here.')
+        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        layout.addWidget(subtitle)
+
+        layout.addSpacing(12)
+
+        card = QFrame()
+        card.setStyleSheet(_CARD_QSS)
+        card.setMinimumHeight(200)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(24, 24, 24, 24)
+        ph = QLabel('Terms of Service and Privacy Policy\ncoming soon.')
+        ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph.setStyleSheet('color: #4b5563; font-size: 13px; border: none;')
+        card_layout.addWidget(ph, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(card, stretch=1)
+
+        return page
+
+    def _build_step_account(self) -> QWidget:
+        page = QWidget()
+        page.setStyleSheet('background: transparent;')
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(6)
+
+        title = QLabel('Account Setup')
+        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        title.setFont(tf)
+        title.setStyleSheet('color: #e8eaf0; border: none;')
+        layout.addWidget(title)
+
+        subtitle = QLabel('Profile and account configuration will be available here.')
+        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        layout.addWidget(subtitle)
+
+        layout.addSpacing(12)
+
+        card = QFrame()
+        card.setStyleSheet(_CARD_QSS)
+        card.setMinimumHeight(200)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(24, 24, 24, 24)
+        ph = QLabel('Account setup and profile configuration\ncoming soon.')
+        ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ph.setStyleSheet('color: #4b5563; font-size: 13px; border: none;')
+        card_layout.addWidget(ph, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(card, stretch=1)
+
+        return page
+
+    def _build_step_risk(self) -> QWidget:
+        page = QWidget()
+        page.setStyleSheet('background: transparent;')
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(6)
+
+        title = QLabel('How do you want to invest?')
+        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        title.setFont(tf)
+        title.setStyleSheet('color: #e8eaf0; border: none;')
+        layout.addWidget(title)
+
         subtitle = QLabel(
-            f'{COMPANY_NAME} {APP_NAME} needs your first positions to begin tracking portfolio analytics. Add one or more holdings to get started.'
+            'This shapes how aggressively the Lens flags risks and suggests '
+            'actions. You can change this later in Settings.'
         )
         subtitle.setWordWrap(True)
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle.setMaximumWidth(720)
-        subtitle.setMinimumHeight(48)
-        subtitle.setStyleSheet('color: #90a0bb;')
-        inner_layout.addWidget(title)
-        inner_layout.addWidget(subtitle, alignment=Qt.AlignmentFlag.AlignHCenter)
+        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        layout.addWidget(subtitle)
 
-        add_button = LoadingButton('Add Position  (a)')
-        add_button.setProperty('accent', True)
-        add_button.setFixedWidth(210)
-        add_button.clicked.connect(self.open_add_modal)
-        inner_layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignHCenter)
+        layout.addSpacing(12)
 
-        cards_scroll = QScrollArea()
-        cards_scroll.setWidgetResizable(True)
-        cards_scroll.setMinimumHeight(250)
-        self.cards_container = QWidget()
-        self.cards_layout = QHBoxLayout(self.cards_container)
-        self.cards_layout.setContentsMargins(8, 8, 8, 8)
-        self.cards_layout.setSpacing(12)
-        self.cards_layout.addWidget(EmptyState('No positions yet', 'Add at least one validated holding to unlock the portfolio dashboard.'))
-        cards_scroll.setWidget(self.cards_container)
-        inner_layout.addWidget(cards_scroll)
+        tier_frame = QFrame()
+        tier_frame.setStyleSheet(_CARD_QSS)
+        tier_inner = QHBoxLayout(tier_frame)
+        tier_inner.setContentsMargins(16, 16, 16, 16)
+        tier_inner.setSpacing(12)
 
-        # ── Risk tier selection ──
-        risk_card = CardFrame()
-        risk_layout = QVBoxLayout(risk_card)
-        risk_layout.setContentsMargins(24, 24, 24, 24)
-        risk_layout.setSpacing(12)
-
-        risk_title = QLabel('How do you want to invest?')
-        risk_title_font = QFont()
-        risk_title_font.setPointSize(18)
-        risk_title_font.setBold(True)
-        risk_title.setFont(risk_title_font)
-        risk_title.setStyleSheet('font-size: 18pt;')
-        risk_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        risk_layout.addWidget(risk_title)
-
-        risk_subtitle = QLabel(
-            'This shapes how aggressively the Lens flags risks and suggests actions. '
-            'You can change this later in Settings.'
-        )
-        risk_subtitle.setWordWrap(True)
-        risk_subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        risk_subtitle.setStyleSheet('color: #8d98af;')
-        risk_layout.addWidget(risk_subtitle)
-
-        tier_row = QHBoxLayout()
-        tier_row.setSpacing(14)
         for tier in _RISK_TIERS:
             card = _RiskTierCard(tier, selected=(tier['key'] == 'regular'))
             self._tier_cards[tier['key']] = card
-            tier_row.addWidget(card)
-        risk_layout.addLayout(tier_row)
-        inner_layout.addWidget(risk_card)
+            tier_inner.addWidget(card)
 
-        self.launch_button = LoadingButton('Launch Portfolio')
-        self.launch_button.setProperty('accent', True)
-        self.launch_button.setEnabled(False)
-        self.launch_button.setFixedWidth(220)
-        self.launch_button.clicked.connect(self.launch)
-        inner_layout.addWidget(self.launch_button, alignment=Qt.AlignmentFlag.AlignHCenter)
-        inner_layout.addStretch(1)
+        layout.addWidget(tier_frame, stretch=1)
 
-        scroll.setWidget(inner)
-        layout.addWidget(scroll)
+        return page
+
+    def _build_step_portfolio(self) -> QWidget:
+        page = QWidget()
+        page.setStyleSheet('background: transparent;')
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(6)
+
+        title = QLabel('Add Your Positions')
+        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        title.setFont(tf)
+        title.setStyleSheet('color: #e8eaf0; border: none;')
+        layout.addWidget(title)
+
+        subtitle = QLabel(
+            'Add one or more holdings to get started. '
+            'Vector validates each ticker with Yahoo Finance.'
+        )
+        subtitle.setWordWrap(True)
+        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        layout.addWidget(subtitle)
+
+        layout.addSpacing(8)
+
+        add_btn = QPushButton('Add Position  (a)')
+        add_btn.setStyleSheet(_ADD_BTN_QSS)
+        add_btn.setFixedWidth(200)
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_btn.clicked.connect(self.open_add_modal)
+        layout.addWidget(add_btn)
+
+        layout.addSpacing(6)
+
+        # Cards scroll area inside a styled frame — horizontal scroll only
+        cards_frame = QFrame()
+        cards_frame.setStyleSheet(_CARD_QSS)
+        cards_frame.setMinimumHeight(170)
+        cards_frame.setMaximumHeight(230)
+        cf_layout = QVBoxLayout(cards_frame)
+        cf_layout.setContentsMargins(6, 6, 6, 6)
+        cf_layout.setSpacing(0)
+
+        cards_scroll = QScrollArea()
+        cards_scroll.setWidgetResizable(True)    # fills height; minWidth drives hscroll
+        cards_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        cards_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        cards_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        cards_scroll.setStyleSheet('background: transparent;')
+
+        self.cards_container = QWidget()
+        self.cards_container.setStyleSheet('background: transparent;')
+        self.cards_layout = QHBoxLayout(self.cards_container)
+        self.cards_layout.setContentsMargins(8, 8, 8, 8)
+        self.cards_layout.setSpacing(12)
+        self.cards_layout.addWidget(
+            EmptyState(
+                'No positions yet',
+                'Add at least one validated holding to unlock the portfolio dashboard.',
+            )
+        )
+
+        cards_scroll.setWidget(self.cards_container)
+        cf_layout.addWidget(cards_scroll)
+        layout.addWidget(cards_frame, stretch=1)
+
+        return page
+
+    # ── Navigation logic ───────────────────────────────────────────────────
+
+    def _go_to(self, step: int) -> None:
+        self._current_step = max(0, min(3, step))
+        self._stack.setCurrentIndex(self._current_step)
+        self._refresh_stepper()
+        self._refresh_nav()
+
+    def _refresh_stepper(self) -> None:
+        _done = (
+            'background: qlineargradient(x1:0, y1:0, x2:1, y2:0,'
+            ' stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);'
+            ' color: #ffffff; border: none; border-radius: 14px;'
+        )
+        _active = (
+            'background: #1a2233;'
+            ' border: 2px solid #1e3a8a;'
+            ' color: #38bdf8;'
+            ' border-radius: 14px;'
+        )
+        _idle = (
+            'background: #1e2a3a;'
+            ' border: none;'
+            ' color: #4b5563;'
+            ' border-radius: 14px;'
+        )
+
+        for i, dot in enumerate(self._dots):
+            if i < self._current_step:
+                dot.setStyleSheet(_done)
+            elif i == self._current_step:
+                dot.setStyleSheet(_active)
+            else:
+                dot.setStyleSheet(_idle)
+
+        for i, connector in enumerate(self._connectors):
+            if i < self._current_step:
+                connector.setStyleSheet('background: #38bdf8;')
+            else:
+                connector.setStyleSheet('background: #2a3040;')
+
+    def _refresh_nav(self) -> None:
+        if not self._back_btn or not self._next_btn:
+            return
+
+        self._back_btn.setVisible(self._current_step > 0)
+
+        if self._current_step == 0 or self._current_step == 1:
+            self._next_btn.setText('Skip for now')
+            self._next_btn.setEnabled(True)
+        elif self._current_step == 2:
+            self._next_btn.setText('Continue')
+            self._next_btn.setEnabled(True)
+        else:
+            self._next_btn.setText('Launch Portfolio')
+            self._next_btn.setEnabled(bool(self.pending_positions))
+
+    def _on_next(self) -> None:
+        if self._current_step < 3:
+            self._go_to(self._current_step + 1)
+        else:
+            self.launch()
+
+    # ── Event overrides ────────────────────────────────────────────────────
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
-        if event.key() == Qt.Key.Key_A:
+        if self._current_step == 3 and event.key() == Qt.Key.Key_A:
             self.open_add_modal()
         else:
             super().keyPressEvent(event)
@@ -395,6 +793,8 @@ class OnboardingPage(QWidget):
         if self.overlay:
             self.overlay.sync_geometry()
         super().resizeEvent(event)
+
+    # ── Position management ────────────────────────────────────────────────
 
     def open_add_modal(self) -> None:
         if self.blur_wrapper and self.overlay:
@@ -411,7 +811,7 @@ class OnboardingPage(QWidget):
             self.refresh_cards()
 
     def refresh_cards(self) -> None:
-        if not self.cards_layout or not self.launch_button:
+        if not self.cards_layout or not self.cards_container or not self._next_btn:
             return
         while self.cards_layout.count():
             item = self.cards_layout.takeAt(0)
@@ -419,12 +819,26 @@ class OnboardingPage(QWidget):
             if widget:
                 widget.deleteLater()
         if not self.pending_positions:
-            self.cards_layout.addWidget(EmptyState('No positions yet', 'Add at least one validated holding to unlock the portfolio dashboard.'))
+            self.cards_layout.addWidget(
+                EmptyState(
+                    'No positions yet',
+                    'Add at least one validated holding to unlock the portfolio dashboard.',
+                )
+            )
         for position in self.pending_positions:
             self.cards_layout.addWidget(PositionCard(position, self.window.format_currency))
         self.cards_layout.addStretch(1)
-        self.launch_button.setEnabled(bool(self.pending_positions))
-        # Force the container and layout to recalculate geometry
+        # Drive horizontal scrolling: set minimumWidth wider than the viewport
+        # when cards are present, so the scroll area activates the scrollbar.
+        card_w, spacing, margins = 220, 12, 16
+        n = len(self.pending_positions)
+        if n > 0:
+            natural_w = margins + n * card_w + (n - 1) * spacing
+            self.cards_container.setMinimumWidth(natural_w)
+        else:
+            self.cards_container.setMinimumWidth(0)
+        if self._current_step == 3:
+            self._next_btn.setEnabled(bool(self.pending_positions))
         self.cards_container.adjustSize()
         self.cards_container.updateGeometry()
         self.cards_container.update()
@@ -434,12 +848,13 @@ class OnboardingPage(QWidget):
         for key, card in self._tier_cards.items():
             card.set_selected(key == tier_key)
 
+    # ── Launch ─────────────────────────────────────────────────────────────
+
     def launch(self) -> None:
-        self.launch_button.start_loading('Launching...')
+        self._next_btn.start_loading('Launching...')
         QApplication.processEvents()
         self.window.positions = list(self.pending_positions)
         self.window.store.save_positions(self.window.positions)
-        # Save risk tier to settings
         self.window.settings['risk_tier'] = self._selected_risk_tier
         self.window.store.save_settings(self.window.settings)
         state = self.window.store.load_app_state()
