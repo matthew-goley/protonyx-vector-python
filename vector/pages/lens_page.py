@@ -744,7 +744,7 @@ class VectorLensPage(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         container = QWidget()
-        container.setFixedWidth(_CONTENT_W)
+        container.setFixedWidth(_CONTENT_W())
         self._container_layout = QVBoxLayout(container)
         self._container_layout.setContentsMargins(0, 8, 0, 24)
         self._container_layout.setSpacing(16)

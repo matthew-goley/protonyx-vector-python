@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from ..scale import sc
 from ..widget_registry import discover_widgets, get_widget_class
 
 if TYPE_CHECKING:
@@ -23,16 +24,17 @@ if TYPE_CHECKING:
 
 # ---------------------------------------------------------------------------
 # Grid constants
-# Toolbar (col 0) = _UNIT px wide. Content grid = 10 cols.
-# Total = _UNIT + _GAP + _CONTENT_W = 90 + 10 + 990 = 1090 px,
-# which fits the 1092 px available at minimum window size.
+# Base values at 1× DPI: _UNIT=90, _GAP=10, _CELL=100, _CONTENT_W=1090 px.
+# Defined as lazy functions so they are evaluated after init_scale() runs.
 # ---------------------------------------------------------------------------
-_UNIT         = 90              # one grid unit in px
-_GAP          = 10              # gap between units
-_CELL         = _UNIT + _GAP   # 100 px — step per cell
 _GRID_COLS    = 11
-_CONTENT_COLS = _GRID_COLS                  # all 11 cols usable
-_CONTENT_W    = _CONTENT_COLS * _CELL - _GAP  # 1090 px
+_CONTENT_COLS = _GRID_COLS
+
+
+def _UNIT() -> int: return sc(90)
+def _GAP() -> int: return sc(10)
+def _CELL() -> int: return _UNIT() + _GAP()
+def _CONTENT_W() -> int: return _CONTENT_COLS * _CELL() - _GAP()
 
 
 # ---------------------------------------------------------------------------
@@ -64,30 +66,32 @@ class _SnapIndicator(QWidget):
 class DashboardGrid(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedWidth(_CONTENT_W)
+        self.setFixedWidth(_CONTENT_W())
         self._items: list[dict] = []
         self._snap = _SnapIndicator(self)
         self._edit_mode = False
-        self.resize(_CONTENT_W, _CELL)
+        self.resize(_CONTENT_W(), _CELL())
 
     @staticmethod
     def _cell_rect(row: int, col: int, rowspan: int = 1, colspan: int = 1) -> QRect:
+        unit, gap, cell = _UNIT(), _GAP(), _CELL()
         return QRect(
-            col * _CELL,
-            row * _CELL,
-            colspan * _UNIT + max(0, colspan - 1) * _GAP,
-            rowspan * _UNIT + max(0, rowspan - 1) * _GAP,
+            col * cell,
+            row * cell,
+            colspan * unit + max(0, colspan - 1) * gap,
+            rowspan * unit + max(0, rowspan - 1) * gap,
         )
 
     @staticmethod
     def _nearest_cell(pos: QPoint, colspan: int = 1) -> tuple[int, int]:
-        col = max(0, min(_CONTENT_COLS - colspan, round(pos.x() / _CELL)))
-        row = max(0, round(pos.y() / _CELL))
+        cell = _CELL()
+        col = max(0, min(_CONTENT_COLS - colspan, round(pos.x() / cell)))
+        row = max(0, round(pos.y() / cell))
         return row, col
 
     def _refresh_height(self) -> None:
         max_bottom = max((i['row'] + i['rowspan'] for i in self._items), default=1)
-        self.resize(_CONTENT_W, max_bottom * _CELL + _GAP)
+        self.resize(_CONTENT_W(), max_bottom * _CELL() + _GAP())
 
     def add_widget(self, widget: QWidget, row: int, col: int,
                    rowspan: int = 1, colspan: int = 1,
@@ -195,9 +199,9 @@ class DashboardGrid(QWidget):
         if not item:
             return
         row, col = self._nearest_cell(widget.pos(), item['colspan'])
-        needed_h = (row + item['rowspan']) * _CELL + _GAP
+        needed_h = (row + item['rowspan']) * _CELL() + _GAP()
         if needed_h > self.height():
-            self.resize(_CONTENT_W, needed_h)
+            self.resize(_CONTENT_W(), needed_h)
         self._snap.setGeometry(self._cell_rect(row, col, item['rowspan'], item['colspan']))
         self._snap.show()
         self._snap.raise_()

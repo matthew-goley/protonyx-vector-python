@@ -293,7 +293,7 @@ class SettingsPage(QWidget):
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         container = QWidget()
-        container.setFixedWidth(_CONTENT_W)
+        container.setFixedWidth(_CONTENT_W())
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 8, 0, 24)
         layout.setSpacing(16)

@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 from .analytics import compute_portfolio_analytics
 from .constants import APP_NAME, APP_VERSION, COMMON_TICKERS, COMPANY_NAME, LOGO_PATH, TASKBAR_LOGO_PATH, VOLATILITY_LOOKBACK_PERIODS
 from .paths import resource_path
+from .scale import init_scale
 from .pages.dashboard import DashboardPage
 from .pages.lens_page import VectorLensPage
 from .pages.onboarding import OnboardingPage, PositionDialog
@@ -550,6 +551,7 @@ def main(
         app = QApplication(sys.argv)
 
     app.setApplicationName(APP_NAME)
+    init_scale(app)
     taskbar_icon = QIcon(str(TASKBAR_LOGO_PATH))
     app.setWindowIcon(
         taskbar_icon if not taskbar_icon.isNull()
@@ -558,17 +560,21 @@ def main(
 
     if splash is None:
         # Fallback: bootstrapper didn't run — show splash here instead.
+        sw = app.primaryScreen().size().width()
+        splash_w = min(int(sw * 0.55), 900)
+        splash_h = splash_w * 800 // 1400
         splash_pixmap = QPixmap(str(resource_path('assets', 'splashboard.png')))
         if not splash_pixmap.isNull():
             splash_pixmap = splash_pixmap.scaled(
-                700, 400,
+                splash_w, splash_h,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
         splash = QSplashScreen(splash_pixmap, Qt.WindowType.WindowStaysOnTopHint)
-        splash.setFixedSize(700, 400)
+        splash.setFixedSize(splash_w, splash_h)
         screen_geo = app.primaryScreen().geometry()
-        splash.move(screen_geo.center().x() - 350, screen_geo.center().y() - 200)
+        splash.move(screen_geo.center().x() - splash_w // 2,
+                    screen_geo.center().y() - splash_h // 2)
         splash.show()
         app.processEvents()
         t_start = time.monotonic()

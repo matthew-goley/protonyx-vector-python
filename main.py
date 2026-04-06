@@ -37,18 +37,22 @@ def _bootstrap():
     else:                                   # dev
         base = Path(__file__).resolve().parent
 
+    sw = app.primaryScreen().size().width()
+    splash_w = min(int(sw * 0.55), 900)
+    splash_h = splash_w * 800 // 1400
+
     px = QPixmap(str(base / 'assets' / 'splashboard.png'))
     if not px.isNull():
         px = px.scaled(
-            700, 400,
+            splash_w, splash_h,
             Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
 
     splash = QSplashScreen(px, Qt.WindowType.WindowStaysOnTopHint)
-    splash.setFixedSize(700, 400)
+    splash.setFixedSize(splash_w, splash_h)
     geo = app.primaryScreen().geometry()
-    splash.move(geo.center().x() - 350, geo.center().y() - 200)
+    splash.move(geo.center().x() - splash_w // 2, geo.center().y() - splash_h // 2)
     splash.show()
     app.processEvents()   # force OS to paint before any heavy work starts
 
