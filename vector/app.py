@@ -533,41 +533,64 @@ class VectorMainWindow(QMainWindow):
         self.setCentralWidget(OnboardingPage(self))
 
 
-def main() -> int:
-    app = QApplication(sys.argv)
+def main(
+    app: 'QApplication | None' = None,
+    splash: 'QSplashScreen | None' = None,
+    t_start: 'float | None' = None,
+) -> int:
+    """
+    Main entry point.
+
+    When called from main.py the bootstrapper has already created the
+    QApplication and painted the splash screen.  Accepts those objects so we
+    don't create duplicates.  Falls back to creating them here when invoked
+    directly (e.g. during development without going through main.py).
+    """
+    if app is None:
+        app = QApplication(sys.argv)
+
     app.setApplicationName(APP_NAME)
     taskbar_pixmap = QPixmap(str(TASKBAR_LOGO_PATH))
-    app.setWindowIcon(QIcon(taskbar_pixmap if not taskbar_pixmap.isNull() else VectorMainWindow.create_placeholder_logo(128)))
+    app.setWindowIcon(
+        QIcon(taskbar_pixmap if not taskbar_pixmap.isNull()
+              else VectorMainWindow.create_placeholder_logo(128))
+    )
 
-    # --- Splash: show before anything else loads ---
-    splash_pixmap = QPixmap(str(resource_path('assets', 'splashboard.png')))
-    if not splash_pixmap.isNull():
-        splash_pixmap = splash_pixmap.scaled(700, 400, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-    splash = QSplashScreen(splash_pixmap, Qt.WindowType.WindowStaysOnTopHint)
-    splash.setFixedSize(700, 400)
-    screen_geo = app.primaryScreen().geometry()
-    splash.move(screen_geo.center().x() - 350, screen_geo.center().y() - 200)
-    splash.show()
-    app.processEvents()  # paint splash before any heavy work starts
+    if splash is None:
+        # Fallback: bootstrapper didn't run — show splash here instead.
+        splash_pixmap = QPixmap(str(resource_path('assets', 'splashboard.png')))
+        if not splash_pixmap.isNull():
+            splash_pixmap = splash_pixmap.scaled(
+                700, 400,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        splash = QSplashScreen(splash_pixmap, Qt.WindowType.WindowStaysOnTopHint)
+        splash.setFixedSize(700, 400)
+        screen_geo = app.primaryScreen().geometry()
+        splash.move(screen_geo.center().x() - 350, screen_geo.center().y() - 200)
+        splash.show()
+        app.processEvents()
+        t_start = time.monotonic()
 
-    t_start = time.monotonic()
+    if t_start is None:
+        t_start = time.monotonic()
 
-    # Heavy init happens here; splash is already painted and visible above
+    # Heavy UI construction — splash already visible
     window = VectorMainWindow()
 
-    # Prefetch prices for common tickers in the background so the Add Position
-    # dialog can show instant equity estimates without waiting for validation.
+    # Prefetch prices for common tickers so Add Position shows instant estimates
     threading.Thread(
         target=lambda: window.store.prefetch_common_prices(COMMON_TICKERS),
         daemon=True,
         name='vector-price-prefetch',
     ).start()
 
-    # Ensure splash is on screen for at least 2 seconds total
+    # Ensure splash is visible for at least 2 seconds from when it first appeared
     elapsed_ms = int((time.monotonic() - t_start) * 1000)
     remaining_ms = max(0, 2000 - elapsed_ms)
 
-    def _finish():
+    def _finish() -> None:
         window.show()
         splash.finish(window)
 

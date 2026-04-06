@@ -242,11 +242,11 @@ class _RiskTierOption(QFrame):
     def _apply_style(self) -> None:
         if self._selected:
             self.setStyleSheet(
-                f'_RiskTierOption {{ background: #161b26; border: 2px solid {self._accent}; border-radius: 12px; }}'
+                f'QFrame {{ background: #161b26; border: 2px solid {self._accent}; border-radius: 12px; }}'
             )
         else:
             self.setStyleSheet(
-                '_RiskTierOption { background: #161b26; border: 1px solid #2a3142; border-radius: 12px; }'
+                'QFrame { background: #161b26; border: 1px solid #1e2535; border-radius: 12px; }'
             )
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
@@ -402,13 +402,25 @@ class SettingsPage(QWidget):
         about.addRow('Brand', QLabel(f'{COMPANY_NAME} / {APP_NAME}'))
         about.addRow('Credits', QLabel('PyQt6, Yahoo Finance (yfinance)'))
 
-        self.save_button = LoadingButton('Save Settings')
-        self.save_button.setProperty('accent', True)
-        self.save_button.clicked.connect(self.save_settings)
-        layout.addWidget(self.save_button, alignment=Qt.AlignmentFlag.AlignRight)
         layout.addStretch(1)
         scroll.setWidget(container)
         outer.addWidget(scroll, stretch=1)
+
+        # ── Sticky save footer (outside scroll, always visible) ───────────
+        footer = QFrame()
+        footer.setObjectName('settingsFooter')
+        footer.setStyleSheet(
+            'QFrame#settingsFooter { background: #0b1020; border-top: 1px solid #1e2a3a; }'
+        )
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(24, 12, 24, 12)
+        footer_layout.addStretch(1)
+        self.save_button = LoadingButton('Save Settings')
+        self.save_button.setProperty('accent', True)
+        self.save_button.setMinimumWidth(160)
+        self.save_button.clicked.connect(self.save_settings)
+        footer_layout.addWidget(self.save_button)
+        outer.addWidget(footer)
 
     def _spin_box(self) -> QDoubleSpinBoxCompat:
         return QDoubleSpinBoxCompat()
@@ -461,20 +473,14 @@ class SettingsPage(QWidget):
         self._current_risk_tier = tier_key
         for key, opt in self._tier_options.items():
             opt.set_selected(key == tier_key)
-        # Immediate save
-        self.window.settings['risk_tier'] = tier_key
-        self.window.store.save_settings(self.window.settings)
-        # Update the lens tier note
+        # Update the lens tier note — no save yet, waits for Save Settings
         tier_name = _TIER_DISPLAY_NAME.get(tier_key, 'Moderate')
         self._lens_tier_note.setText(
             f'Your investment style is set to <b>{tier_name}</b>. '
             f'The defaults below reflect that profile. Changing any value '
             f'overrides the default for that specific threshold.'
         )
-        # Show confirmation note briefly
-        self._style_note.setText('Updated \u2014 Lens will update on the next refresh.')
-        self._style_note.setVisible(True)
-        QTimer.singleShot(2000, lambda: self._style_note.setVisible(False))
+        self._style_note.setVisible(False)
 
     def save_settings(self) -> None:
         self.save_button.start_loading('Saving...')
@@ -516,6 +522,7 @@ class SettingsPage(QWidget):
         self.window.store.save_settings(settings)
         self.window.apply_theme()
         self.window.refresh_data()
+        self._style_note.setVisible(False)
         self.save_button.stop_loading('Save Settings')
 
     def remove_selected_position(self) -> None:
