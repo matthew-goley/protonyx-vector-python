@@ -70,10 +70,10 @@ def _highlight_html(text: str) -> str:
             chunk, flags=re.IGNORECASE,
         ))
 
-    # 2. Numbers, percentages, dollar amounts → navy
+    # 2. Numbers, percentages, dollar amounts → sky-blue
     s = _apply_to_text(s, lambda chunk: re.sub(
         r'([+\-]?\$?[\d,]+\.?\d*\s*%|[+\-]?\$[\d,]+\.?\d*|\b\d+\.?\d*\b)',
-        lambda m: _wrap(m.group(), _GRAD_END) if re.search(r'\d', m.group()) else m.group(),
+        lambda m: _wrap(m.group(), _GRAD_MID) if re.search(r'\d', m.group()) else m.group(),
         chunk,
     ))
 
