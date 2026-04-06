@@ -9,16 +9,16 @@ explains what the data means in plain terms, similar to the Lens display.
 import math
 
 from PyQt6.QtCore import Qt, QPointF
-from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF
+from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from vector.analytics import classify_direction, linear_regression_slope_percent
 from vector.widget_base import VectorWidget
 
-_MUTED = '#8d98af'
-_GRAD_START = '#2dd4bf'
-_GRAD_MID   = '#38bdf8'
-_GRAD_END   = '#1e3a8a'
+_MUTED      = '#8d98af'
+_ARROW_UP   = '#38bdf8'   # sky-blue for positive direction
+_ARROW_DOWN = '#ff4d4d'   # red for negative direction
+_MIDLINE    = '#3a4460'   # dotted midline colour
 
 # Plain-language verdicts per direction label.
 # Picked deterministically by slope magnitude so the text is stable across refreshes.
@@ -60,19 +60,23 @@ def _font(size: int, bold: bool = True) -> QFont:
 
 class _VectorArrow(QWidget):
     """
-    Arrow spanning its width, tilted by angle degrees.
-    Always renders with the app's teal-to-navy gradient — direction
-    is read from the angle alone, not colour.
+    Straight arrow anchored to a dotted horizontal midline.
+
+    Origin is always blue (#38bdf8); the tip is deep sky-blue for positive
+    slopes and red for negative slopes. The arrow tilts up or down from the
+    midline based on |angle|; direction is communicated by both tilt and colour.
     """
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._angle = 0.0
-        self.setMinimumHeight(60)
+        self._is_positive = True
+        self.setMinimumHeight(70)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-    def set_angle(self, angle: float) -> None:
-        self._angle = max(-70.0, min(70.0, angle))
+    def set_state(self, angle: float, is_positive: bool) -> None:
+        self._angle = max(-60.0, min(60.0, angle))
+        self._is_positive = is_positive
         self.update()
 
     def paintEvent(self, _event) -> None:  # noqa: N802
@@ -81,62 +85,69 @@ class _VectorArrow(QWidget):
 
         w = float(self.width())
         h = float(self.height())
-        pad_x = 20.0
+        pad_x = 26.0
         mid_y = h / 2.0
 
+        # ── Dotted horizontal midline ──────────────────────────────────────
+        midline_pen = QPen(QColor(_MIDLINE), 1.5, Qt.PenStyle.CustomDashLine)
+        midline_pen.setDashPattern([3.0, 6.0])
+        painter.setPen(midline_pen)
+        painter.drawLine(QPointF(pad_x, mid_y), QPointF(w - pad_x, mid_y))
+
+        # ── Arrow geometry (straight line from origin to tip) ──────────────
         angle_rad = math.radians(self._angle)
-        dy = math.sin(angle_rad) * (h * 0.58)
+        dy = math.sin(angle_rad) * (h * 0.40)
 
-        # Centre the path vertically — start half-travel below mid, end half above.
-        # This keeps the arrow fully within the widget at any angle.
-        x0 = pad_x
-        y0 = h / 2.0 + dy / 2.0
-        x_end = w - pad_x - 34.0
-        y_end = h / 2.0 - dy / 2.0
+        x0    = pad_x
+        y0    = mid_y
+        x_end = w - pad_x - 48.0
+        y_end = mid_y - dy        # positive slope → tip rises above midline
 
-        # Control point: flat start, steepens toward end
-        x_ctrl = x0 + (x_end - x0) * 0.65
-        y_ctrl = y0
+        color = QColor(_ARROW_UP if self._is_positive else _ARROW_DOWN)
+        # Lighter shade for the shaft origin (same hue, less saturated)
+        shade = QColor(color)
+        shade.setAlpha(160)
 
-        path = QPainterPath()
-        path.moveTo(x0, y0)
-        path.quadTo(x_ctrl, y_ctrl, x_end, y_end)
-
-        # --- glow (soft teal halo) ---
-        glow = QColor(_GRAD_END)
-        glow.setAlpha(35)
-        painter.strokePath(path, QPen(glow, 22, Qt.PenStyle.SolidLine,
-                                      Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-
-        # --- gradient shaft: 3-key gradient, left to right ---
-        grad = QLinearGradient(x0, 0.0, x_end, 0.0)
-        c_start = QColor(_GRAD_START)
-        c_start.setAlpha(170)
-        grad.setColorAt(0.0, c_start)
-        grad.setColorAt(0.5, QColor(_GRAD_MID))
-        grad.setColorAt(1.0, QColor(_GRAD_END))
-        painter.strokePath(path, QPen(grad, 7, Qt.PenStyle.SolidLine,
-                                      Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-
-        # --- arrowhead aligned to the end tangent ---
-        tdx = x_end - x_ctrl
-        tdy = y_end - y_ctrl
-        tlen = math.hypot(tdx, tdy) or 1.0
-        ux, uy = tdx / tlen, tdy / tlen
+        dx_dir = x_end - x0
+        dy_dir = y_end - y0
+        length = math.hypot(dx_dir, dy_dir) or 1.0
+        ux, uy = dx_dir / length, dy_dir / length
         px, py = -uy, ux
 
-        head_len, head_half = 26.0, 12.0
-        tip = QPointF(x_end + ux * 28.0, y_end + uy * 28.0)
+        # ── Soft outer glow ────────────────────────────────────────────────
+        glow = QColor(color)
+        glow.setAlpha(32)
+        painter.setPen(QPen(glow, 18, Qt.PenStyle.SolidLine,
+                            Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.drawLine(QPointF(x0, y0), QPointF(x_end, y_end))
+
+        # ── Shaft: same-hue gradient (lighter at origin, full at tip) ─────
+        grad = QLinearGradient(x0, 0.0, x_end, 0.0)
+        grad.setColorAt(0.0, shade)
+        grad.setColorAt(1.0, color)
+        shaft_pen = QPen(QBrush(grad), 5.5, Qt.PenStyle.SolidLine,
+                         Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(shaft_pen)
+        painter.drawLine(QPointF(x0, y0), QPointF(x_end, y_end))
+
+        # ── Arrowhead (larger, filled with direction colour) ───────────────
+        head_len, head_half = 34.0, 17.0
+        tip_pt  = QPointF(x_end + ux * 32.0, y_end + uy * 32.0)
         base_cx = x_end - ux * head_len
         base_cy = y_end - uy * head_len
         poly = QPolygonF([
-            tip,
+            tip_pt,
             QPointF(base_cx + px * head_half, base_cy + py * head_half),
             QPointF(base_cx - px * head_half, base_cy - py * head_half),
         ])
-        painter.setBrush(QColor(_GRAD_END))
+        painter.setBrush(color)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawPolygon(poly)
+
+        # ── Origin dot (same direction colour) ────────────────────────────
+        painter.setBrush(shade)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(QPointF(x0, y0), 5.5, 5.5)
 
 
 class PortfolioVectorWidget(VectorWidget):
@@ -225,7 +236,7 @@ class PortfolioVectorWidget(VectorWidget):
             self._dir_lbl.setText('No Data')
             self._dir_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 24pt; border: none;')
             self._slope_lbl.setText('')
-            self._arrow.set_angle(0.0)
+            self._arrow.set_state(0.0, True)
             self._verdict_lbl.setText('Add positions to see your portfolio direction.')
             return
 
@@ -253,5 +264,5 @@ class PortfolioVectorWidget(VectorWidget):
         self._dir_lbl.setStyleSheet(f'color: {color}; font-size: 24pt; border: none;')
         self._slope_lbl.setText(f'{sign}{weighted_slope:.3f}%')
         self._slope_lbl.setStyleSheet(f'color: {color}; font-size: 24pt; border: none;')
-        self._arrow.set_angle(arrow_angle)
+        self._arrow.set_state(arrow_angle, weighted_slope >= 0)
         self._verdict_lbl.setText(verdict)

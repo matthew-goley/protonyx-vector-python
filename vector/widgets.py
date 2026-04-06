@@ -60,11 +60,7 @@ class GradientBorderFrame(QFrame):
         bg_path.addRoundedRect(rect.adjusted(bw, bw, -bw, -bw), r - bw, r - bw)
         painter.fillPath(bg_path, bg)
 
-        grad = QLinearGradient(rect.topLeft(), rect.topRight())
-        grad.setColorAt(0.0, QColor('#2dd4bf'))
-        grad.setColorAt(0.5, QColor('#38bdf8'))
-        grad.setColorAt(1.0, QColor('#1e3a8a'))
-        pen = QPen(QBrush(grad), bw)
+        pen = QPen(QColor('#1e3a8a'), bw)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
         border_path = QPainterPath()
@@ -84,12 +80,7 @@ class GradientLine(QWidget):
 
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
-        rect = QRectF(self.rect())
-        grad = QLinearGradient(rect.topLeft(), rect.bottomLeft())
-        grad.setColorAt(0.0, QColor('#2dd4bf'))
-        grad.setColorAt(0.5, QColor('#38bdf8'))
-        grad.setColorAt(1.0, QColor('#1e3a8a'))
-        painter.fillRect(rect, QBrush(grad))
+        painter.fillRect(QRectF(self.rect()), QColor('#1e3a8a'))
         painter.end()
 
 

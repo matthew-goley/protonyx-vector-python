@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen
+from PyQt6.QtCore import Qt, QRect, QRectF, QTimer
+from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 from PyQt6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -153,7 +154,10 @@ class _CautionCard(QFrame):
 
 
 class _MCContextCard(QFrame):
-    """Right insight card — explains what the projected graph represents."""
+    """
+    Right insight card — explains what the projected graph represents.
+    Uses the same typewriter animation and auto-sizing font as LensDisplay.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -163,6 +167,14 @@ class _MCContextCard(QFrame):
         shadow.setOffset(0, 10)
         shadow.setColor(QColor(0, 0, 0, 80))
         self.setGraphicsEffect(shadow)
+
+        # Typewriter state
+        self._tw_timer = QTimer(self)
+        self._tw_timer.setInterval(5)
+        self._tw_timer.timeout.connect(self._tw_step)
+        self._tw_plain = ''
+        self._tw_html  = ''
+        self._tw_pos   = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 16)
@@ -176,20 +188,140 @@ class _MCContextCard(QFrame):
         title.setStyleSheet('font-size: 12pt; font-weight: 700;')
         layout.addWidget(title)
 
-        self._body = QLabel(
-            'The projection fan above reflects this portfolio\'s historical '
-            'volatility profile.'
-        )
+        self._body = QLabel('')
         self._body.setWordWrap(True)
+        self._body.setTextFormat(Qt.TextFormat.RichText)
         self._body.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._body.setStyleSheet('font-size: 11pt; color: #c7cedb; line-height: 1.5;')
+        self._body.setStyleSheet('font-size: 13pt; color: #c7cedb; border: none;')
+        self._body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self._body, stretch=1)
 
-    def set_multi_cta_context(self, ctas: list[dict], net_delta: float) -> None:
-        """Update the context card to describe all CTAs being applied."""
+    # ── Size helpers ──────────────────────────────────────────────────────
+
+    def _available_size(self) -> tuple[int, int]:
+        w = self._body.width()
+        h = self._body.height()
+        if w >= 20 and h >= 20:
+            return w, h
+        return max(self.width() - 40, 200), max(self.height() - 60, 60)
+
+    def _make_font(self, pt: int) -> QFont:
+        f = QFont()
+        f.setPointSize(pt)
+        f.setBold(False)
+        return f
+
+    def _fit_pt(self, text: str) -> int:
+        """Largest pt size where the plain text fits without clipping."""
+        w, h = self._available_size()
+        for pt in range(24, 9, -1):
+            fm = QFontMetrics(self._make_font(pt))
+            br = fm.boundingRect(
+                QRect(0, 0, w, 10000),
+                Qt.TextFlag.TextWordWrap,
+                text,
+            )
+            if br.height() <= int(h * 0.85):
+                return pt
+        return 10
+
+    def _apply_font(self, pt: int) -> None:
+        self._body.setStyleSheet(
+            f'font-size: {pt}pt; color: #c7cedb; border: none;'
+        )
+
+    def _refit(self) -> None:
+        if not self._tw_plain:
+            return
+        pt = self._fit_pt(self._tw_plain)
+        self._apply_font(pt)
+        if not self._tw_timer.isActive():
+            self._body.setTextFormat(Qt.TextFormat.RichText)
+            self._body.setText(self._tw_html)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        self._refit()
+        super().resizeEvent(event)
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        QTimer.singleShot(0, self._refit)
+
+    # ── Typewriter machinery ──────────────────────────────────────────────
+
+    @staticmethod
+    def _truncate_html(html: str, visible_chars: int) -> str:
+        """Truncate HTML to the first N visible characters, preserving open tags."""
+        import re
+        result: list[str] = []
+        shown = 0
+        i = 0
+        open_tags: list[str] = []
+        while i < len(html) and shown < visible_chars:
+            if html[i] == '<':
+                end = html.find('>', i)
+                if end == -1:
+                    break
+                tag = html[i:end + 1]
+                result.append(tag)
+                if not tag.startswith('</'):
+                    m = re.match(r'<(\w+)', tag)
+                    if m:
+                        open_tags.append(m.group(1))
+                else:
+                    if open_tags:
+                        open_tags.pop()
+                i = end + 1
+            elif html[i] == '&':
+                end = html.find(';', i)
+                if end == -1:
+                    result.append(html[i])
+                    shown += 1
+                    i += 1
+                else:
+                    result.append(html[i:end + 1])
+                    shown += 1
+                    i = end + 1
+            else:
+                result.append(html[i])
+                shown += 1
+                i += 1
+        for tag in reversed(open_tags):
+            result.append(f'</{tag}>')
+        return ''.join(result)
+
+    def _tw_step(self) -> None:
+        self._tw_pos += 1
+        truncated = self._truncate_html(self._tw_html, self._tw_pos)
+        self._body.setTextFormat(Qt.TextFormat.RichText)
+        self._body.setText(truncated)
+        if self._tw_pos >= len(self._tw_plain):
+            self._tw_timer.stop()
+
+    def _start_typewrite(self, text: str) -> None:
+        from vector.widget_types.lens import _highlight_html
+        self._tw_timer.stop()
+        self._tw_plain = text
+        self._tw_html  = _highlight_html(text)
+        self._tw_pos   = 0
+        pt = self._fit_pt(text)
+        self._apply_font(pt)
+        self._body.setTextFormat(Qt.TextFormat.RichText)
+        self._body.setText('')
+        self._tw_timer.start()
+
+    # ── Public API ────────────────────────────────────────────────────────
+
+    def set_multi_cta_context(
+        self,
+        ctas: list[dict],
+        net_delta: float,
+        fan_spread_a: float | None = None,
+        fan_spread_b: float | None = None,
+    ) -> None:
         actionable = [c for c in ctas if c.get('action') != 'hold']
         if not actionable:
-            self._body.setText(
+            self._start_typewrite(
                 'No active projections right now. Both graphs use '
                 'your current portfolio composition.'
             )
@@ -226,12 +358,24 @@ class _MCContextCard(QFrame):
                 f'changes the portfolio\'s volatility profile.'
             )
 
-        self._body.setText(' '.join(parts))
+        # Fan-width comparison: call out tighter B if meaningful
+        if (
+            fan_spread_a is not None
+            and fan_spread_b is not None
+            and fan_spread_a > 0
+            and fan_spread_b < fan_spread_a * 0.95
+        ):
+            reduction_pct = (fan_spread_a - fan_spread_b) / fan_spread_a * 100
+            parts.append(
+                f'Graph B\'s projection fan is {reduction_pct:.0f}% tighter than Graph A '
+                f'— the lens projections reduce portfolio risk by approximately {reduction_pct:.0f}%.'
+            )
+
+        self._start_typewrite(' '.join(parts))
 
     def clear(self) -> None:
-        self._body.setText(
-            'The projection fan above reflects this portfolio\'s historical '
-            'volatility profile.'
+        self._start_typewrite(
+            'The projection fan above reflects this portfolio\'s historical volatility profile.'
         )
 
 
@@ -582,6 +726,8 @@ class VectorLensPage(QWidget):
         super().__init__()
         self.window = window
         self._lens_result: dict[str, Any] = {}
+        self._fan_spread_a: float | None = None
+        self._fan_spread_b: float | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -678,7 +824,11 @@ class VectorLensPage(QWidget):
 
         ctas = self._lens_result.get('ctas', [])
         net_delta = self._lens_result.get('net_cta_delta', 0.0)
-        self._mc_context_card.set_multi_cta_context(ctas, net_delta)
+        self._mc_context_card.set_multi_cta_context(
+            ctas, net_delta,
+            fan_spread_a=self._fan_spread_a,
+            fan_spread_b=self._fan_spread_b,
+        )
 
     def _update_graphs(self) -> None:
         from vector.monte_carlo import build_historical_curve, run_projection
@@ -730,6 +880,22 @@ class VectorLensPage(QWidget):
         display_b = result_b if result_b is not None else result_a
 
         import numpy as np
+
+        def _fan_spread(res: tuple | None) -> float | None:
+            """Mean 10–90 percentile band width as a % of the opening value."""
+            if res is None:
+                return None
+            _, bands, med = res
+            if (10, 90) not in bands or med is None or len(med) == 0:
+                return None
+            lo, hi = bands[(10, 90)]
+            base = float(med[0])
+            if base <= 0:
+                return None
+            return float(np.mean((np.asarray(hi) - np.asarray(lo)) / base * 100))
+
+        self._fan_spread_a = _fan_spread(result_a)
+        self._fan_spread_b = _fan_spread(result_b)
 
         def _pct_extremes(res: tuple | None) -> list[float]:
             if res is None:
