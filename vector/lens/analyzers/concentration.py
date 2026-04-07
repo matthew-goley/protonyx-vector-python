@@ -9,19 +9,17 @@ from vector.constants import INDEX_ETFS
 
 _log = logging.getLogger(__name__)
 
+_SEV_ORDER = {'none': 0, 'low': 1, 'moderate': 2, 'high': 3, 'critical': 4}
+
 
 def _stock_severity(weight_pct: float, thresholds: dict) -> str:
-    crit = thresholds.get('critical', 50)
-    high = thresholds.get('high', 40)
-    mod = thresholds.get('moderate', 30)
-    low = thresholds.get('low', 20)
-    if weight_pct > crit:
+    if weight_pct > thresholds.get('critical', 50):
         return 'critical'
-    if weight_pct > high:
+    if weight_pct > thresholds.get('high', 40):
         return 'high'
-    if weight_pct > mod:
+    if weight_pct > thresholds.get('moderate', 30):
         return 'moderate'
-    if weight_pct > low:
+    if weight_pct > thresholds.get('low', 20):
         return 'low'
     return 'none'
 
@@ -33,12 +31,11 @@ def analyze(
     total_equity = sum(p.get('equity', 0.0) for p in positions) or 1.0
 
     ticker_results: dict[str, dict] = {}
-
-    # Pre-compute entry weights (cost-basis approximation)
-    total_cost_basis = sum(p.get('equity', 0.0) for p in positions) or 1.0
+    sector_weights: dict[str, float] = {}
 
     for pos in positions:
         t = pos['ticker']
+        is_index = t in INDEX_ETFS
         shares = pos.get('shares', 0.0)
         cost_equity = pos.get('equity', 0.0)
         current_price = pos.get('price', 0.0)
@@ -46,74 +43,51 @@ def analyze(
         weight = current_value / total_equity
         weight_pct = weight * 100
 
-        entry_weight = cost_equity / total_cost_basis if total_cost_basis > 0 else 0.0
-        entry_weight_pct = entry_weight * 100
+        # Cost-basis entry weight (total_equity == total_cost_basis by definition)
+        entry_weight = cost_equity / total_equity
         drift_multiple = weight / entry_weight if entry_weight > 0.001 else 1.0
 
         sub_signals: list[str] = []
         best_severity = 'none'
 
-        # Sub-signal A: Stock concentration
-        stock_sev = _stock_severity(weight_pct, thresholds)
-        stock_flag = stock_sev in ('moderate', 'high', 'critical')
+        # Sub-signal A: Stock concentration (suppressed for index ETFs)
+        if not is_index:
+            stock_sev = _stock_severity(weight_pct, thresholds)
+            if stock_sev in ('moderate', 'high', 'critical'):
+                sub_signals.append('stock_concentration')
+                best_severity = stock_sev
 
-        # Index ETFs don't trigger stock concentration
-        if t in INDEX_ETFS:
-            stock_flag = False
-            stock_sev = 'none'
-
-        if stock_flag:
-            sub_signals.append('stock_concentration')
-            best_severity = stock_sev
-
-        # Sub-signal C: Winner drift
-        drift_sev = 'none'
-        if weight_pct > 30 and drift_multiple > 2.0 and t not in INDEX_ETFS:
-            if drift_multiple > 2.5:
-                drift_sev = 'high'
-            else:
-                drift_sev = 'moderate'
+        # Sub-signal C: Winner drift (suppressed for index ETFs)
+        if not is_index and weight_pct > 30 and drift_multiple > 2.0:
+            drift_sev = 'high' if drift_multiple > 2.5 else 'moderate'
             sub_signals.append('winner_drift')
-            # Take the worse severity
-            sev_order = {'none': 0, 'low': 1, 'moderate': 2, 'high': 3, 'critical': 4}
-            if sev_order.get(drift_sev, 0) > sev_order.get(best_severity, 0):
+            if _SEV_ORDER[drift_sev] > _SEV_ORDER[best_severity]:
                 best_severity = drift_sev
 
-        flag = len(sub_signals) > 0
+        # Sub-signal B: accumulate sector weights (exclude index ETFs)
+        if not is_index:
+            sector = pos.get('sector') or 'Unknown'
+            sector_weights[sector] = sector_weights.get(sector, 0.0) + current_value
 
         ticker_results[t] = {
             'value': weight_pct,
             'severity': best_severity,
-            'flag': flag,
+            'flag': bool(sub_signals),
             'weight': weight,
             'details': {
                 'sub_signals': sub_signals,
                 'weight_pct': weight_pct,
-                'entry_weight_pct': entry_weight_pct,
+                'entry_weight_pct': entry_weight * 100,
                 'drift_multiple': drift_multiple,
-                'heaviest_concentration_type': (
-                    'winner_drift' if 'winner_drift' in sub_signals
-                    else 'stock_concentration' if 'stock_concentration' in sub_signals
-                    else 'none'
-                ),
+                'heaviest_concentration_type': sub_signals[0] if sub_signals else 'none',
             },
         }
 
-    # Sub-signal B: Sector over-concentration (portfolio level)
-    sector_weights: dict[str, float] = {}
-    for pos in positions:
-        t = pos['ticker']
-        if t in INDEX_ETFS:
-            continue  # exclude index funds from sector calculation
-        sector = pos.get('sector') or 'Unknown'
-        current_price = pos.get('price', 0.0)
-        shares = pos.get('shares', 0.0)
-        val = shares * current_price if current_price > 0 else pos.get('equity', 0.0)
-        sector_weights[sector] = sector_weights.get(sector, 0.0) + val
-
+    # Sector over-concentration (portfolio level)
     sector_total = sum(sector_weights.values()) or 1.0
     sector_pcts = {s: v / sector_total * 100 for s, v in sector_weights.items()}
-    sector_count = len({s for s in sector_pcts if s != 'Unknown'}) or len(sector_pcts)
+    known_sectors = [s for s in sector_pcts if s != 'Unknown']
+    sector_count = len(known_sectors) or len(sector_pcts)
 
     heaviest_sector = max(sector_pcts, key=sector_pcts.get) if sector_pcts else 'Unknown'
     heaviest_pct = sector_pcts.get(heaviest_sector, 0.0)
