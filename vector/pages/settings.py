@@ -227,7 +227,8 @@ class _RiskTierOption(QFrame):
 
         desc = QLabel(tier['description'])
         desc.setWordWrap(True)
-        desc.setStyleSheet('font-size: 10pt; color: #8d98af; background: transparent; border: none;')
+        desc.setProperty('role', 'muted')
+        desc.setStyleSheet('font-size: 10pt; background: transparent; border: none;')
         layout.addWidget(desc)
 
         if selected:
@@ -240,13 +241,18 @@ class _RiskTierOption(QFrame):
         self._apply_style()
 
     def _apply_style(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        is_dark = app is not None and '#0b1020' in (app.styleSheet() or '')
+        bg = '#161b26' if is_dark else '#ffffff'
+        border_idle = '#1e2535' if is_dark else '#d0d8e8'
         if self._selected:
             self.setStyleSheet(
-                f'QFrame {{ background: #161b26; border: 2px solid {self._accent}; border-radius: 12px; }}'
+                f'QFrame {{ background: {bg}; border: 2px solid {self._accent}; border-radius: 12px; }}'
             )
         else:
             self.setStyleSheet(
-                'QFrame { background: #161b26; border: 1px solid #1e2535; border-radius: 12px; }'
+                f'QFrame {{ background: {bg}; border: 1px solid {border_idle}; border-radius: 12px; }}'
             )
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
@@ -325,7 +331,8 @@ class SettingsPage(QWidget):
         style_layout.addLayout(tier_row)
 
         self._style_note = QLabel('Lens will update on the next refresh.')
-        self._style_note.setStyleSheet('color: #6b7a94; font-size: 10pt;')
+        self._style_note.setProperty('role', 'muted')
+        self._style_note.setStyleSheet('font-size: 10pt;')
         self._style_note.setVisible(False)
         style_layout.addWidget(self._style_note)
         layout.addWidget(style_card)
@@ -363,7 +370,8 @@ class SettingsPage(QWidget):
         lens_signals = self._add_accordion(layout, 'Lens Signal Thresholds')
         self._lens_tier_note = QLabel('')
         self._lens_tier_note.setWordWrap(True)
-        self._lens_tier_note.setStyleSheet('color: #8d98af; font-size: 10pt; margin-bottom: 8px;')
+        self._lens_tier_note.setProperty('role', 'muted')
+        self._lens_tier_note.setStyleSheet('font-size: 10pt; margin-bottom: 8px;')
         lens_signals.addRow(self._lens_tier_note)
         self.stock_conc_spin = QSpinBox(); self.stock_conc_spin.setRange(1, 100); self.stock_conc_spin.setSuffix('%'); self.stock_conc_spin.setMinimumWidth(120)
         self.sector_conc_spin = QSpinBox(); self.sector_conc_spin.setRange(1, 100); self.sector_conc_spin.setSuffix('%'); self.sector_conc_spin.setMinimumWidth(120)
@@ -409,9 +417,6 @@ class SettingsPage(QWidget):
         # ── Sticky save footer (outside scroll, always visible) ───────────
         footer = QFrame()
         footer.setObjectName('settingsFooter')
-        footer.setStyleSheet(
-            'QFrame#settingsFooter { background: #0b1020; border-top: 1px solid #1e2a3a; }'
-        )
         footer_layout = QHBoxLayout(footer)
         footer_layout.setContentsMargins(24, 12, 24, 12)
         footer_layout.addStretch(1)

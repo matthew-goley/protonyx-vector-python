@@ -163,6 +163,16 @@ QPushButton#navButton[active="true"] {
     border: 1px solid #2d3c58;
 }
 QLabel#headerBreadcrumb { color: #90a0bb; }
+QWidget#onboardingPage { background-color: #0d1117; }
+QFrame#onboardingPanel { background-color: #151b26; border: 1px solid #1e3a8a; border-radius: 12px; }
+QFrame#settingsFooter { background: #0b1020; border-top: 1px solid #1e2a3a; }
+QLabel[role="muted"] { color: #8d98af; }
+QLabel[role="accent-info"] { color: #a0c8ff; }
+QFrame[role="divider"] { background: #2a3347; border: none; }
+QFrame[role="row-divider"] { border: none; border-bottom: 1px solid #1e2840; background: transparent; }
+QMenu { background: #151e30; border: 1px solid #2c364a; border-radius: 8px; padding: 4px; color: #e7ebf3; }
+QMenu::item { padding: 8px 20px; border-radius: 4px; color: #e7ebf3; }
+QMenu::item:selected { background: #1e2840; }
 """
 
 LIGHT_STYLESHEET = """
@@ -283,6 +293,16 @@ QPushButton#navButton[active="true"] {
     border: 1px solid #c5d0e8;
 }
 QLabel#headerBreadcrumb { color: #536075; }
+QWidget#onboardingPage { background-color: #eef1f8; }
+QFrame#onboardingPanel { background-color: #ffffff; border: 1px solid #b8ccec; border-radius: 12px; }
+QFrame#settingsFooter { background: #f4f7fb; border-top: 1px solid #d0d8e8; }
+QLabel[role="muted"] { color: #536075; }
+QLabel[role="accent-info"] { color: #1e6fad; }
+QFrame[role="divider"] { background: #d0d8e8; border: none; }
+QFrame[role="row-divider"] { border: none; border-bottom: 1px solid #d0d8e8; background: transparent; }
+QMenu { background: #ffffff; border: 1px solid #ccd5e5; border-radius: 8px; padding: 4px; color: #182233; }
+QMenu::item { padding: 8px 20px; border-radius: 4px; color: #182233; }
+QMenu::item:selected { background: #e8edf7; }
 """
 
 

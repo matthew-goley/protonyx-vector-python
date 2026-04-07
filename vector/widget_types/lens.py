@@ -115,10 +115,14 @@ class _AccentFrame(QFrame):
     """Card with a teal→navy gradient left accent bar and border."""
 
     def paintEvent(self, _event) -> None:  # noqa: N802
+        from PyQt6.QtWidgets import QApplication
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         h = self.height()
-        painter.setBrush(QColor(_BG))
+        app = QApplication.instance()
+        is_dark = app is not None and '#0b1020' in (app.styleSheet() or '')
+        bg = _BG if is_dark else '#f8faff'
+        painter.setBrush(QColor(bg))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(QRectF(self.rect()), 12, 12)
         bar_grad = QLinearGradient(0, 16, 0, h - 16)
@@ -169,7 +173,7 @@ class LensDisplay(QFrame):
 
         title_lbl = QLabel('Lens Brief')
         title_lbl.setFont(_font(16, bold=True))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         card_layout.addWidget(title_lbl)
 
         self._text_lbl = QLabel('')
@@ -177,7 +181,7 @@ class LensDisplay(QFrame):
         self._text_lbl.setTextFormat(Qt.TextFormat.RichText)
         self._text_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self._text_lbl.setStyleSheet(
-            'border: none; color: #e7ebf3; font-size: 18pt; font-weight: 700;'
+            'border: none; font-size: 18pt; font-weight: 700;'
         )
         card_layout.addWidget(self._text_lbl, stretch=1)
 
@@ -237,7 +241,7 @@ class LensDisplay(QFrame):
 
     def _apply_font(self, pt: int) -> None:
         self._text_lbl.setStyleSheet(
-            f'border: none; color: #e7ebf3; font-size: {pt}pt; font-weight: 700;'
+            f'border: none; font-size: {pt}pt; font-weight: 700;'
         )
 
     def _refit(self) -> None:

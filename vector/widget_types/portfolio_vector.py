@@ -89,7 +89,10 @@ class _VectorArrow(QWidget):
         mid_y = h / 2.0
 
         # ── Dotted horizontal midline ──────────────────────────────────────
-        midline_pen = QPen(QColor(_MIDLINE), 1.5, Qt.PenStyle.CustomDashLine)
+        from PyQt6.QtWidgets import QApplication as _QApp
+        _app = _QApp.instance()
+        _midline = _MIDLINE if (_app and '#0b1020' in (_app.styleSheet() or '')) else '#c0cad8'
+        midline_pen = QPen(QColor(_midline), 1.5, Qt.PenStyle.CustomDashLine)
         midline_pen.setDashPattern([3.0, 6.0])
         painter.setPen(midline_pen)
         painter.drawLine(QPointF(pad_x, mid_y), QPointF(w - pad_x, mid_y))
@@ -166,7 +169,7 @@ class PortfolioVectorWidget(VectorWidget):
         # ── Title ────────────────────────────────────────────────────────
         title_lbl = QLabel('Portfolio Vector')
         title_lbl.setFont(_font(16, bold=True))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         outer.addWidget(title_lbl)
 
         outer.addSpacing(2)
@@ -181,7 +184,8 @@ class PortfolioVectorWidget(VectorWidget):
         self._slope_lbl = QLabel('')
         self._slope_lbl.setFont(_font(24))
         self._slope_lbl.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft)
-        self._slope_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 24pt; border: none;')
+        self._slope_lbl.setProperty('role', 'muted')
+        self._slope_lbl.setStyleSheet('font-size: 24pt; border: none;')
         stats_row.addWidget(self._slope_lbl)
         stats_row.addStretch(1)
         outer.addLayout(stats_row)
@@ -198,7 +202,7 @@ class PortfolioVectorWidget(VectorWidget):
         # Vertical divider
         divider = QFrame()
         divider.setFrameShape(QFrame.Shape.VLine)
-        divider.setStyleSheet('color: #2a3347; background: #2a3347; border: none;')
+        divider.setProperty('role', 'divider')
         divider.setFixedWidth(1)
         content.addWidget(divider)
 
@@ -206,7 +210,8 @@ class PortfolioVectorWidget(VectorWidget):
         self._verdict_lbl.setFont(_font(12, bold=False))
         self._verdict_lbl.setWordWrap(True)
         self._verdict_lbl.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        self._verdict_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 12pt; border: none;')
+        self._verdict_lbl.setProperty('role', 'muted')
+        self._verdict_lbl.setStyleSheet('font-size: 12pt; border: none;')
         content.addWidget(self._verdict_lbl, stretch=4)
 
         outer.addLayout(content, stretch=1)
@@ -216,7 +221,8 @@ class PortfolioVectorWidget(VectorWidget):
         # ── Sub-label ────────────────────────────────────────────────────
         self._sub_lbl = QLabel('6-month linear regression · equity-weighted')
         self._sub_lbl.setFont(_font(9, bold=False))
-        self._sub_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 9pt; border: none;')
+        self._sub_lbl.setProperty('role', 'muted')
+        self._sub_lbl.setStyleSheet('font-size: 9pt; border: none;')
         outer.addWidget(self._sub_lbl)
 
     def refresh(self) -> None:

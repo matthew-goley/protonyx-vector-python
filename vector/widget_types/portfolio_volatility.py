@@ -50,7 +50,8 @@ class _VolBar(QWidget):
         wt_lbl = QLabel(f'{weight_pct:.0f}% wt')
         wt_lbl.setMinimumWidth(46)
         wt_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        wt_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 10pt; border: none;')
+        wt_lbl.setProperty('role', 'muted')
+        wt_lbl.setStyleSheet('font-size: 10pt; border: none;')
         row.addWidget(wt_lbl)
 
 
@@ -62,10 +63,14 @@ class _MiniBar(QWidget):
         self.setFixedHeight(8)
 
     def paintEvent(self, _event) -> None:  # noqa: N802
+        from PyQt6.QtWidgets import QApplication
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
-        painter.setBrush(QColor('#1e2840'))
+        app = QApplication.instance()
+        is_dark = app is not None and '#0b1020' in (app.styleSheet() or '')
+        track_color = '#1e2840' if is_dark else '#d8e2f0'
+        painter.setBrush(QColor(track_color))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(QRectF(0, 0, w, h), h / 2, h / 2)
         fill_w = max(0.0, w * self._pct / 100.0)
@@ -99,11 +104,12 @@ class PortfolioVolatilityWidget(VectorWidget):
         header = QHBoxLayout()
         title_lbl = QLabel('Volatility')
         title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._label_lbl = QLabel('')
-        self._label_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        self._label_lbl.setProperty('role', 'muted')
+        self._label_lbl.setStyleSheet('font-size: 11pt; border: none;')
         header.addWidget(self._label_lbl)
         layout.addLayout(header)
 
@@ -114,7 +120,8 @@ class PortfolioVolatilityWidget(VectorWidget):
         self._score_lbl.setStyleSheet('font-size: 16pt; border: none;')
         score_row.addWidget(self._score_lbl)
         self._desc_lbl = QLabel('')
-        self._desc_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 8pt; border: none;')
+        self._desc_lbl.setProperty('role', 'muted')
+        self._desc_lbl.setStyleSheet('font-size: 8pt; border: none;')
         self._desc_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         score_row.addWidget(self._desc_lbl)
         score_row.addStretch(1)

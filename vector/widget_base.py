@@ -84,20 +84,6 @@ class VectorWidget(QFrame):
             super().contextMenuEvent(event)
             return
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu {
-                background: #151e30;
-                border: 1px solid #2c364a;
-                border-radius: 8px;
-                padding: 4px;
-            }
-            QMenu::item {
-                padding: 8px 20px;
-                border-radius: 4px;
-                color: #e7ebf3;
-            }
-            QMenu::item:selected { background: #1e2840; }
-        """)
         delete_action = menu.addAction('Delete Widget')
         if menu.exec(event.globalPos()) == delete_action:
             parent = self.parent()

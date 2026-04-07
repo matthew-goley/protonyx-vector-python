@@ -57,7 +57,7 @@ class _DivRow(QFrame):
     def __init__(self, ticker: str, next_date: date, amount: float,
                  freq: str, fmt_currency, parent=None) -> None:
         super().__init__(parent)
-        self.setStyleSheet('QFrame { border: none; border-bottom: 1px solid #1e2840; }')
+        self.setProperty('role', 'row-divider')
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 8, 0, 8)
         row.setSpacing(10)
@@ -82,12 +82,14 @@ class _DivRow(QFrame):
 
         # Date
         date_lbl = QLabel(next_date.strftime('%b %d, %Y'))
-        date_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        date_lbl.setProperty('role', 'muted')
+        date_lbl.setStyleSheet('font-size: 11pt; border: none;')
         row.addWidget(date_lbl, stretch=2)
 
         # Frequency
         freq_lbl = QLabel(freq)
-        freq_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        freq_lbl.setProperty('role', 'muted')
+        freq_lbl.setStyleSheet('font-size: 11pt; border: none;')
         freq_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(freq_lbl, stretch=1)
 
@@ -116,11 +118,12 @@ class DividendCalendarWidget(VectorWidget):
         header = QHBoxLayout()
         title_lbl = QLabel('Dividend Calendar')
         title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._note_lbl = QLabel('estimated')
-        self._note_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 10pt; border: none;')
+        self._note_lbl.setProperty('role', 'muted')
+        self._note_lbl.setStyleSheet('font-size: 10pt; border: none;')
         header.addWidget(self._note_lbl)
         layout.addLayout(header)
 
@@ -136,7 +139,8 @@ class DividendCalendarWidget(VectorWidget):
             ('Per Share', 72, Qt.AlignmentFlag.AlignRight),
         ]:
             lbl = QLabel(text)
-            lbl.setStyleSheet(f'color: {_MUTED}; font-size: 10pt; border: none;')
+            lbl.setProperty('role', 'muted')
+            lbl.setStyleSheet('font-size: 10pt; border: none;')
             lbl.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
             if width:
                 lbl.setFixedWidth(width)
@@ -199,7 +203,8 @@ class DividendCalendarWidget(VectorWidget):
 
         if not entries:
             no_data = QLabel('No dividend data available for held positions.')
-            no_data.setStyleSheet(f'color: {_MUTED}; font-size: 12pt; border: none;')
+            no_data.setProperty('role', 'muted')
+            no_data.setStyleSheet('font-size: 12pt; border: none;')
             no_data.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self._rows_layout.addWidget(no_data)
         else:

@@ -73,12 +73,16 @@ class _BetaGauge(QWidget):
         self.update()
 
     def paintEvent(self, _event) -> None:  # noqa: N802
+        from PyQt6.QtWidgets import QApplication
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = float(self.width()), float(self.height())
 
         # Track
-        painter.setBrush(QColor('#1e2840'))
+        app = QApplication.instance()
+        is_dark = app is not None and '#0b1020' in (app.styleSheet() or '')
+        track_color = '#1e2840' if is_dark else '#d8e2f0'
+        painter.setBrush(QColor(track_color))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(QRectF(0, 2, w, h - 4), 3, 3)
 
@@ -119,11 +123,12 @@ class PortfolioBetaWidget(VectorWidget):
         header = QHBoxLayout()
         title_lbl = QLabel('Beta')
         title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._benchmark_lbl = QLabel(f'vs {_BENCHMARK}')
-        self._benchmark_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 10pt; border: none;')
+        self._benchmark_lbl.setProperty('role', 'muted')
+        self._benchmark_lbl.setStyleSheet('font-size: 10pt; border: none;')
         header.addWidget(self._benchmark_lbl)
         layout.addLayout(header)
 
@@ -134,7 +139,8 @@ class PortfolioBetaWidget(VectorWidget):
         self._beta_lbl.setStyleSheet('font-size: 16pt; border: none;')
         score_row.addWidget(self._beta_lbl)
         self._label_lbl = QLabel('')
-        self._label_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 13pt; font-weight: 700; border: none;')
+        self._label_lbl.setProperty('role', 'muted')
+        self._label_lbl.setStyleSheet('font-size: 13pt; font-weight: 700; border: none;')
         self._label_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         score_row.addWidget(self._label_lbl)
         score_row.addStretch(1)
@@ -151,7 +157,8 @@ class PortfolioBetaWidget(VectorWidget):
         # Interpretation
         self._interp_lbl = QLabel('')
         self._interp_lbl.setWordWrap(True)
-        self._interp_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        self._interp_lbl.setProperty('role', 'muted')
+        self._interp_lbl.setStyleSheet('font-size: 11pt; border: none;')
         layout.addWidget(self._interp_lbl)
 
         layout.addStretch(1)

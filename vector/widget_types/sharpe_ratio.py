@@ -67,11 +67,16 @@ class _TierRow(QLabel):
         self.set_active(False)
 
     def set_active(self, active: bool) -> None:
-        color = '#e7ebf3' if active else _MUTED
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        is_dark = app is not None and '#0b1020' in (app.styleSheet() or '')
+        active_color = '#e7ebf3' if is_dark else '#182233'
+        muted_color = '#8d98af' if is_dark else '#536075'
+        color = active_color if active else muted_color
         weight = '700' if active else '400'
         self.setText(
             f'<span style="color:{color};font-weight:{weight};">{self._tier}</span>'
-            f'<span style="color:{_MUTED};font-size:11pt;"> — {self._desc}</span>'
+            f'<span style="color:{muted_color};font-size:11pt;"> — {self._desc}</span>'
         )
 
 
@@ -92,11 +97,12 @@ class SharpeRatioWidget(VectorWidget):
         header = QHBoxLayout()
         title_lbl = QLabel('Sharpe Ratio')
         title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._period_lbl = QLabel('')
-        self._period_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 10pt; border: none;')
+        self._period_lbl.setProperty('role', 'muted')
+        self._period_lbl.setStyleSheet('font-size: 10pt; border: none;')
         header.addWidget(self._period_lbl)
         layout.addLayout(header)
 
@@ -108,14 +114,16 @@ class SharpeRatioWidget(VectorWidget):
         score_row.addWidget(self._score_lbl)
 
         self._label_lbl = QLabel('')
-        self._label_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 13pt; font-weight: 700; border: none;')
+        self._label_lbl.setProperty('role', 'muted')
+        self._label_lbl.setStyleSheet('font-size: 13pt; font-weight: 700; border: none;')
         self._label_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         score_row.addWidget(self._label_lbl)
         score_row.addStretch(1)
         layout.addLayout(score_row)
 
         self._rf_lbl = QLabel(f'rf = {_RISK_FREE_RATE * 100:.1f}%')
-        self._rf_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 10pt; border: none;')
+        self._rf_lbl.setProperty('role', 'muted')
+        self._rf_lbl.setStyleSheet('font-size: 10pt; border: none;')
         layout.addWidget(self._rf_lbl)
 
         layout.addSpacing(8)

@@ -81,7 +81,11 @@ class _GaugeWidget(QWidget):
         pen_w = max(8, int(r * 0.13))
 
         # Background arc — full semi-circle (left → top → right), clockwise
-        bg_pen = QPen(QColor('#2a3142'), pen_w, Qt.PenStyle.SolidLine,
+        from PyQt6.QtWidgets import QApplication as _QApp
+        _app = _QApp.instance()
+        _is_dark = _app is not None and '#0b1020' in (_app.styleSheet() or '')
+        arc_bg = '#2a3142' if _is_dark else '#d8e2f0'
+        bg_pen = QPen(QColor(arc_bg), pen_w, Qt.PenStyle.SolidLine,
                       Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         painter.setPen(bg_pen)
         painter.drawArc(rect, 180 * 16, -180 * 16)
@@ -100,7 +104,8 @@ class _GaugeWidget(QWidget):
         f.setPointSize(max(16, int(r * 0.36)))
         f.setBold(True)
         painter.setFont(f)
-        painter.setPen(QColor(_caution_color(self._score) if self._score > 0 else '#8d98af'))
+        muted_gauge = '#8d98af' if _is_dark else '#536075'
+        painter.setPen(QColor(_caution_color(self._score) if self._score > 0 else muted_gauge))
         text_rect = QRectF(cx - r * 0.85, bottom_y - r * 0.85, r * 1.7, r * 0.75)
         label = str(self._score) if self._score > 0 else '—'
         painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, label)
@@ -142,13 +147,17 @@ class _CautionCard(QFrame):
 
         self._sub_lbl = QLabel('Based on current portfolio state')
         self._sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._sub_lbl.setStyleSheet('font-size: 9pt; color: #8d98af;')
+        self._sub_lbl.setProperty('role', 'muted')
+        self._sub_lbl.setStyleSheet('font-size: 9pt;')
         layout.addWidget(self._sub_lbl)
 
     def set_score(self, score: int) -> None:
         self._gauge.set_score(score)
         label = _caution_label(score) if score > 0 else '—'
-        color = _caution_color(score) if score > 0 else '#8d98af'
+        from PyQt6.QtWidgets import QApplication as _QApp
+        _app = _QApp.instance()
+        _muted = '#8d98af' if (_app and '#0b1020' in (_app.styleSheet() or '')) else '#536075'
+        color = _caution_color(score) if score > 0 else _muted
         self._tier_lbl.setText(label)
         self._tier_lbl.setStyleSheet(f'font-size: 13pt; font-weight: 700; color: {color};')
 
@@ -192,7 +201,8 @@ class _MCContextCard(QFrame):
         self._body.setWordWrap(True)
         self._body.setTextFormat(Qt.TextFormat.RichText)
         self._body.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-        self._body.setStyleSheet('font-size: 13pt; color: #c7cedb; border: none;')
+        self._body.setProperty('role', 'muted')
+        self._body.setStyleSheet('font-size: 13pt; border: none;')
         self._body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self._body, stretch=1)
 
@@ -227,7 +237,7 @@ class _MCContextCard(QFrame):
 
     def _apply_font(self, pt: int) -> None:
         self._body.setStyleSheet(
-            f'font-size: {pt}pt; color: #c7cedb; border: none;'
+            f'font-size: {pt}pt; border: none;'
         )
 
     def _refit(self) -> None:
@@ -410,7 +420,8 @@ class _GraphCard(QFrame):
 
         self._placeholder = QLabel('Loading projection…')
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._placeholder.setStyleSheet('color: #8d98af; font-size: 11pt;')
+        self._placeholder.setProperty('role', 'muted')
+        self._placeholder.setStyleSheet('font-size: 11pt;')
         self._placeholder.setMinimumHeight(280)
         self._outer.addWidget(self._placeholder, stretch=1)
 
@@ -426,7 +437,11 @@ class _GraphCard(QFrame):
             return
         from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
         from matplotlib.figure import Figure
-        self._fig = Figure(facecolor='#161b26')
+        from PyQt6.QtWidgets import QApplication as _QApp
+        _app = _QApp.instance()
+        _is_dark = _app is not None and '#0b1020' in (_app.styleSheet() or '')
+        self._is_dark = _is_dark
+        self._fig = Figure(facecolor='#161b26' if _is_dark else '#f8faff')
         self._fig.subplots_adjust(left=0.04, right=0.86, top=0.92, bottom=0.16)
         self._ax = self._fig.add_subplot(111)
         self._canvas = FigureCanvasQTAgg(self._fig)
@@ -474,11 +489,15 @@ class _GraphCard(QFrame):
         def to_pct(v: float | np.ndarray) -> float | np.ndarray:
             return (np.asarray(v, dtype=float) / today_value - 1.0) * 100.0
 
-        ax.set_facecolor('#121828')
+        _is_dark = getattr(self, '_is_dark', True)
+        _ax_bg     = '#121828' if _is_dark else '#f0f4fb'
+        _muted_ch  = '#8d98af' if _is_dark else '#536075'
+        _grid_ch   = '#2a3142' if _is_dark else '#dde4f0'
+        ax.set_facecolor(_ax_bg)
         for spine in ax.spines.values():
             spine.set_visible(False)
-        ax.tick_params(axis='both', colors='#8d98af', labelsize=8)
-        ax.grid(True, color='#2a3142', alpha=0.5, linewidth=0.5, zorder=0)
+        ax.tick_params(axis='both', colors=_muted_ch, labelsize=8)
+        ax.grid(True, color=_grid_ch, alpha=0.5, linewidth=0.5, zorder=0)
 
         ax.yaxis.tick_right()
         ax.yaxis.set_label_position('right')
@@ -490,7 +509,7 @@ class _GraphCard(QFrame):
                 color='#2dd4bf', lw=1.5, zorder=3,
             )
 
-        ax.axvline(x=0, color='#8d98af', lw=1.0, ls='--', alpha=0.55, zorder=2)
+        ax.axvline(x=0, color=_muted_ch, lw=1.0, ls='--', alpha=0.55, zorder=2)
 
         if bands and future_days:
             alphas = {(10, 90): 0.12, (25, 75): 0.22, (40, 60): 0.35}
@@ -517,7 +536,7 @@ class _GraphCard(QFrame):
         xticks = [0, 21, 42, 63, 84, 105]
         xlabels = ['Today', '1m', '2m', '3m', '4m', '5m']
         ax.set_xticks(xticks)
-        ax.set_xticklabels(xlabels, color='#8d98af', fontsize=8)
+        ax.set_xticklabels(xlabels, color=_muted_ch, fontsize=8)
 
         if ylim is not None:
             ax.set_ylim(*ylim)
@@ -552,7 +571,8 @@ class _PieCard(QFrame):
 
         self._placeholder = QLabel('Add positions to see allocation.')
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._placeholder.setStyleSheet('color: #8d98af; font-size: 11pt;')
+        self._placeholder.setProperty('role', 'muted')
+        self._placeholder.setStyleSheet('font-size: 11pt;')
         self._placeholder.setMinimumHeight(240)
         self._outer.addWidget(self._placeholder, stretch=1)
 
@@ -664,7 +684,8 @@ class _CTAReportCard(QFrame):
 
         if not full_report:
             lbl = QLabel('No projections at this time.')
-            lbl.setStyleSheet('font-size: 10pt; color: #8d98af;')
+            lbl.setProperty('role', 'muted')
+            lbl.setStyleSheet('font-size: 10pt;')
             self._items_layout.insertWidget(0, lbl)
             return
 
@@ -710,8 +731,9 @@ class _CTAReportCard(QFrame):
 
             text = QLabel(sentence)
             text.setWordWrap(True)
+            text.setProperty('role', 'muted')
             text.setStyleSheet(
-                'font-size: 10pt; color: #c7cedb; border: none;'
+                'font-size: 10pt; border: none;'
                 ' background: transparent; line-height: 1.2;'
             )
             card_layout.addWidget(text)

@@ -96,7 +96,7 @@ class TotalEquityWidget(VectorWidget):
         title_lbl = QLabel('Total Equity')
         tf = QFont(); tf.setPointSize(16); tf.setBold(True)
         title_lbl.setFont(tf)
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         layout.addWidget(title_lbl)
 
         layout.addSpacing(8)
@@ -118,15 +118,15 @@ class TotalEquityWidget(VectorWidget):
         self._change_lbl = QLabel('')
         cf = QFont(); cf.setPointSize(11); cf.setBold(True)
         self._change_lbl.setFont(cf)
-        self._change_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        self._change_lbl.setProperty('role', 'muted')
+        self._change_lbl.setStyleSheet('font-size: 11pt; border: none;')
         row.addWidget(self._change_lbl)
 
         row.addStretch(1)
 
         self._period_lbl = QLabel('5-day change')
-        self._period_lbl.setStyleSheet(
-            f'color: {_MUTED}; font-size: 10pt; border: none;'
-        )
+        self._period_lbl.setProperty('role', 'muted')
+        self._period_lbl.setStyleSheet('font-size: 10pt; border: none;')
         self._period_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(self._period_lbl)
 

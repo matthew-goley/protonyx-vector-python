@@ -57,7 +57,7 @@ class PositionDialog(QDialog):
         title.setStyleSheet('font-size: 15pt;')
         subtitle = QLabel('Vector will validate the ticker with Yahoo Finance before saving it.')
         subtitle.setWordWrap(True)
-        subtitle.setStyleSheet('color: #8d98af;')
+        subtitle.setProperty('role', 'muted')
         layout.addWidget(title)
         layout.addWidget(subtitle)
 
@@ -88,7 +88,8 @@ class PositionDialog(QDialog):
         self.submit_button.clicked.connect(self.submit)
         self.equity_label = QLabel('')
         self.equity_label.setMinimumWidth(120)
-        self.equity_label.setStyleSheet('color: #a0c8ff; font-weight: bold;')
+        self.equity_label.setProperty('role', 'accent-info')
+        self.equity_label.setStyleSheet('font-weight: bold;')
         btn_row.addWidget(cancel_button)
         btn_row.addStretch(1)
         btn_row.addWidget(self.equity_label)
@@ -255,13 +256,17 @@ class _RiskTierCard(QFrame):
         self._apply_style()
 
     def _apply_style(self) -> None:
+        app = QApplication.instance()
+        is_dark = app is not None and '#0b1020' in (app.styleSheet() or '')
+        bg = '#161b26' if is_dark else '#ffffff'
+        border_idle = '#2a3142' if is_dark else '#d0d8e8'
         if self._selected:
             self.setStyleSheet(
-                f'_RiskTierCard {{ background: #161b26; border: 2px solid {self._accent}; border-radius: 14px; }}'
+                f'QFrame {{ background: {bg}; border: 2px solid {self._accent}; border-radius: 14px; }}'
             )
         else:
             self.setStyleSheet(
-                '_RiskTierCard { background: #161b26; border: 1px solid #2a3142; border-radius: 14px; }'
+                f'QFrame {{ background: {bg}; border: 1px solid {border_idle}; border-radius: 14px; }}'
             )
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
@@ -374,7 +379,7 @@ class OnboardingPage(QWidget):
     # ── Build ──────────────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
-        self.setStyleSheet('background-color: #0d1117;')
+        self.setObjectName('onboardingPage')
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -400,13 +405,6 @@ class OnboardingPage(QWidget):
         panel = QFrame()
         panel.setObjectName('onboardingPanel')
         panel.setFixedWidth(_PANEL_W)
-        panel.setStyleSheet(
-            'QFrame#onboardingPanel {'
-            '    background-color: #151b26;'
-            '    border: 1px solid #1e3a8a;'
-            '    border-radius: 12px;'
-            '}'
-        )
 
         h_layout.addWidget(panel)
         h_layout.addStretch(1)
@@ -428,7 +426,7 @@ class OnboardingPage(QWidget):
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
         sep.setFixedHeight(1)
-        sep.setStyleSheet('background: #1e2a3a; border: none;')
+        sep.setProperty('role', 'divider')
         panel_layout.addWidget(sep)
 
         # Pages
@@ -502,7 +500,8 @@ class OnboardingPage(QWidget):
             nf.setPointSize(8)
             name_lbl.setFont(nf)
             name_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            name_lbl.setStyleSheet('color: #4b5563; background: transparent; border: none;')
+            name_lbl.setProperty('role', 'muted')
+            name_lbl.setStyleSheet('background: transparent; border: none;')
             col.addWidget(name_lbl, alignment=Qt.AlignmentFlag.AlignHCenter)
 
             row.addWidget(col_widget, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -745,11 +744,15 @@ class OnboardingPage(QWidget):
             else:
                 dot.setStyleSheet(_idle)
 
+        _app = QApplication.instance()
+        _is_dark = _app is not None and '#0b1020' in (_app.styleSheet() or '')
+        _active_line = '#38bdf8' if _is_dark else '#2dd4bf'
+        _idle_line = '#2a3040' if _is_dark else '#d0d8e8'
         for i, connector in enumerate(self._connectors):
             if i < self._current_step:
-                connector.setStyleSheet('background: #38bdf8;')
+                connector.setStyleSheet(f'background: {_active_line};')
             else:
-                connector.setStyleSheet('background: #2a3040;')
+                connector.setStyleSheet(f'background: {_idle_line};')
 
     def _refresh_nav(self) -> None:
         if not self._back_btn or not self._next_btn:

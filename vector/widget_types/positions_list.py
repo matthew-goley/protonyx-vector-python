@@ -21,7 +21,7 @@ def _title_font(size: int = 22) -> QFont:
 class _PositionRow(QFrame):
     def __init__(self, pos: dict, fmt_currency, fmt_pct, parent=None) -> None:
         super().__init__(parent)
-        self.setStyleSheet('QFrame { border: none; border-bottom: 1px solid #1e2840; }')
+        self.setProperty('role', 'row-divider')
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 8, 0, 8)
         row.setSpacing(8)
@@ -33,7 +33,8 @@ class _PositionRow(QFrame):
         ticker_lbl.setFont(_title_font(13))
         ticker_lbl.setStyleSheet('font-size: 13pt; border: none;')
         name_lbl = QLabel(pos.get('name') or pos.get('sector') or '—')
-        name_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        name_lbl.setProperty('role', 'muted')
+        name_lbl.setStyleSheet('font-size: 11pt; border: none;')
         name_lbl.setMaximumWidth(130)
         name_lbl.setTextFormat(Qt.TextFormat.PlainText)
         fm = name_lbl.fontMetrics()
@@ -45,7 +46,8 @@ class _PositionRow(QFrame):
 
         # Shares
         shares_lbl = QLabel(f"{pos.get('shares', 0):,.4g} sh")
-        shares_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        shares_lbl.setProperty('role', 'muted')
+        shares_lbl.setStyleSheet('font-size: 11pt; border: none;')
         shares_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(shares_lbl, stretch=1)
 
@@ -98,11 +100,12 @@ class PositionsListWidget(VectorWidget):
         header = QHBoxLayout()
         title_lbl = QLabel('Positions')
         title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._count_lbl = QLabel('')
-        self._count_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        self._count_lbl.setProperty('role', 'muted')
+        self._count_lbl.setStyleSheet('font-size: 11pt; border: none;')
         header.addWidget(self._count_lbl)
         layout.addLayout(header)
 
@@ -118,7 +121,8 @@ class PositionsListWidget(VectorWidget):
             ('6mo Trend', 1, Qt.AlignmentFlag.AlignRight),
         ]:
             lbl = QLabel(label)
-            lbl.setStyleSheet(f'color: {_MUTED}; font-size: 10pt; border: none;')
+            lbl.setProperty('role', 'muted')
+            lbl.setStyleSheet('font-size: 10pt; border: none;')
             lbl.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
             col_row.addWidget(lbl, stretch=stretch)
         layout.addLayout(col_row)

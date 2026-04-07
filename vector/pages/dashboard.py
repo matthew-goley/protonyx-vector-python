@@ -332,6 +332,7 @@ class WidgetPickerDialog(QDialog):
 # ---------------------------------------------------------------------------
 
 def _circle_btn_style(font_size: int, active: bool = False) -> str:
+    r = sc(32)
     if active:
         return f"""
             QPushButton {{
@@ -340,8 +341,8 @@ def _circle_btn_style(font_size: int, active: bool = False) -> str:
                 color: #ffffff;
                 font-size: {font_size}pt;
                 font-weight: 700;
-                border: 2px solid rgba(255,255,255,0.45);
-                border-radius: 32px;
+                border: {sc(2)}px solid rgba(255,255,255,0.45);
+                border-radius: {r}px;
             }}
         """
     return f"""
@@ -352,7 +353,7 @@ def _circle_btn_style(font_size: int, active: bool = False) -> str:
             font-size: {font_size}pt;
             font-weight: 300;
             border: none;
-            border-radius: 32px;
+            border-radius: {r}px;
         }}
         QPushButton:hover {{
             background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
@@ -392,13 +393,13 @@ class DashboardPage(QWidget):
         self._dash_grid = DashboardGrid()
 
         self._add_btn = QPushButton('+')
-        self._add_btn.setFixedSize(64, 64)
+        self._add_btn.setFixedSize(sc(64), sc(64))
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.setStyleSheet(_circle_btn_style(28))
         self._add_btn.clicked.connect(self._open_picker)
 
         self._edit_btn = QPushButton('Edit')
-        self._edit_btn.setFixedSize(64, 64)
+        self._edit_btn.setFixedSize(sc(64), sc(64))
         self._edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._edit_btn.setStyleSheet(_circle_btn_style(13))
         self._edit_btn.clicked.connect(self._toggle_edit_mode)
