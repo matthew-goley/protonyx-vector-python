@@ -1,5 +1,11 @@
 from .paths import resource_path, user_data_dir
 
+# Debug: override the DPI scale factor used for window/UI sizing.
+# None = use the real screen devicePixelRatio (normal behaviour).
+# Set to a float to simulate a different screen density, e.g.:
+#   1.0  → 1080p feel   2.0 → native 4K feel
+DEBUG_SCREEN_SCALE: float | None = 1.0
+
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
 APP_VERSION = '0.3.9'
