@@ -86,14 +86,41 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     store = pool_results.get('_store')
 
     def _market_cap(ticker: str) -> float:
+        """Return market cap in USD, or 0.0 if not known. Checks quote and meta."""
         if not store:
             return 0.0
         try:
             q = store.get_quote(ticker) or {}
-            mc = q.get('market_cap')
+            mc = q.get('market_cap') or q.get('marketCap')
+            if mc:
+                return float(mc)
+            m = store.get_meta(ticker) or {}
+            mc = m.get('market_cap') or m.get('marketCap')
             return float(mc) if mc else 0.0
         except Exception:
             return 0.0
+
+    def _conservative_sell_blocked(
+        ticker: str, severity: str, ticker_weight: float,
+    ) -> bool:
+        """Conservative tier: block most sell-type CTAs.
+
+        Blocks if stock is > $5B market cap (assumes large-cap when unknown),
+        if severity isn't critical, or if position weight < 5%.
+        """
+        if risk_tier != 'low':
+            return False
+        mc = _market_cap(ticker)
+        # Missing data → assume large cap (safe default is to BLOCK the sell)
+        if mc <= 0:
+            mc = 100_000_000_000.0
+        if mc > 5_000_000_000:
+            return True
+        if severity != 'critical':
+            return True
+        if ticker_weight < 0.05:
+            return True
+        return False
 
     slope_res = pool_results.get('slope', {})
     vol_res = pool_results.get('volatility', {})
@@ -109,16 +136,9 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     for t, data in slope_res.get('ticker_results', {}).items():
         if data.get('severity') in ('high', 'critical') and data.get('flag'):
             sev = data['severity']
-            slope_pct = data['details'].get('annualized_pct', 0)
             ticker_weight = ticker_weights.get(t, 0)
-            if risk_tier == 'low':
-                if sev != 'critical':
-                    continue
-                if ticker_weight < 0.05:
-                    continue
-                mc = _market_cap(t)
-                if mc > 50_000_000_000 and slope_pct > -50:
-                    continue
+            if _conservative_sell_blocked(t, sev, ticker_weight):
+                continue
             sev_factor = 1.0 if sev == 'critical' else 0.5
             pos_value = ticker_weight * total_equity
             dollars = _round10(pos_value * sell_scale * sev_factor)
@@ -140,14 +160,8 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
         if data.get('flag'):
             sev = data['severity']
             ticker_weight = ticker_weights.get(t, 0)
-            if risk_tier == 'low':
-                if sev != 'critical':
-                    continue
-                if ticker_weight < 0.05:
-                    continue
-                mc = _market_cap(t)
-                if mc > 2_000_000_000:
-                    continue
+            if _conservative_sell_blocked(t, sev, ticker_weight):
+                continue
             sev_factor = 1.0 if sev == 'critical' else 0.5
             pos_value = ticker_weight * total_equity
             dollars = _round10(pos_value * sell_scale * sev_factor)
@@ -174,7 +188,11 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
         if 'winner_drift' in subs and data.get('flag'):
             entry_w = data['details'].get('entry_weight_pct', 25) / 100
             current_w = data.get('weight', 0)
-            dollars = _round10((current_w - entry_w) * total_equity)
+            raw_rebalance = (current_w - entry_w) * total_equity
+            position_value = current_w * total_equity
+            # Cap rebalance at 35% of the position's current value
+            max_rebalance = position_value * 0.35
+            dollars = _round10(min(raw_rebalance, max_rebalance))
             if dollars > 0:
                 if risk_tier == 'low':
                     ctas.append({
@@ -498,18 +516,33 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:
-    """Remove duplicate CTAs and cap per-sector buy count.
+    """Remove duplicate CTAs, resolve action conflicts, and cap per-sector buys.
 
     - Same (action, ticker) collapses to the highest-priority (lowest number).
+    - A ticker may carry at most one sell-group action (sell OR rebalance).
     - Buy CTAs are capped at 3 per target sector across the whole list.
     """
+    # Step 1: dedupe by (action, ticker)
     seen: dict[tuple[str, str], dict] = {}
     for cta in cta_list:
         key = (cta['action'], cta.get('ticker', ''))
         if key not in seen or cta['priority'] < seen[key]['priority']:
             seen[key] = cta
 
-    deduped = list(seen.values())
+    # Step 2: resolve sell vs rebalance conflicts on the same ticker
+    by_slot: dict[tuple[str, str], dict] = {}
+    for cta in seen.values():
+        ticker = cta.get('ticker', '')
+        action = cta['action']
+        if action in ('sell', 'rebalance') and ticker:
+            slot = (ticker, '_sell_group')
+            prev = by_slot.get(slot)
+            if prev is None or cta['priority'] < prev['priority']:
+                by_slot[slot] = cta
+        else:
+            by_slot[(ticker, action)] = cta
+
+    deduped = list(by_slot.values())
     deduped.sort(key=lambda c: c['priority'])
 
     # Cap buys per target sector at 3

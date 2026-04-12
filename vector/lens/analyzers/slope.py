@@ -35,15 +35,20 @@ def analyze(
 ) -> dict:
     refresh = settings.get('refresh_interval', '5 min')
     thresholds = risk_profile.get('slope', {})
-    total_equity = sum(p.get('equity', 0.0) for p in positions) or 1.0
+
+    def _cv(p: dict) -> float:
+        shares = float(p.get('shares', 0.0) or 0.0)
+        price = float(p.get('price', 0.0) or 0.0)
+        return shares * price if shares > 0 and price > 0 else float(p.get('equity', 0.0) or 0.0)
+
+    total_equity = sum(_cv(p) for p in positions) or 1.0
 
     ticker_results: dict[str, dict] = {}
     weighted_slope = 0.0
 
     for pos in positions:
         t = pos['ticker']
-        eq = pos.get('equity', 0.0)
-        weight = eq / total_equity
+        weight = _cv(pos) / total_equity
         try:
             hist = store.get_history(t, '6mo', refresh) or []
             clean = [
@@ -63,6 +68,21 @@ def analyze(
                 raw_slope = linear_regression_slope_percent(clean)
                 annualized = raw_slope * 252
                 insufficient_data = False
+                # Sanity check against actual peak-to-trough movement. 6mo
+                # window ≈ annualize by ×2. If regression disagrees by >30
+                # percentage points, fall back to the actual annualized return.
+                first_price = clean[0]
+                last_price = clean[-1]
+                if first_price > 0:
+                    actual_total_pct = (last_price - first_price) / first_price * 100
+                    actual_annualized = actual_total_pct * 2
+                    if abs(annualized - actual_annualized) > 30:
+                        _log.debug(
+                            'slope disagrees with actual for %s: regr=%.1f actual=%.1f',
+                            t, annualized, actual_annualized,
+                        )
+                        annualized = actual_annualized
+                        raw_slope = actual_annualized / 252
         except Exception:
             raw_slope = 0.0
             annualized = 0.0

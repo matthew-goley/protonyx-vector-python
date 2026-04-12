@@ -280,6 +280,7 @@ class DataStore:
                 'employees':   _si(info.get('fullTimeEmployees')),
                 'description': info.get('longBusinessSummary'),
                 'website':     info.get('website'),
+                'market_cap':  _sf(fi.get('marketCap')) or _sf(info.get('marketCap')),
             }
             entry['meta_updated_at'] = now_iso
 

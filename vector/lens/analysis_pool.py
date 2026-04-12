@@ -51,7 +51,17 @@ def run_analysis(
     )
 
     risk_profile = load_risk_profile(settings)
-    total_equity = sum(p.get('equity', 0.0) for p in positions) or 1.0
+
+    # Portfolio TOTAL is based on CURRENT market value (shares × current price),
+    # not cost basis. Cost basis still lives in p['equity'] for performance P&L.
+    def _current_value(p: dict[str, Any]) -> float:
+        shares = float(p.get('shares', 0.0) or 0.0)
+        price = float(p.get('price', 0.0) or 0.0)
+        if shares > 0 and price > 0:
+            return shares * price
+        return float(p.get('equity', 0.0) or 0.0)
+
+    total_equity = sum(_current_value(p) for p in positions) or 1.0
 
     # Phase 1: slope and volatility (needed by earnings for outlook)
     slope_res = _safe_analyze(
@@ -99,11 +109,11 @@ def run_analysis(
     sector_weights: dict[str, float] = {}
     for pos in positions:
         t = pos['ticker']
-        eq = pos.get('equity', 0.0)
-        ticker_weights[t] = eq / total_equity
+        cv = _current_value(pos)
+        ticker_weights[t] = cv / total_equity
         ticker_prices[t] = pos.get('price', 0.0)
         sector = pos.get('sector') or 'Unknown'
-        sector_weights[sector] = sector_weights.get(sector, 0.0) + eq / total_equity
+        sector_weights[sector] = sector_weights.get(sector, 0.0) + cv / total_equity
 
     return {
         'slope': slope_res,
