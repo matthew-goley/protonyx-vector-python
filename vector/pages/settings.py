@@ -2,8 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import QEasingCurve, QPointF, QPropertyAnimation, Qt, QTimer, pyqtProperty
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen
+from PyQt6.QtCore import (
+    QEasingCurve,
+    QPointF,
+    QPropertyAnimation,
+    Qt,
+    QThread,
+    QTimer,
+    QUrl,
+    pyqtProperty,
+    pyqtSignal,
+)
+from PyQt6.QtGui import QColor, QDesktopServices, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -264,6 +274,28 @@ class _RiskTierOption(QFrame):
                 parent._select_risk_tier(self.tier_key)
 
 
+class _DebugTestWorker(QThread):
+    progress = pyqtSignal(int, int, str)
+    done = pyqtSignal(object, object)  # output_path, error
+
+    def __init__(self, store, settings: dict, parent=None) -> None:
+        super().__init__(parent)
+        self._store = store
+        self._settings = settings
+
+    def run(self) -> None:  # noqa: D401
+        try:
+            from vector.lens.debug_runner import run_debug_tests
+
+            def cb(current: int, total: int, message: str) -> None:
+                self.progress.emit(current, total, message)
+
+            output_path = run_debug_tests(self._store, self._settings, progress_callback=cb)
+            self.done.emit(output_path, None)
+        except Exception as e:  # noqa: BLE001
+            self.done.emit(None, e)
+
+
 class SettingsPage(QWidget):
     def __init__(self, window: 'VectorMainWindow') -> None:
         super().__init__()
@@ -395,6 +427,26 @@ class SettingsPage(QWidget):
         self.mc_sims_combo = QComboBox(); self.mc_sims_combo.addItems([str(n) for n in MONTE_CARLO_SIMULATIONS])
         monte_carlo.addRow('Projection period', self.mc_period_combo)
         monte_carlo.addRow('Simulations', self.mc_sims_combo)
+
+        developer = self._add_accordion(layout, 'Developer')
+        dev_desc = QLabel(
+            'Run the Lens engine across mock portfolios from <code>debug_test.json</code> '
+            'and write the results to <code>output.md</code>. Useful for testing CTA '
+            'behavior across all risk tiers without changing your real portfolio.'
+        )
+        dev_desc.setWordWrap(True)
+        dev_desc.setProperty('role', 'muted')
+        dev_desc.setStyleSheet('font-size: 10pt;')
+        self.run_lens_test_button = LoadingButton('Run Lens Test')
+        self.run_lens_test_button.clicked.connect(self._run_lens_test)
+        self._lens_test_status = QLabel('')
+        self._lens_test_status.setProperty('role', 'muted')
+        self._lens_test_status.setStyleSheet('font-size: 10pt;')
+        self._lens_test_status.setWordWrap(True)
+        developer.addRow(dev_desc)
+        developer.addRow('', self.run_lens_test_button)
+        developer.addRow('', self._lens_test_status)
+        self._lens_test_worker: _DebugTestWorker | None = None
 
         positions = self._add_section(layout, 'Positions')
         add_position = LoadingButton('Add New Position')
@@ -529,6 +581,34 @@ class SettingsPage(QWidget):
         self.window.refresh_data()
         self._style_note.setVisible(False)
         self.save_button.stop_loading('Save Settings')
+
+    def _run_lens_test(self) -> None:
+        if self._lens_test_worker is not None and self._lens_test_worker.isRunning():
+            return
+        self.run_lens_test_button.start_loading('Running...')
+        self._lens_test_status.setText('Starting...')
+        worker = _DebugTestWorker(self.window.store, dict(self.window.settings), self)
+        worker.progress.connect(self._on_lens_test_progress)
+        worker.done.connect(self._on_lens_test_done)
+        self._lens_test_worker = worker
+        worker.start()
+
+    def _on_lens_test_progress(self, current: int, total: int, message: str) -> None:
+        self._lens_test_status.setText(f'[{current}/{total}] {message}')
+
+    def _on_lens_test_done(self, output_path, error) -> None:
+        self.run_lens_test_button.stop_loading('Run Lens Test')
+        if error is not None:
+            self._lens_test_status.setText(f'Failed: {error}')
+        else:
+            self._lens_test_status.setText(f'Done — wrote {output_path}')
+            try:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(output_path)))
+            except Exception:
+                pass
+        if self._lens_test_worker is not None:
+            self._lens_test_worker.deleteLater()
+            self._lens_test_worker = None
 
     def remove_selected_position(self) -> None:
         item = self.remove_list.currentItem()

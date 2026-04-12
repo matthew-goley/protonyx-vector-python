@@ -12,6 +12,8 @@ The splash screen must appear before the heavy import chain
      2-second minimum is measured from when the splash first appeared.
 """
 
+
+
 import sys
 
 

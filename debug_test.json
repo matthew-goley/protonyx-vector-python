@@ -1,0 +1,55 @@
+{
+  "portfolios": [
+    {
+      "name": "Tech Concentrate",
+      "description": "100% Technology — tests sector over-concentration",
+      "positions": [
+        {"ticker": "AAPL", "shares": 40, "entry_price": 150},
+        {"ticker": "NVDA", "shares": 15, "entry_price": 100},
+        {"ticker": "MSFT", "shares": 8, "entry_price": 380},
+        {"ticker": "GOOGL", "shares": 12, "entry_price": 140}
+      ]
+    },
+    {
+      "name": "Index Holder",
+      "description": "VOO-heavy portfolio — tests index fund detection",
+      "positions": [
+        {"ticker": "VOO", "shares": 25, "entry_price": 480},
+        {"ticker": "AAPL", "shares": 5, "entry_price": 180},
+        {"ticker": "JNJ", "shares": 8, "entry_price": 150}
+      ]
+    },
+    {
+      "name": "Mixed Bag with Loser",
+      "description": "Diversified except INTC is down ~50% from entry",
+      "positions": [
+        {"ticker": "JPM", "shares": 10, "entry_price": 195},
+        {"ticker": "JNJ", "shares": 12, "entry_price": 152},
+        {"ticker": "XOM", "shares": 15, "entry_price": 110},
+        {"ticker": "INTC", "shares": 60, "entry_price": 45},
+        {"ticker": "PG", "shares": 8, "entry_price": 165},
+        {"ticker": "NEE", "shares": 20, "entry_price": 72}
+      ]
+    },
+    {
+      "name": "Volatile Speculator",
+      "description": "All high-vol high-beta positions",
+      "positions": [
+        {"ticker": "TSLA", "shares": 15, "entry_price": 240},
+        {"ticker": "COIN", "shares": 12, "entry_price": 200},
+        {"ticker": "PLTR", "shares": 80, "entry_price": 22},
+        {"ticker": "NVDA", "shares": 10, "entry_price": 130}
+      ]
+    },
+    {
+      "name": "Winner Drift",
+      "description": "AAPL appreciated into dominance",
+      "positions": [
+        {"ticker": "AAPL", "shares": 50, "entry_price": 80},
+        {"ticker": "KO", "shares": 30, "entry_price": 60},
+        {"ticker": "JPM", "shares": 8, "entry_price": 195},
+        {"ticker": "UNH", "shares": 4, "entry_price": 510}
+      ]
+    }
+  ]
+}
