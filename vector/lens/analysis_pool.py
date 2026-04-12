@@ -115,6 +115,7 @@ def run_analysis(
         'performance': perf_res,
         'index_fund': idx_res,
         '_risk_profile': risk_profile,
+        '_store': store,
         '_positions_summary': {
             'total_equity': total_equity,
             'ticker_weights': ticker_weights,

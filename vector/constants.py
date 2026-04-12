@@ -178,7 +178,7 @@ DEFAULT_RISK_PROFILES: dict[str, dict] = {
         'concentration': {'critical': 60,  'high': 50,  'moderate': 40},
         'beta':          {'critical': 2.2, 'high': 1.6, 'moderate': 1.2},
         'performance':   {'critical': -60, 'high': -40, 'moderate': -25},
-        'sell_scale': 0.3,
+        'sell_scale': 0.25,
     },
     'regular': {
         'slope':         {'critical': -40, 'high': -28, 'moderate': -15},
@@ -186,7 +186,7 @@ DEFAULT_RISK_PROFILES: dict[str, dict] = {
         'concentration': {'critical': 50,  'high': 40,  'moderate': 30},
         'beta':          {'critical': 1.8, 'high': 1.3, 'moderate': 1.0},
         'performance':   {'critical': -50, 'high': -30, 'moderate': -18},
-        'sell_scale': 0.5,
+        'sell_scale': 0.50,
     },
     'low': {
         'slope':         {'critical': -35, 'high': -25, 'moderate': -12},
@@ -194,6 +194,6 @@ DEFAULT_RISK_PROFILES: dict[str, dict] = {
         'concentration': {'critical': 40,  'high': 30,  'moderate': 20},
         'beta':          {'critical': 1.4, 'high': 1.1, 'moderate': 0.8},
         'performance':   {'critical': -40, 'high': -25, 'moderate': -15},
-        'sell_scale': 0.15,
+        'sell_scale': 0.10,
     },
 }

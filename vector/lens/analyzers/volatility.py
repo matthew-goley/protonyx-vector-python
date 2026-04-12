@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from math import sqrt
 from typing import Any
 
@@ -10,15 +11,35 @@ import numpy as np
 
 _log = logging.getLogger(__name__)
 
+_MIN_DATA_POINTS = 30
+_VOL_CLAMP_MIN = 0.0
+_VOL_CLAMP_MAX = 150.0
 
-def _annualized_vol(prices: list[float]) -> float:
-    if len(prices) < 3:
+
+def _annualized_vol(prices: list[float], ticker: str = '') -> float:
+    clean = [p for p in prices if p is not None and not math.isnan(p) and p > 0]
+    if len(clean) < _MIN_DATA_POINTS:
+        if prices:
+            _log.debug(
+                'volatility skipped for %s: bad_data (have=%d, need=%d)',
+                ticker, len(clean), _MIN_DATA_POINTS,
+            )
         return 0.0
-    arr = np.array(prices, dtype=float)
+    arr = np.array(clean, dtype=float)
     log_returns = np.diff(np.log(arr))
     if len(log_returns) == 0:
         return 0.0
-    return float(np.std(log_returns) * sqrt(252) * 100)
+    vol = float(np.std(log_returns) * sqrt(252) * 100)
+    if not math.isfinite(vol):
+        _log.debug('volatility NaN/Inf for %s — skipping', ticker)
+        return 0.0
+    pre_clamp = vol
+    vol = max(_VOL_CLAMP_MIN, min(_VOL_CLAMP_MAX, vol))
+    if pre_clamp != vol:
+        _log.debug(
+            'volatility clamped for %s: %.2f → %.2f', ticker, pre_clamp, vol,
+        )
+    return vol
 
 
 def _classify(vol_pct: float, thresholds: dict[str, float]) -> str:
@@ -55,7 +76,7 @@ def analyze(
         weight = eq / total_equity
         try:
             hist = store.get_history(t, '1y', refresh) or []
-            vol = _annualized_vol(hist)
+            vol = _annualized_vol(hist, ticker=t)
         except Exception:
             vol = 0.0
 

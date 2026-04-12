@@ -11,8 +11,8 @@ from vector.analytics import linear_regression_slope_percent
 _log = logging.getLogger(__name__)
 
 _MIN_DATA_POINTS = 30
-_SLOPE_CLAMP_MIN = -100.0
-_SLOPE_CLAMP_MAX = 200.0
+_SLOPE_CLAMP_MIN = -80.0
+_SLOPE_CLAMP_MAX = 150.0
 
 
 def _classify(annualized_pct: float, thresholds: dict[str, float]) -> str:
@@ -46,12 +46,21 @@ def analyze(
         weight = eq / total_equity
         try:
             hist = store.get_history(t, '6mo', refresh) or []
-            if len(hist) < _MIN_DATA_POINTS:
+            clean = [
+                p for p in hist
+                if p is not None and not math.isnan(p) and p > 0
+            ]
+            if len(clean) < _MIN_DATA_POINTS:
                 raw_slope = 0.0
                 annualized = 0.0
                 insufficient_data = True
+                if hist and len(clean) < _MIN_DATA_POINTS:
+                    _log.debug(
+                        'slope skipped for %s: bad_data (have=%d, need=%d)',
+                        t, len(clean), _MIN_DATA_POINTS,
+                    )
             else:
-                raw_slope = linear_regression_slope_percent(hist)
+                raw_slope = linear_regression_slope_percent(clean)
                 annualized = raw_slope * 252
                 insufficient_data = False
         except Exception:
@@ -61,11 +70,17 @@ def analyze(
 
         # Guard against NaN/Inf and clamp extreme values
         if not math.isfinite(annualized):
+            _log.debug('slope NaN/Inf for %s — skipping', t)
             annualized = 0.0
             raw_slope = 0.0
             insufficient_data = True
         else:
+            pre_clamp = annualized
             annualized = max(_SLOPE_CLAMP_MIN, min(_SLOPE_CLAMP_MAX, annualized))
+            if pre_clamp != annualized:
+                _log.debug(
+                    'slope clamped for %s: %.2f → %.2f', t, pre_clamp, annualized,
+                )
 
         if insufficient_data:
             sev = 'none'
@@ -87,6 +102,9 @@ def analyze(
 
     # Portfolio-level
     port_annual = weighted_slope * 252
+    if not math.isfinite(port_annual):
+        port_annual = 0.0
+    port_annual = max(_SLOPE_CLAMP_MIN, min(_SLOPE_CLAMP_MAX, port_annual))
     port_sev = _classify(port_annual, thresholds)
 
     up_tickers = [t for t, r in ticker_results.items() if r['details']['direction'] == 'up']

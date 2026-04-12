@@ -81,8 +81,19 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     held_sectors = set(sector_weights.keys())
 
     risk_profile = pool_results.get('_risk_profile', {})
-    sell_scale = risk_profile.get('sell_scale', 0.75)
+    sell_scale = risk_profile.get('sell_scale', 0.5)
     risk_tier = risk_profile.get('tier', 'regular')
+    store = pool_results.get('_store')
+
+    def _market_cap(ticker: str) -> float:
+        if not store:
+            return 0.0
+        try:
+            q = store.get_quote(ticker) or {}
+            mc = q.get('market_cap')
+            return float(mc) if mc else 0.0
+        except Exception:
+            return 0.0
 
     slope_res = pool_results.get('slope', {})
     vol_res = pool_results.get('volatility', {})
@@ -98,10 +109,18 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     for t, data in slope_res.get('ticker_results', {}).items():
         if data.get('severity') in ('high', 'critical') and data.get('flag'):
             sev = data['severity']
-            if risk_tier == 'low' and sev != 'critical':
-                continue
-            sev_factor = 1.0 if sev == 'critical' else 0.7
-            pos_value = ticker_weights.get(t, 0) * total_equity
+            slope_pct = data['details'].get('annualized_pct', 0)
+            ticker_weight = ticker_weights.get(t, 0)
+            if risk_tier == 'low':
+                if sev != 'critical':
+                    continue
+                if ticker_weight < 0.05:
+                    continue
+                mc = _market_cap(t)
+                if mc > 50_000_000_000 and slope_pct > -50:
+                    continue
+            sev_factor = 1.0 if sev == 'critical' else 0.5
+            pos_value = ticker_weight * total_equity
             dollars = _round10(pos_value * sell_scale * sev_factor)
             if dollars > 0:
                 ctas.append({
@@ -120,10 +139,17 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     for t, data in vol_res.get('ticker_results', {}).items():
         if data.get('flag'):
             sev = data['severity']
-            if risk_tier == 'low' and sev != 'critical':
-                continue
+            ticker_weight = ticker_weights.get(t, 0)
+            if risk_tier == 'low':
+                if sev != 'critical':
+                    continue
+                if ticker_weight < 0.05:
+                    continue
+                mc = _market_cap(t)
+                if mc > 2_000_000_000:
+                    continue
             sev_factor = 1.0 if sev == 'critical' else 0.5
-            pos_value = ticker_weights.get(t, 0) * total_equity
+            pos_value = ticker_weight * total_equity
             dollars = _round10(pos_value * sell_scale * sev_factor)
             if dollars > 0:
                 # Don't double-flag if already flagged for steep decline
@@ -466,7 +492,39 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                     and c.get('ticker') in index_cta_tickers)
         ]
 
+    ctas = _dedupe_ctas(ctas)
+
     return ctas
+
+
+def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:
+    """Remove duplicate CTAs and cap per-sector buy count.
+
+    - Same (action, ticker) collapses to the highest-priority (lowest number).
+    - Buy CTAs are capped at 3 per target sector across the whole list.
+    """
+    seen: dict[tuple[str, str], dict] = {}
+    for cta in cta_list:
+        key = (cta['action'], cta.get('ticker', ''))
+        if key not in seen or cta['priority'] < seen[key]['priority']:
+            seen[key] = cta
+
+    deduped = list(seen.values())
+    deduped.sort(key=lambda c: c['priority'])
+
+    # Cap buys per target sector at 3
+    sector_counts: dict[str, int] = {}
+    capped: list[dict] = []
+    for cta in deduped:
+        if cta['action'] in ('buy_new', 'buy_more'):
+            sector = (cta.get('details', {}) or {}).get('target_sector', '')
+            if sector:
+                if sector_counts.get(sector, 0) >= 3:
+                    continue
+                sector_counts[sector] = sector_counts.get(sector, 0) + 1
+        capped.append(cta)
+
+    return capped
 
 
 def _split_dollars_by_underweight(
