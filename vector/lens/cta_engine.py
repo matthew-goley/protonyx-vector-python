@@ -187,12 +187,17 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
         subs = data.get('details', {}).get('sub_signals', [])
         if 'winner_drift' in subs and data.get('flag'):
             entry_w = data['details'].get('entry_weight_pct', 25) / 100
-            current_w = data.get('weight', 0)
+            current_w = ticker_weights.get(t, 0)
+            position_value = summary.get('ticker_current_values', {}).get(t, current_w * total_equity)
             raw_rebalance = (current_w - entry_w) * total_equity
-            position_value = current_w * total_equity
             # Cap rebalance at 35% of the position's current value
             max_rebalance = position_value * 0.35
             dollars = _round10(min(raw_rebalance, max_rebalance))
+            print(
+                f'[lens DEBUG] winner_drift {t}: current_weight={current_w:.3f}, '
+                f'entry_weight={entry_w:.3f}, position_value=${position_value:,.0f}, '
+                f'raw=${raw_rebalance:,.0f}, capped=${dollars:,.0f}'
+            )
             if dollars > 0:
                 if risk_tier == 'low':
                     ctas.append({
@@ -299,7 +304,9 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 continue
             rp = pool_results.get('_risk_profile', {})
             target_weight = rp.get('concentration', {}).get('moderate', 30) / 100
-            v_stock = ticker_weights.get(t, 0) * total_equity
+            v_stock = summary.get('ticker_current_values', {}).get(
+                t, ticker_weights.get(t, 0) * total_equity,
+            )
             if target_weight > 0:
                 v_total_new = v_stock / target_weight
                 total_dollars = _round10(v_total_new - total_equity)

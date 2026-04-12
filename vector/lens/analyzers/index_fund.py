@@ -13,7 +13,15 @@ _log = logging.getLogger(__name__)
 def analyze(
     positions: list[dict], store: Any, settings: dict, risk_profile: dict,
 ) -> dict:
-    total_equity = sum(p.get('equity', 0.0) for p in positions) or 1.0
+    def _cv(p: dict) -> float:
+        cv = p.get('_current_value')
+        if cv is not None:
+            return float(cv)
+        shares = float(p.get('shares', 0) or 0)
+        price = float(p.get('price', 0) or 0)
+        return shares * price if shares > 0 and price > 0 else float(p.get('equity', 0.0) or 0.0)
+
+    total_equity = sum(_cv(p) for p in positions) or 1.0
 
     ticker_results: dict[str, dict] = {}
     total_index_weight = 0.0
@@ -23,8 +31,7 @@ def analyze(
 
     for pos in positions:
         t = pos['ticker']
-        eq = pos.get('equity', 0.0)
-        weight = eq / total_equity
+        weight = _cv(pos) / total_equity
         weight_pct = weight * 100
         is_index = t in INDEX_ETFS
 

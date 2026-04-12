@@ -68,21 +68,37 @@ def analyze(
                 raw_slope = linear_regression_slope_percent(clean)
                 annualized = raw_slope * 252
                 insufficient_data = False
-                # Sanity check against actual peak-to-trough movement. 6mo
-                # window ≈ annualize by ×2. If regression disagrees by >30
-                # percentage points, fall back to the actual annualized return.
+                # Sanity check: validate against actual price movement.
+                # 6mo window ≈ annualize by ×2.
                 first_price = clean[0]
                 last_price = clean[-1]
-                if first_price > 0:
+                max_price = max(clean)
+                if first_price > 0 and max_price > 0:
                     actual_total_pct = (last_price - first_price) / first_price * 100
                     actual_annualized = actual_total_pct * 2
-                    if abs(annualized - actual_annualized) > 30:
-                        _log.debug(
-                            'slope disagrees with actual for %s: regr=%.1f actual=%.1f',
-                            t, annualized, actual_annualized,
+                    peak_to_current_pct = (last_price - max_price) / max_price * 100
+                    peak_to_current_annualized = peak_to_current_pct * 2
+
+                    # A stock's slope cannot be MORE negative than its
+                    # peak-to-current decline. If it claims to be, cap it.
+                    if annualized < peak_to_current_annualized - 5:
+                        print(
+                            f'[lens DEBUG] slope corrected for {t}: '
+                            f'regression={annualized:.1f}%, '
+                            f'peak_to_current={peak_to_current_annualized:.1f}%, '
+                            f'using peak_to_current'
+                        )
+                        annualized = peak_to_current_annualized
+                        raw_slope = annualized / 252
+                    # If regression disagrees wildly with actual return, use actual.
+                    elif abs(annualized - actual_annualized) > 25:
+                        print(
+                            f'[lens DEBUG] slope corrected for {t}: '
+                            f'regression={annualized:.1f}%, '
+                            f'actual={actual_annualized:.1f}%, using actual'
                         )
                         annualized = actual_annualized
-                        raw_slope = actual_annualized / 252
+                        raw_slope = annualized / 252
         except Exception:
             raw_slope = 0.0
             annualized = 0.0

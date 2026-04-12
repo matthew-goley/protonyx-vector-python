@@ -53,7 +53,15 @@ def analyze(
 ) -> dict:
     today = date.today()
     ticker_results: dict[str, dict] = {}
-    total_equity = sum(p.get('equity', 0.0) for p in positions) or 1.0
+    def _cv(p: dict) -> float:
+        cv = p.get('_current_value')
+        if cv is not None:
+            return float(cv)
+        shares = float(p.get('shares', 0) or 0)
+        price = float(p.get('price', 0) or 0)
+        return shares * price if shares > 0 and price > 0 else float(p.get('equity', 0.0) or 0.0)
+
+    total_equity = sum(_cv(p) for p in positions) or 1.0
 
     nearest_ticker = ''
     nearest_days: int | None = None
@@ -66,7 +74,7 @@ def analyze(
 
     for pos in positions:
         t = pos['ticker']
-        weight = pos.get('equity', 0.0) / total_equity
+        weight = _cv(pos) / total_equity
 
         next_date: date | None = None
         days_until: int | None = None

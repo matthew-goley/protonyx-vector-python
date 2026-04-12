@@ -28,7 +28,13 @@ def analyze(
     positions: list[dict], store: Any, settings: dict, risk_profile: dict,
 ) -> dict:
     thresholds = risk_profile.get('concentration', {})
-    total_equity = sum(p.get('equity', 0.0) for p in positions) or 1.0
+    # CURRENT market value total — matches _positions_summary canonical formula.
+    total_current_value = sum(
+        float(p.get('_current_value') or (float(p.get('shares', 0) or 0) * float(p.get('price', 0) or 0)))
+        for p in positions
+    ) or 1.0
+    # Cost-basis total — used ONLY for entry-weight drift comparisons.
+    total_cost_basis = sum(p.get('equity', 0.0) for p in positions) or 1.0
 
     ticker_results: dict[str, dict] = {}
     sector_weights: dict[str, float] = {}
@@ -39,12 +45,15 @@ def analyze(
         shares = pos.get('shares', 0.0)
         cost_equity = pos.get('equity', 0.0)
         current_price = pos.get('price', 0.0)
-        current_value = shares * current_price if current_price > 0 else cost_equity
-        weight = current_value / total_equity
+        current_value = float(
+            pos.get('_current_value')
+            or (shares * current_price if current_price > 0 else cost_equity)
+        )
+        weight = current_value / total_current_value
         weight_pct = weight * 100
 
-        # Cost-basis entry weight (total_equity == total_cost_basis by definition)
-        entry_weight = cost_equity / total_equity
+        # Cost-basis entry weight uses COST totals for both sides.
+        entry_weight = cost_equity / total_cost_basis
         drift_multiple = weight / entry_weight if entry_weight > 0.001 else 1.0
 
         sub_signals: list[str] = []
