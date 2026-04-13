@@ -27,6 +27,7 @@ def build_lens_output(
     positions: list[dict[str, Any]],
     store: Any,
     settings: dict[str, Any],
+    save_history: bool = True,
 ) -> dict[str, Any]:
     """
     Orchestrate the full Lens pipeline and return a rich result dict.
@@ -123,7 +124,7 @@ def build_lens_output(
         positions, cta_list, store, settings,
     )
 
-    return {
+    result = {
         'brief': brief,
         'color': color,
         'recommended_tickers': recommended_tickers,
@@ -138,6 +139,52 @@ def build_lens_output(
         'projected_positions': projected_positions,
         'net_cta_delta': net_cta_delta,
     }
+
+    if save_history:
+        try:
+            _save_snapshot(result)
+        except Exception:
+            _log.debug('lens snapshot save failed', exc_info=True)
+
+    return result
+
+
+def _save_snapshot(result: dict[str, Any]) -> None:
+    """Append the current Lens result to lens_history.json (rolling 50)."""
+    import json
+    from datetime import datetime
+    from vector.paths import user_file
+
+    history_path = user_file('lens_history.json')
+
+    snapshots: list[dict] = []
+    if history_path.exists():
+        try:
+            with open(history_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                snapshots = data.get('snapshots', [])
+        except Exception:
+            snapshots = []
+
+    total_equity = result.get('pool_results', {}).get(
+        '_positions_summary', {},
+    ).get('total_equity', 0)
+
+    snapshot = {
+        'timestamp': datetime.now().isoformat(timespec='seconds'),
+        'brief': result.get('brief', ''),
+        'caution_score': result.get('caution_score', 0),
+        'action_type': result.get('action_type', 'hold'),
+        'color': result.get('color', '#8d98af'),
+        'total_equity': total_equity,
+        'cta_count': len(result.get('ctas', [])),
+    }
+    snapshots.append(snapshot)
+    if len(snapshots) > 50:
+        snapshots = snapshots[-50:]
+
+    with open(history_path, 'w', encoding='utf-8') as f:
+        json.dump({'snapshots': snapshots}, f, indent=2)
 
 
 def _compute_caution_score(cta_list: list[dict[str, Any]], total_equity: float) -> int:

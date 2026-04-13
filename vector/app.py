@@ -8,7 +8,7 @@ from functools import partial
 from typing import Any
 
 from PyQt6.QtCore import QTimer, Qt
-from PyQt6.QtGui import QAction, QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QKeySequence, QPainter, QPainterPath, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -357,6 +357,26 @@ class MainShell(QWidget):
         text_col.addWidget(self.header_breadcrumb)
         header_layout.addLayout(text_col)
         header_layout.addStretch(1)
+
+        self._help_btn = QPushButton('?')
+        self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._help_btn.setFixedSize(36, 36)
+        self._help_btn.setToolTip('Keyboard shortcuts')
+        self._help_btn.setStyleSheet(
+            'QPushButton {'
+            '  background: qlineargradient(x1:0, y1:0, x2:1, y2:1,'
+            '    stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);'
+            '  color: #ffffff; border: none; border-radius: 18px;'
+            '  font-size: 14pt; font-weight: 700;'
+            '}'
+            'QPushButton:hover {'
+            '  background: qlineargradient(x1:0, y1:0, x2:1, y2:1,'
+            '    stop:0 #4ee8d3, stop:0.5 #5dd1ff, stop:1 #2d52b2);'
+            '}'
+        )
+        self._help_btn.clicked.connect(self.window.show_shortcuts_modal)
+        header_layout.addWidget(self._help_btn)
+
         content.addWidget(header)
 
         self.page_stack.addWidget(self.dashboard_page)
@@ -382,6 +402,63 @@ class MainShell(QWidget):
             self.dashboard_page._lens.refresh()
         elif page_name == 'Vector Lens':
             self.lens_page.refresh()
+
+
+class _ShortcutsDialog(QDialog):
+    """Modal listing all keyboard shortcuts."""
+
+    _ROWS = [
+        ('R',   'Refresh market data'),
+        ('L',   'Open Vector Lens'),
+        ('D',   'Open Dashboard'),
+        ('S',   'Open Settings'),
+        ('A',   'Add new position'),
+        ('?',   'Show this menu'),
+        ('Esc', 'Close dialog'),
+    ]
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setModal(True)
+        self.setWindowTitle('Keyboard Shortcuts')
+        self.setMinimumWidth(360)
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(14)
+
+        title = QLabel('Keyboard Shortcuts')
+        f = QFont()
+        f.setPointSize(15)
+        f.setBold(True)
+        title.setFont(f)
+        title.setStyleSheet('font-size: 15pt; font-weight: 700;')
+        layout.addWidget(title)
+
+        for key, description in self._ROWS:
+            row = QHBoxLayout()
+            row.setSpacing(16)
+            k = QLabel(key)
+            k.setFixedWidth(64)
+            k.setStyleSheet(
+                'padding: 4px 10px; border: 1px solid #2c364a;'
+                ' border-radius: 6px; font-weight: 700; font-size: 11pt;'
+                ' background: #151e30;'
+            )
+            k.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            d = QLabel(description)
+            d.setStyleSheet('font-size: 11pt;')
+            row.addWidget(k)
+            row.addWidget(d, stretch=1)
+            layout.addLayout(row)
+
+        got_it = QPushButton('Got it')
+        got_it.setProperty('accent', 'true')
+        got_it.clicked.connect(self.accept)
+        got_it.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout.addWidget(got_it, alignment=Qt.AlignmentFlag.AlignRight)
 
 
 class VectorMainWindow(QMainWindow):
@@ -478,8 +555,29 @@ class VectorMainWindow(QMainWindow):
     def load_main_shell(self) -> None:
         self.shell = MainShell(self)
         self.setCentralWidget(self.shell)
+        self._register_shortcuts()
         self.refresh_data()
         self._setup_auto_refresh()
+
+    def _register_shortcuts(self) -> None:
+        if getattr(self, '_shortcuts_registered', False):
+            return
+        self._shortcuts_registered = True
+        QShortcut(QKeySequence('R'), self, activated=self.refresh_data)
+        QShortcut(QKeySequence('L'), self, activated=lambda: self._switch_page('Vector Lens'))
+        QShortcut(QKeySequence('D'), self, activated=lambda: self._switch_page('Dashboard'))
+        QShortcut(QKeySequence('S'), self, activated=lambda: self._switch_page('Settings'))
+        QShortcut(QKeySequence('A'), self, activated=self.add_position_from_settings)
+        QShortcut(QKeySequence('?'), self, activated=self.show_shortcuts_modal)
+        QShortcut(QKeySequence('Shift+/'), self, activated=self.show_shortcuts_modal)
+
+    def _switch_page(self, page_name: str) -> None:
+        if self.shell is not None:
+            self.shell.set_page(page_name)
+
+    def show_shortcuts_modal(self) -> None:
+        dialog = _ShortcutsDialog(self)
+        dialog.exec()
 
     def _setup_auto_refresh(self) -> None:
         if hasattr(self, 'refresh_timer'):

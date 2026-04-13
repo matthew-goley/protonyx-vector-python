@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, Qt
+from datetime import datetime
+
+from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, Qt, QTimer
 from PyQt6.QtGui import QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QApplication,
@@ -381,7 +383,12 @@ class DashboardPage(QWidget):
         super().__init__()
         self.window = window
         self._edit_mode = False
+        self._last_refresh: datetime | None = None
         self._build_ui()
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.timeout.connect(self._update_refresh_label)
+        self._refresh_timer.start(30_000)
+        self._update_refresh_label()
 
     def _build_ui(self) -> None:
         from vector.widget_types.lens import LensDisplay
@@ -417,6 +424,15 @@ class DashboardPage(QWidget):
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        self._refresh_label = QLabel('Not yet refreshed')
+        self._refresh_label.setStyleSheet(
+            'color: #8d98af; font-size: 9pt; padding: 2px 6px;'
+        )
+        self._refresh_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
+        outer.addWidget(self._refresh_label)
 
         outer.addWidget(self._scroll, stretch=1)
 
@@ -457,3 +473,24 @@ class DashboardPage(QWidget):
             w = item['widget']
             if hasattr(w, 'refresh'):
                 w.refresh()
+        self._last_refresh = datetime.now()
+        self._update_refresh_label()
+
+    def _update_refresh_label(self) -> None:
+        if self._last_refresh is None:
+            self._refresh_label.setText('Not yet refreshed')
+            return
+        delta = datetime.now() - self._last_refresh
+        secs = int(delta.total_seconds())
+        if secs < 60:
+            text = 'Last updated: just now'
+        elif secs < 3600:
+            m = secs // 60
+            text = f'Last updated: {m} minute{"s" if m != 1 else ""} ago'
+        elif secs < 86400:
+            h = secs // 3600
+            text = f'Last updated: {h} hour{"s" if h != 1 else ""} ago'
+        else:
+            d = secs // 86400
+            text = f'Last updated: {d} day{"s" if d != 1 else ""} ago'
+        self._refresh_label.setText(text)

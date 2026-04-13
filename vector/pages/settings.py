@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QFrame,
     QGraphicsDropShadowEffect,
@@ -373,10 +374,13 @@ class SettingsPage(QWidget):
         self.refresh_combo = QComboBox(); self.refresh_combo.addItems(['1 min', '5 min', '15 min', 'Manual only'])
         clear_cache_button = LoadingButton('Clear Cached Price Data')
         clear_cache_button.clicked.connect(self.window.clear_cache)
+        self._export_csv_button = LoadingButton('Export Positions to CSV')
+        self._export_csv_button.clicked.connect(self._export_to_csv)
         reset_button = LoadingButton('Reset All App Data / Re-run Onboarding')
         reset_button.clicked.connect(self.window.reset_all_data)
         refresh.addRow('Auto-refresh Interval', self.refresh_combo)
         refresh.addRow('', clear_cache_button)
+        refresh.addRow('', self._export_csv_button)
         refresh.addRow('', reset_button)
 
         thresholds = self._add_accordion(layout, 'Portfolio Direction Thresholds')
@@ -609,6 +613,72 @@ class SettingsPage(QWidget):
         if self._lens_test_worker is not None:
             self._lens_test_worker.deleteLater()
             self._lens_test_worker = None
+
+    def _export_to_csv(self) -> None:
+        import csv
+        from datetime import datetime
+
+        default_name = f'vector_positions_{datetime.now().strftime("%Y-%m-%d")}.csv'
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Export Positions', default_name, 'CSV Files (*.csv)',
+        )
+        if not path:
+            return
+
+        self._export_csv_button.start_loading('Exporting...')
+        QApplication.processEvents()
+
+        positions = self.window.positions or []
+        store = self.window.store
+        refresh = self.window.settings.get('refresh_interval', '5 min')
+
+        rows: list[dict] = []
+        for p in positions:
+            ticker = p.get('ticker', '')
+            shares = float(p.get('shares', 0) or 0)
+            cost_basis = float(p.get('equity', 0) or 0)
+            entry_price = cost_basis / shares if shares > 0 else 0.0
+            current_price = 0.0
+            try:
+                snap = store.get_snapshot(ticker, refresh) or {}
+                current_price = float(snap.get('price', 0) or 0)
+            except Exception:
+                current_price = float(p.get('price', 0) or 0)
+            current_value = shares * current_price
+            pnl_dollar = current_value - cost_basis
+            pnl_pct = (current_value / cost_basis - 1) * 100 if cost_basis > 0 else 0.0
+            rows.append({
+                'ticker': ticker,
+                'name': p.get('name', ''),
+                'sector': p.get('sector', ''),
+                'shares': shares,
+                'entry_price': round(entry_price, 2),
+                'current_price': round(current_price, 2),
+                'cost_basis': round(cost_basis, 2),
+                'current_value': round(current_value, 2),
+                'unrealized_pnl_dollar': round(pnl_dollar, 2),
+                'unrealized_pnl_pct': round(pnl_pct, 2),
+                'added_at': p.get('added_at', ''),
+            })
+
+        error: str | None = None
+        try:
+            with open(path, 'w', newline='', encoding='utf-8') as f:
+                if rows:
+                    writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+                    writer.writeheader()
+                    writer.writerows(rows)
+        except Exception as e:
+            error = str(e)
+
+        self._export_csv_button.stop_loading('Export Positions to CSV')
+        if error:
+            QMessageBox.warning(self, 'Export Failed', f'Could not export: {error}')
+        else:
+            QMessageBox.information(
+                self, 'Export Complete',
+                f'Exported {len(rows)} position{"s" if len(rows) != 1 else ""} to\n{path}',
+            )
 
     def remove_selected_position(self) -> None:
         item = self.remove_list.currentItem()

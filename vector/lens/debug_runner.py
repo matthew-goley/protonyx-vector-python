@@ -163,7 +163,7 @@ def run_debug_tests(
             test_settings['risk_tier'] = tier
 
             try:
-                result = build_lens_output(mock_positions, store, test_settings)
+                result = build_lens_output(mock_positions, store, test_settings, save_history=False)
                 results_by_tier[tier] = result
             except Exception as e:
                 print(f"[debug_runner] {portfolio['name']} / {tier} failed: {e}")

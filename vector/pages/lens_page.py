@@ -5,10 +5,12 @@ from typing import TYPE_CHECKING, Any
 from PyQt6.QtCore import Qt, QRect, QRectF, QTimer
 from PyQt6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 from PyQt6.QtWidgets import (
+    QDialog,
     QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -741,6 +743,175 @@ class _CTAReportCard(QFrame):
             self._items_layout.insertWidget(i, card)
 
 
+class _LensHistoryDialog(QDialog):
+    """Modal showing the rolling Lens snapshot history (most recent first)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setModal(True)
+        self.setWindowTitle('Lens History')
+        self.resize(700, 600)
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        title = QLabel('Lens History')
+        f = QFont()
+        f.setPointSize(15)
+        f.setBold(True)
+        title.setFont(f)
+        title.setStyleSheet('font-size: 15pt; font-weight: 700;')
+        layout.addWidget(title)
+
+        sub = QLabel(
+            'Rolling record of your last 50 Lens readings, newest first.'
+        )
+        sub.setStyleSheet('color: #8d98af;')
+        sub.setWordWrap(True)
+        layout.addWidget(sub)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet('QScrollArea { background: transparent; border: none; }')
+
+        items_container = QWidget()
+        items_container.setStyleSheet('background: transparent;')
+        items_layout = QVBoxLayout(items_container)
+        items_layout.setContentsMargins(0, 0, 0, 0)
+        items_layout.setSpacing(10)
+
+        snapshots = _load_history_snapshots()
+        if not snapshots:
+            empty = QLabel(
+                'No snapshots yet — the Lens will save its readings as you '
+                'use the app.'
+            )
+            empty.setStyleSheet('color: #8d98af; font-size: 11pt;')
+            empty.setWordWrap(True)
+            items_layout.addWidget(empty)
+        else:
+            for snap in reversed(snapshots):
+                items_layout.addWidget(_LensHistoryCard(snap))
+
+        items_layout.addStretch(1)
+        scroll.setWidget(items_container)
+        layout.addWidget(scroll, stretch=1)
+
+        close_btn = QPushButton('Close')
+        close_btn.clicked.connect(self.accept)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignRight)
+
+
+class _LensHistoryCard(QFrame):
+    """Single snapshot card inside the history modal."""
+
+    def __init__(self, snapshot: dict, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName('cardFrame')
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(8)
+
+        header = QHBoxLayout()
+        header.setSpacing(10)
+
+        score = int(snapshot.get('caution_score', 0) or 0)
+        badge = _CautionBadge(score)
+        header.addWidget(badge)
+
+        ts_text = _format_relative_timestamp(snapshot.get('timestamp', ''))
+        ts_lbl = QLabel(ts_text)
+        ts_f = QFont()
+        ts_f.setBold(True)
+        ts_lbl.setFont(ts_f)
+        ts_lbl.setStyleSheet('font-size: 10pt; font-weight: 700;')
+        header.addWidget(ts_lbl)
+        header.addStretch(1)
+        layout.addLayout(header)
+
+        brief = QLabel(snapshot.get('brief', '') or '—')
+        brief.setWordWrap(True)
+        brief.setStyleSheet('font-size: 10pt; line-height: 1.3;')
+        layout.addWidget(brief)
+
+        cta_count = int(snapshot.get('cta_count', 0) or 0)
+        total_eq = float(snapshot.get('total_equity', 0) or 0)
+        foot = QLabel(
+            f'{cta_count} projection{"s" if cta_count != 1 else ""} • '
+            f'portfolio ${total_eq:,.0f}'
+        )
+        foot.setStyleSheet('font-size: 9pt; color: #8d98af;')
+        layout.addWidget(foot)
+
+
+class _CautionBadge(QWidget):
+    """Small colored circle showing the caution score."""
+
+    def __init__(self, score: int, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._score = max(1, min(99, score)) if score else 0
+        self.setFixedSize(32, 32)
+
+    def paintEvent(self, _event) -> None:  # noqa: N802
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = _caution_color(self._score) if self._score > 0 else '#8d98af'
+        painter.setBrush(QColor(color))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(0, 0, self.width(), self.height())
+        painter.setPen(QColor('#ffffff'))
+        f = QFont()
+        f.setPointSize(9)
+        f.setBold(True)
+        painter.setFont(f)
+        label = str(self._score) if self._score > 0 else '—'
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, label)
+        painter.end()
+
+
+def _load_history_snapshots() -> list[dict]:
+    import json
+    from vector.paths import user_file
+    path = user_file('lens_history.json')
+    if not path.exists():
+        return []
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get('snapshots', []) or []
+    except Exception:
+        return []
+
+
+def _format_relative_timestamp(iso_ts: str) -> str:
+    from datetime import datetime
+    if not iso_ts:
+        return 'Unknown time'
+    try:
+        when = datetime.fromisoformat(iso_ts)
+    except ValueError:
+        return iso_ts
+    delta = datetime.now() - when
+    secs = int(delta.total_seconds())
+    if secs < 60:
+        return 'Just now'
+    if secs < 3600:
+        m = secs // 60
+        return f'{m} minute{"s" if m != 1 else ""} ago'
+    if secs < 86400:
+        h = secs // 3600
+        return f'{h} hour{"s" if h != 1 else ""} ago'
+    if secs < 7 * 86400:
+        d = secs // 86400
+        return f'{d} day{"s" if d != 1 else ""} ago'
+    return when.strftime('%b %d, %Y — %I:%M %p').lstrip('0').replace(' 0', ' ')
+
+
 class VectorLensPage(QWidget):
     """Dedicated page for Vector Lens — projection graphs and pie charts."""
 
@@ -770,6 +941,19 @@ class VectorLensPage(QWidget):
         self._container_layout = QVBoxLayout(container)
         self._container_layout.setContentsMargins(0, 8, 0, 24)
         self._container_layout.setSpacing(16)
+
+        history_row = QHBoxLayout()
+        history_row.setContentsMargins(0, 0, 0, 0)
+        history_row.addStretch(1)
+        history_btn = QPushButton('History')
+        history_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        history_btn.setFixedHeight(32)
+        history_btn.setStyleSheet(
+            'QPushButton { padding: 4px 14px; border-radius: 10px; font-size: 10pt; }'
+        )
+        history_btn.clicked.connect(self._open_history)
+        history_row.addWidget(history_btn)
+        self._container_layout.addLayout(history_row)
 
         self._lens = LensDisplay(window=self.window, show_button=False)
         self._lens.setFixedHeight(200)
@@ -815,6 +999,10 @@ class VectorLensPage(QWidget):
         self._container_layout.addStretch(1)
         scroll.setWidget(container)
         outer.addWidget(scroll, stretch=1)
+
+    def _open_history(self) -> None:
+        dialog = _LensHistoryDialog(self)
+        dialog.exec()
 
     def refresh(self) -> None:
         from vector.lens_engine import generate_lens_full
