@@ -179,6 +179,17 @@ def _save_snapshot(result: dict[str, Any]) -> None:
         'total_equity': total_equity,
         'cta_count': len(result.get('ctas', [])),
     }
+    # Only append if something meaningful has changed vs. the last snapshot
+    if snapshots:
+        last = snapshots[-1]
+        same = (
+            last.get('brief') == snapshot['brief']
+            and last.get('caution_score') == snapshot['caution_score']
+            and last.get('action_type') == snapshot['action_type']
+            and last.get('cta_count') == snapshot['cta_count']
+        )
+        if same:
+            return
     snapshots.append(snapshot)
     if len(snapshots) > 50:
         snapshots = snapshots[-50:]

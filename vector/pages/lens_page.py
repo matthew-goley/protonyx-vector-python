@@ -666,16 +666,27 @@ class _CTAReportCard(QFrame):
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setStyleSheet('QScrollArea { background: transparent; border: none; }')
-        self._scroll.setFixedHeight(600)
 
-        items_container = QWidget()
-        items_container.setStyleSheet('background: transparent;')
-        self._items_layout = QVBoxLayout(items_container)
+        # Wheel handler: only consume wheel when there is actually something
+        # to scroll; otherwise let the event bubble up to the outer page.
+        def _wheel(event, scroll=self._scroll):
+            if scroll.verticalScrollBar().maximum() == 0:
+                event.ignore()
+            else:
+                QScrollArea.wheelEvent(scroll, event)
+        self._scroll.wheelEvent = _wheel
+
+        self._items_container = QWidget()
+        self._items_container.setStyleSheet('background: transparent;')
+        self._items_layout = QVBoxLayout(self._items_container)
         self._items_layout.setContentsMargins(0, 0, 0, 0)
         self._items_layout.setSpacing(8)
         self._items_layout.addStretch(1)
-        self._scroll.setWidget(items_container)
+        self._scroll.setWidget(self._items_container)
         self._outer.addWidget(self._scroll)
+
+        # Default minimal height until first refresh
+        self._scroll.setFixedHeight(80)
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
         # Clear existing items (leave the trailing stretch)
@@ -689,6 +700,10 @@ class _CTAReportCard(QFrame):
             lbl.setProperty('role', 'muted')
             lbl.setStyleSheet('font-size: 10pt;')
             self._items_layout.insertWidget(0, lbl)
+            self._scroll.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+            )
+            self._scroll.setFixedHeight(lbl.sizeHint().height() + 12)
             return
 
         _ACTION_LABELS: dict[str, str] = {
@@ -699,6 +714,7 @@ class _CTAReportCard(QFrame):
             'hold': 'HOLD',
         }
 
+        cards: list[QFrame] = []
         for i, sentence in enumerate(full_report):
             cta = ctas[i] if i < len(ctas) else {}
             action = cta.get('action', 'hold')
@@ -741,6 +757,41 @@ class _CTAReportCard(QFrame):
             card_layout.addWidget(text)
 
             self._items_layout.insertWidget(i, card)
+            cards.append(card)
+
+        # Recompute height after layout settles (word-wrap needs a real width).
+        QTimer.singleShot(0, lambda: self._resize_for_cards(cards))
+
+    def _resize_for_cards(self, cards: list[QFrame]) -> None:
+        if not cards:
+            return
+
+        total = len(cards)
+        threshold = 5
+        visible = min(total, threshold)
+
+        self._items_container.adjustSize()
+        self._items_layout.activate()
+
+        spacing = self._items_layout.spacing()
+        heights = []
+        for c in cards[:visible]:
+            c.adjustSize()
+            # sizeHint reflects word-wrapped height at the current width
+            heights.append(max(c.sizeHint().height(), c.height()))
+
+        content_h = sum(heights) + spacing * max(visible - 1, 0) + 4
+
+        if total < threshold:
+            self._scroll.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+            )
+        else:
+            self._scroll.setVerticalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded,
+            )
+
+        self._scroll.setFixedHeight(content_h)
 
 
 class _LensHistoryDialog(QDialog):

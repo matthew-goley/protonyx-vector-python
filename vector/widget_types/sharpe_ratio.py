@@ -109,8 +109,8 @@ class SharpeRatioWidget(VectorWidget):
         # Score row
         score_row = QHBoxLayout()
         self._score_lbl = QLabel('—')
-        self._score_lbl.setFont(_title_font(22))
-        self._score_lbl.setStyleSheet('font-size: 22pt; border: none;')
+        self._score_lbl.setFont(_title_font(16))
+        self._score_lbl.setStyleSheet('font-size: 16pt; border: none;')
         score_row.addWidget(self._score_lbl)
 
         self._label_lbl = QLabel('')
@@ -176,7 +176,7 @@ class SharpeRatioWidget(VectorWidget):
         label = _sharpe_label(s)
 
         self._score_lbl.setText(f'{s:.2f}')
-        self._score_lbl.setStyleSheet(f'color: {color}; font-size: 22pt; border: none;')
+        self._score_lbl.setStyleSheet(f'color: {color}; font-size: 16pt; border: none;')
         self._label_lbl.setText(label)
         self._label_lbl.setStyleSheet(
             f'color: {color}; font-size: 13pt; font-weight: 700; border: none;'

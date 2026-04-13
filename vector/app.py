@@ -360,14 +360,14 @@ class MainShell(QWidget):
 
         self._help_btn = QPushButton('?')
         self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._help_btn.setFixedSize(36, 36)
+        self._help_btn.setFixedSize(48, 48)
         self._help_btn.setToolTip('Keyboard shortcuts')
         self._help_btn.setStyleSheet(
             'QPushButton {'
             '  background: qlineargradient(x1:0, y1:0, x2:1, y2:1,'
             '    stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);'
-            '  color: #ffffff; border: none; border-radius: 18px;'
-            '  font-size: 14pt; font-weight: 700;'
+            '  color: #ffffff; border: none; border-radius: 24px;'
+            '  padding: 0px; font-size: 16pt; font-weight: 700;'
             '}'
             'QPushButton:hover {'
             '  background: qlineargradient(x1:0, y1:0, x2:1, y2:1,'
