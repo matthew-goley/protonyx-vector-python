@@ -3,24 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-from pathlib import Path
 from typing import Any
 
+from vector.lens._templates import load_templates as _load_templates
+
 _log = logging.getLogger(__name__)
-
-# Load templates once at module level
-_TEMPLATES: dict | None = None
-
-
-def _load_templates() -> dict:
-    global _TEMPLATES
-    if _TEMPLATES is None:
-        p = Path(__file__).parent / 'templates' / 'sentences.json'
-        with open(p, 'r', encoding='utf-8') as f:
-            _TEMPLATES = json.load(f)
-    return _TEMPLATES
 
 
 def _pick(templates: list[str], hash_key: str) -> str:

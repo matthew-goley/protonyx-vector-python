@@ -12,10 +12,24 @@ from pathlib import Path
 from typing import Any, Callable
 
 from vector.lens.lens_output import build_lens_output
+from vector.paths import resource_path, user_data_dir
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+def _debug_test_path() -> Path:
+    """Locate the bundled debug_test.json (dev + PyInstaller + Nuitka)."""
+    dev = Path(__file__).resolve().parents[2] / 'debug_test.json'
+    if dev.exists():
+        return dev
+    return resource_path('debug_test.json')
+
+
+def _output_path() -> Path:
+    """Write the debug report to the writable user data dir in packaged builds."""
+    dev_root = Path(__file__).resolve().parents[2]
+    dev_candidate = dev_root / 'output.md'
+    if dev_root.is_dir() and (dev_root / 'main.py').exists():
+        return dev_candidate
+    return user_data_dir() / 'output.md'
 
 
 def _build_mock_position(raw: dict, store: Any) -> dict | None:
@@ -111,9 +125,8 @@ def run_debug_tests(
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Path:
     """Run all mock portfolios across all 3 tiers; write output.md; return its path."""
-    repo_root = _repo_root()
-    debug_path = repo_root / 'debug_test.json'
-    output_path = repo_root / 'output.md'
+    debug_path = _debug_test_path()
+    output_path = _output_path()
 
     if not debug_path.exists():
         raise FileNotFoundError(f'debug_test.json not found at {debug_path}')
