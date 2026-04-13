@@ -7,6 +7,7 @@ them at all 3 risk tiers, and writes a markdown report to output.md.
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -15,20 +16,38 @@ from vector.lens.lens_output import build_lens_output
 from vector.paths import resource_path, user_data_dir
 
 
-def _debug_test_path() -> Path:
-    """Locate the bundled debug_test.json (dev + PyInstaller + Nuitka)."""
-    dev = Path(__file__).resolve().parents[2] / 'debug_test.json'
-    if dev.exists():
-        return dev
-    return resource_path('debug_test.json')
+def _resolve_debug_test_path() -> Path:
+    """Return a usable debug_test.json path.
+
+    Priority: user data dir (editable) > dev repo root > bundled resource.
+    If only the bundled version exists, copy it to the user data dir so it's
+    editable on subsequent runs.
+    """
+    user_path = user_data_dir() / 'debug_test.json'
+    if user_path.exists():
+        return user_path
+
+    dev_path = Path(__file__).resolve().parents[2] / 'debug_test.json'
+    if dev_path.exists() and (dev_path.parent / 'main.py').exists():
+        return dev_path
+
+    bundled = resource_path('debug_test.json')
+    if bundled.exists():
+        try:
+            user_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(bundled, user_path)
+            return user_path
+        except Exception:
+            return bundled
+
+    raise FileNotFoundError(f'debug_test.json not found. Expected at: {user_path}')
 
 
 def _output_path() -> Path:
     """Write the debug report to the writable user data dir in packaged builds."""
     dev_root = Path(__file__).resolve().parents[2]
-    dev_candidate = dev_root / 'output.md'
     if dev_root.is_dir() and (dev_root / 'main.py').exists():
-        return dev_candidate
+        return dev_root / 'output.md'
     return user_data_dir() / 'output.md'
 
 
@@ -125,11 +144,8 @@ def run_debug_tests(
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> Path:
     """Run all mock portfolios across all 3 tiers; write output.md; return its path."""
-    debug_path = _debug_test_path()
+    debug_path = _resolve_debug_test_path()
     output_path = _output_path()
-
-    if not debug_path.exists():
-        raise FileNotFoundError(f'debug_test.json not found at {debug_path}')
 
     with open(debug_path, 'r', encoding='utf-8') as f:
         config = json.load(f)

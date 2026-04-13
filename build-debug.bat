@@ -13,6 +13,7 @@ python -m nuitka ^
   --output-filename="Vector-v0.4.0-debug.exe" ^
   --include-data-dir=assets=assets ^
   --include-data-dir=vector/lens/templates=vector/lens/templates ^
+  --include-data-files=debug_test.json=debug_test.json ^
   --include-package=vector.lens ^
   --include-package=vector.lens.analyzers ^
   --include-package=yfinance ^
