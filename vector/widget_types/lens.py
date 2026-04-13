@@ -305,15 +305,31 @@ class LensDisplay(QFrame):
             result.append(f'</{tag}>')
         return ''.join(result)
 
+    def _ensure_tw_timer(self) -> None:
+        """Recreate _tw_timer if its underlying C++ object has been deleted."""
+        try:
+            self._tw_timer.isActive()
+        except RuntimeError:
+            self._tw_timer = QTimer(self)
+            self._tw_timer.setInterval(5)
+            self._tw_timer.timeout.connect(self._tw_step)
+
     def _tw_step(self) -> None:
         self._tw_pos += 1
         truncated = self._truncate_html(self._tw_html, self._tw_pos)
-        self._text_lbl.setTextFormat(Qt.TextFormat.RichText)
-        self._text_lbl.setText(truncated)
+        try:
+            self._text_lbl.setTextFormat(Qt.TextFormat.RichText)
+            self._text_lbl.setText(truncated)
+        except RuntimeError:
+            self._ensure_tw_timer()
+            self._tw_timer.stop()
+            return
         if self._tw_pos >= len(self._tw_plain):
+            self._ensure_tw_timer()
             self._tw_timer.stop()
 
     def _start_typewrite(self, plain: str) -> None:
+        self._ensure_tw_timer()
         self._tw_timer.stop()
         self._tw_plain = plain
         self._tw_html  = _highlight_html(plain)

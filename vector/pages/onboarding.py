@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor, QDoubleValidator, QFont, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QDoubleValidator, QFont, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -445,8 +445,20 @@ class OnboardingPage(QWidget):
         # Alias so existing internal callers of launch_button still work
         self.launch_button = self._next_btn
 
+        # Spacebar advances the flow (works regardless of focused child)
+        space_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
+        space_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        space_shortcut.activated.connect(self._on_space_shortcut)
+
         # Initialise to step 0
         self._go_to(0)
+
+    def _on_space_shortcut(self) -> None:
+        focus = QApplication.focusWidget()
+        if isinstance(focus, QLineEdit):
+            return
+        if self._next_btn is not None and self._next_btn.isEnabled():
+            self._on_next()
 
     def _build_logo(self) -> QLabel:
         lbl = QLabel()
@@ -699,6 +711,23 @@ class OnboardingPage(QWidget):
         cards_scroll.setFrameShape(QFrame.Shape.NoFrame)
         cards_scroll.setStyleSheet('background: transparent;')
 
+        # Route mouse wheel to the horizontal scrollbar so the user can scroll
+        # the horizontally-laid-out position cards with the wheel.
+        def _horizontal_wheel(event, scroll=cards_scroll):
+            bar = scroll.horizontalScrollBar()
+            if bar.maximum() == 0:
+                event.ignore()
+                return
+            delta = event.angleDelta().y() or event.angleDelta().x()
+            if delta == 0:
+                event.ignore()
+                return
+            # Qt: 120 units per notch; scroll by roughly one card per notch
+            step = int(-delta / 120 * 80)
+            bar.setValue(bar.value() + step)
+            event.accept()
+        cards_scroll.wheelEvent = _horizontal_wheel
+
         self.cards_container = QWidget()
         self.cards_container.setStyleSheet('background: transparent;')
         self.cards_layout = QHBoxLayout(self.cards_container)
@@ -781,8 +810,12 @@ class OnboardingPage(QWidget):
     def keyPressEvent(self, event) -> None:  # noqa: N802
         if self._current_step == 3 and event.key() == Qt.Key.Key_A:
             self.open_add_modal()
-        else:
-            super().keyPressEvent(event)
+            return
+        if event.key() == Qt.Key.Key_Space:
+            if self._next_btn is not None and self._next_btn.isEnabled():
+                self._on_next()
+                return
+        super().keyPressEvent(event)
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         if self.overlay:
