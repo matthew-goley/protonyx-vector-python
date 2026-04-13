@@ -8,6 +8,13 @@
                 "The {vol:.0f}% volatility reading on {ticker} coincides with a {slope:+.1f}% annualized decline, indicating turbulent downside movement.",
                 "With {vol:.0f}% vol and a {slope:+.1f}% slope, {ticker} is the most risk-elevated position in the portfolio right now."
             ],
+            "position_loss_with_volatility": [
+                "{ticker} is down {loss_pct:.1f}% from entry and carrying {vol:.0f}% annualized volatility — losses are compounding in a turbulent tape.",
+                "An unrealized loss of {loss_pct:.1f}% on {ticker} is pairing with {vol:.0f}% volatility, so the drawdown is happening amid wide daily swings.",
+                "{ticker} sits {loss_pct:.1f}% below cost with {vol:.0f}% vol — the position is both underwater and unusually volatile.",
+                "The {loss_pct:.1f}% drawdown on {ticker} is compounded by {vol:.0f}% annualized volatility, making the path back to breakeven a noisy one.",
+                "{ticker} combines a {loss_pct:.1f}% unrealized loss with {vol:.0f}% vol — risk and weakness are showing up in the same position."
+            ],
             "high_vol_rising": [
                 "{ticker} is rising at {slope:+.1f}% annualized but with {vol:.0f}% volatility — strong momentum with wider-than-usual price swings.",
                 "Momentum on {ticker} is running at {slope:+.1f}% annualized, though {vol:.0f}% volatility suggests the ride up has been choppy.",

@@ -90,8 +90,24 @@ def analyze(
                         )
                         annualized = peak_to_current_annualized
                         raw_slope = annualized / 252
-                    # If regression disagrees wildly with actual return, use actual.
-                    elif abs(annualized - actual_annualized) > 25:
+                    else:
+                        # Inverse: slope cannot be MORE positive than the
+                        # trough-to-current rise.
+                        min_price = min(clean)
+                        if min_price > 0:
+                            trough_to_current_pct = (last_price - min_price) / min_price * 100
+                            trough_to_current_annualized = trough_to_current_pct * 2
+                            if annualized > trough_to_current_annualized + 5:
+                                print(
+                                    f'[lens DEBUG] slope corrected for {t}: '
+                                    f'regression={annualized:.1f}%, '
+                                    f'trough_to_current={trough_to_current_annualized:.1f}%, '
+                                    f'using trough_to_current'
+                                )
+                                annualized = trough_to_current_annualized
+                                raw_slope = annualized / 252
+                    # If regression still disagrees wildly with actual, use actual.
+                    if abs(annualized - actual_annualized) > 25:
                         print(
                             f'[lens DEBUG] slope corrected for {t}: '
                             f'regression={annualized:.1f}%, '

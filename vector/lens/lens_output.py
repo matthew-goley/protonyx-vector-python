@@ -111,11 +111,12 @@ def build_lens_output(
     deposit_amount = top_cta.get('dollars', 0.0)
     underweight_sector = details.get('target_sector', details.get('heavy_sector', ''))
 
-    # Caution score = total CTA dollars / total equity, scaled to 1–99.
-    # Represents what fraction of the portfolio the engine suggests moving.
+    # Caution score: sells dominate, buys contribute 30%, holds are ignored.
+    # A "you should reduce risk" signal weighs much more than a "you have room
+    # to grow" opportunity.
     total_equity = pool_results.get('_positions_summary', {}).get('total_equity', 1.0)
-    threat_level = sum(abs(c.get('dollars', 0)) for c in cta_list) / max(total_equity, 1.0)
-    caution_score = max(1, min(99, int(threat_level * 100)))
+    caution_score = _compute_caution_score(cta_list, total_equity)
+    threat_level = caution_score / 100.0
 
     # Build projected positions with all CTAs applied
     projected_positions, net_cta_delta = _apply_all_ctas(
@@ -137,6 +138,22 @@ def build_lens_output(
         'projected_positions': projected_positions,
         'net_cta_delta': net_cta_delta,
     }
+
+
+def _compute_caution_score(cta_list: list[dict[str, Any]], total_equity: float) -> int:
+    """Caution score 1–99. Sells full weight, buys 30%, holds ignored."""
+    if total_equity <= 0:
+        return 0
+    weighted_total = 0.0
+    for cta in cta_list:
+        action = cta.get('action', '')
+        dollars = abs(float(cta.get('dollars', 0.0) or 0.0))
+        if action in ('sell', 'rebalance'):
+            weighted_total += dollars
+        elif action in ('buy_new', 'buy_more'):
+            weighted_total += dollars * 0.30
+    score_pct = (weighted_total / total_equity) * 100
+    return max(1, min(99, int(score_pct)))
 
 
 def _apply_all_ctas(

@@ -10,8 +10,36 @@ from vector.constants import INDEX_ETFS, LOW_BETA_BY_SECTOR, SECTOR_SUGGESTIONS
 _log = logging.getLogger(__name__)
 
 
+_MIN_SELL_DOLLARS = 500
+_MIN_POSITION_VALUE_FOR_SELL = 1000
+
+
 def _round10(v: float) -> float:
     return round(v / 10) * 10
+
+
+def _cap_buy_amount(raw_amount: float, total_equity: float, group_size: int) -> float:
+    """Cap a buy CTA so a single suggestion stays realistic.
+
+    - No single buy exceeds 25% of current portfolio value.
+    - Combined buys in the same diversification group stay under 50% of portfolio.
+    """
+    if total_equity <= 0:
+        return _round10(raw_amount)
+    per_cta_cap = total_equity * 0.25
+    if group_size > 1:
+        group_cap = (total_equity * 0.50) / group_size
+        per_cta_cap = min(per_cta_cap, group_cap)
+    return _round10(min(raw_amount, per_cta_cap))
+
+
+def _sell_too_small(dollars: float, position_value: float) -> bool:
+    """True if a sell/rebalance CTA is too small to suggest."""
+    if position_value < _MIN_POSITION_VALUE_FOR_SELL:
+        return True
+    if abs(dollars) < _MIN_SELL_DOLLARS:
+        return True
+    return False
 
 
 def _get_ticker_sector(ticker: str) -> str:
@@ -140,8 +168,12 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             if _conservative_sell_blocked(t, sev, ticker_weight):
                 continue
             sev_factor = 1.0 if sev == 'critical' else 0.5
-            pos_value = ticker_weight * total_equity
+            pos_value = summary.get('ticker_current_values', {}).get(
+                t, ticker_weight * total_equity,
+            )
             dollars = _round10(pos_value * sell_scale * sev_factor)
+            if _sell_too_small(dollars, pos_value):
+                continue
             if dollars > 0:
                 ctas.append({
                     'priority': 1,
@@ -163,8 +195,12 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             if _conservative_sell_blocked(t, sev, ticker_weight):
                 continue
             sev_factor = 1.0 if sev == 'critical' else 0.5
-            pos_value = ticker_weight * total_equity
+            pos_value = summary.get('ticker_current_values', {}).get(
+                t, ticker_weight * total_equity,
+            )
             dollars = _round10(pos_value * sell_scale * sev_factor)
+            if _sell_too_small(dollars, pos_value):
+                continue
             if dollars > 0:
                 # Don't double-flag if already flagged for steep decline
                 already = any(c['ticker'] == t and c['reason'] == 'steep_decline' for c in ctas)
@@ -198,6 +234,8 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 f'entry_weight={entry_w:.3f}, position_value=${position_value:,.0f}, '
                 f'raw=${raw_rebalance:,.0f}, capped=${dollars:,.0f}'
             )
+            if risk_tier != 'low' and _sell_too_small(dollars, position_value):
+                continue
             if dollars > 0:
                 if risk_tier == 'low':
                     ctas.append({
@@ -281,7 +319,7 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 if len(suggestions) >= 2:
                     break
 
-        dollars = _round10(0.10 * total_equity)
+        dollars = _cap_buy_amount(0.10 * total_equity, total_equity, 1)
         if dollars > 0:
             ctas.append({
                 'priority': 5,
@@ -344,17 +382,21 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 uw_sectors, sector_weights, total_dollars,
             )
 
+            group_size = max(len(allocations), 1)
             for sector, alloc_dollars in allocations:
                 suggested = _pick_sector_tickers(sector, held_tickers, n=1)
                 if suggested and _get_ticker_sector(suggested[0]) in exclude:
                     suggested = []
                 if not suggested:
                     continue
+                capped_dollars = _cap_buy_amount(alloc_dollars, total_equity, group_size)
+                if capped_dollars <= 0:
+                    continue
                 ctas.append({
                     'priority': 6,
                     'action': 'buy_new',
                     'ticker': suggested[0],
-                    'dollars': alloc_dollars,
+                    'dollars': capped_dollars,
                     'reason': 'reduce_concentration',
                     'severity': data['severity'],
                     'details': {
@@ -396,6 +438,7 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 uw_sectors, sector_weights, total_dollars,
             )
 
+            group_size = max(len(allocations), 1)
             for sector, alloc_dollars in allocations:
                 suggested = _pick_sector_tickers(sector, held_tickers, n=1)
                 # Verify suggested ticker is NOT in the heavy sector
@@ -408,11 +451,14 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                             break
                 if not suggested:
                     continue
+                capped_dollars = _cap_buy_amount(alloc_dollars, total_equity, group_size)
+                if capped_dollars <= 0:
+                    continue
                 ctas.append({
                     'priority': 7,
                     'action': 'buy_new',
                     'ticker': suggested[0],
-                    'dollars': alloc_dollars,
+                    'dollars': capped_dollars,
                     'reason': 'sector_underweight',
                     'severity': port_conc['severity'],
                     'details': {
@@ -429,12 +475,17 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             w = ticker_weights.get(t, 0)
             ann = s_data.get('details', {}).get('annualized_pct', 0)
             if w < 0.02 and ann <= 2.0 and t not in INDEX_ETFS:
-                pos_value = w * total_equity
+                pos_value = summary.get('ticker_current_values', {}).get(
+                    t, w * total_equity,
+                )
+                dollars = _round10(pos_value)
+                if _sell_too_small(dollars, pos_value):
+                    continue
                 ctas.append({
                     'priority': 8,
                     'action': 'sell',
                     'ticker': t,
-                    'dollars': _round10(pos_value),
+                    'dollars': dollars,
                     'reason': 'dead_weight',
                     'severity': 'low',
                     'details': {
@@ -454,12 +505,14 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             key=lambda x: x[1],
         )
         cta_count = 0
+        group_size = min(len(thin_sectors), 3)
         for sector, sw_pct in thin_sectors:
             if cta_count >= 3:
                 break
             suggested = _pick_sector_tickers(sector, held_tickers, n=1)
             sector_val = (sw_pct / 100) * total_equity
-            deposit = _round10((0.10 * total_equity - sector_val) / 0.90)
+            raw_deposit = (0.10 * total_equity - sector_val) / 0.90
+            deposit = _cap_buy_amount(raw_deposit, total_equity, group_size)
             if deposit > 0 and suggested:
                 ctas.append({
                     'priority': 9,
