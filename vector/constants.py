@@ -4,7 +4,7 @@ from .paths import resource_path, user_data_dir
 # None = use the real screen devicePixelRatio (normal behaviour).
 # Set to a float to simulate a different screen density, e.g.:
 #   1.0  → 1080p feel   2.0 → native 4K feel
-DEBUG_SCREEN_SCALE: float | None = 1.0
+DEBUG_SCREEN_SCALE: float | None = None
 
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
