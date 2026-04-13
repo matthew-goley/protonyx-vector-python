@@ -444,10 +444,10 @@ class _GraphCard(QFrame):
         _is_dark = _app is not None and '#0b1020' in (_app.styleSheet() or '')
         self._is_dark = _is_dark
         self._fig = Figure(facecolor='#161b26' if _is_dark else '#f8faff')
-        self._fig.subplots_adjust(left=0.04, right=0.86, top=0.92, bottom=0.16)
+        self._fig.subplots_adjust(left=0.06, right=0.88, top=0.90, bottom=0.22)
         self._ax = self._fig.add_subplot(111)
         self._canvas = FigureCanvasQTAgg(self._fig)
-        self._canvas.setMinimumHeight(280)
+        self._canvas.setMinimumHeight(320)
         # Pass scroll events up to the parent QScrollArea instead of consuming them
         self._canvas.wheelEvent = lambda event: event.ignore()
         self._placeholder.hide()
@@ -679,18 +679,19 @@ class _CTAReportCard(QFrame):
         self._items_container = QWidget()
         self._items_container.setStyleSheet('background: transparent;')
         self._items_layout = QVBoxLayout(self._items_container)
-        self._items_layout.setContentsMargins(0, 0, 0, 0)
-        self._items_layout.setSpacing(8)
-        self._items_layout.addStretch(1)
+        self._items_layout.setContentsMargins(0, 0, 0, 4)
+        self._items_layout.setSpacing(4)
         self._scroll.setWidget(self._items_container)
         self._outer.addWidget(self._scroll)
+
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         # Default minimal height until first refresh
         self._scroll.setFixedHeight(80)
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
-        # Clear existing items (leave the trailing stretch)
-        while self._items_layout.count() > 1:
+        # Clear existing items
+        while self._items_layout.count():
             item = self._items_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
@@ -699,11 +700,11 @@ class _CTAReportCard(QFrame):
             lbl = QLabel('No projections at this time.')
             lbl.setProperty('role', 'muted')
             lbl.setStyleSheet('font-size: 10pt;')
-            self._items_layout.insertWidget(0, lbl)
+            self._items_layout.addWidget(lbl)
             self._scroll.setVerticalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
             )
-            self._scroll.setFixedHeight(lbl.sizeHint().height() + 12)
+            self._scroll.setFixedHeight(lbl.sizeHint().height() + 24)
             return
 
         _ACTION_LABELS: dict[str, str] = {
@@ -731,33 +732,54 @@ class _CTAReportCard(QFrame):
                 tag_text = action_label
 
             card = QFrame()
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
             card.setStyleSheet(
-                f'QFrame {{ background: #1a2035; border: 1px solid {color}40;'
-                f' border-left: 3px solid {color}; border-radius: 6px; }}'
+                'QFrame {'
+                ' background-color: #1a2035;'
+                f' border: 1px solid {color}40;'
+                f' border-left: 3px solid {color};'
+                ' border-radius: 6px;'
+                ' }'
             )
             card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(12, 6, 12, 6)
+            card_layout.setContentsMargins(10, 4, 10, 4)
             card_layout.setSpacing(2)
 
             tag = QLabel(tag_text)
-            tag.setFixedHeight(16)
+            tag.setContentsMargins(0, 0, 0, 0)
+            tag.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft)
             tag.setStyleSheet(
-                f'font-size: 8pt; font-weight: 700; color: {color};'
-                ' border: none; background: transparent;'
+                'QLabel {'
+                ' font-size: 10pt;'
+                ' font-weight: 700;'
+                f' color: {color};'
+                ' background: transparent;'
+                ' border: none;'
+                ' }'
             )
+            tag_fm = QFontMetrics(tag.font())
+            tag.setFixedHeight(tag_fm.ascent() + 2)
             card_layout.addWidget(tag)
 
             text = QLabel(sentence)
             text.setWordWrap(True)
-            text.setProperty('role', 'muted')
+            text.setContentsMargins(0, 0, 0, 0)
+            text.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
             text.setStyleSheet(
-                'font-size: 10pt; border: none;'
-                ' background: transparent; line-height: 1.2;'
+                'QLabel {'
+                ' font-size: 20pt;'
+                ' color: #e7ebf3;'
+                ' background: transparent;'
+                ' border: none;'
+                ' }'
             )
             card_layout.addWidget(text)
 
-            self._items_layout.insertWidget(i, card)
+            self._items_layout.addWidget(card, 0)
             cards.append(card)
+
+        self._items_layout.addStretch(1)
 
         # Recompute height after layout settles (word-wrap needs a real width).
         QTimer.singleShot(0, lambda: self._resize_for_cards(cards))
@@ -766,32 +788,25 @@ class _CTAReportCard(QFrame):
         if not cards:
             return
 
-        total = len(cards)
-        threshold = 5
-        visible = min(total, threshold)
+        MAX_HEIGHT = 750
+        PADDING = 24
 
         self._items_container.adjustSize()
         self._items_layout.activate()
+        self._items_container.layout().activate()
 
-        spacing = self._items_layout.spacing()
-        heights = []
-        for c in cards[:visible]:
-            c.adjustSize()
-            # sizeHint reflects word-wrapped height at the current width
-            heights.append(max(c.sizeHint().height(), c.height()))
+        actual_content_height = self._items_container.sizeHint().height()
 
-        content_h = sum(heights) + spacing * max(visible - 1, 0) + 4
-
-        if total < threshold:
+        if actual_content_height + PADDING <= MAX_HEIGHT:
             self._scroll.setVerticalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
             )
+            self._scroll.setFixedHeight(actual_content_height + PADDING)
         else:
             self._scroll.setVerticalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAsNeeded,
             )
-
-        self._scroll.setFixedHeight(content_h)
+            self._scroll.setFixedHeight(MAX_HEIGHT)
 
 
 class _LensHistoryDialog(QDialog):
@@ -852,10 +867,46 @@ class _LensHistoryDialog(QDialog):
         scroll.setWidget(items_container)
         layout.addWidget(scroll, stretch=1)
 
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+
+        clear_btn = QPushButton('Clear History')
+        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        clear_btn.clicked.connect(self._on_clear_history)
+        btn_row.addWidget(clear_btn)
+
+        btn_row.addStretch(1)
+
         close_btn = QPushButton('Close')
         close_btn.clicked.connect(self.accept)
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        btn_row.addWidget(close_btn)
+
+        layout.addLayout(btn_row)
+
+    def _on_clear_history(self) -> None:
+        from PyQt6.QtWidgets import QMessageBox
+        import json
+        from vector.paths import user_file
+
+        confirm = QMessageBox.question(
+            self,
+            'Clear Lens History',
+            'Delete all saved Lens snapshots? This cannot be undone.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+
+        path = user_file('lens_history.json')
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump({'snapshots': []}, f)
+        except Exception:
+            pass
+
+        self.accept()
 
 
 class _LensHistoryCard(QFrame):
@@ -1010,10 +1061,26 @@ class VectorLensPage(QWidget):
         self._lens.setFixedHeight(200)
         self._container_layout.addWidget(self._lens)
 
-        # CTA report card (below the brief)
+        # Row 2: Caution Score (left, narrow) + All Projections (right, wide)
         self._cta_report = _CTAReportCard()
-        self._container_layout.addWidget(self._cta_report)
+        self._cta_report.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
+        )
+        self._caution_card = _CautionCard()
+        self._caution_card.setMinimumHeight(210)
+        self._caution_card.setFixedWidth(340)
 
+        caution_projections_row = QWidget()
+        caution_projections_layout = QHBoxLayout(caution_projections_row)
+        caution_projections_layout.setContentsMargins(0, 0, 0, 0)
+        caution_projections_layout.setSpacing(16)
+        caution_projections_layout.addWidget(
+            self._caution_card, 0, Qt.AlignmentFlag.AlignTop,
+        )
+        caution_projections_layout.addWidget(self._cta_report, 1)
+        self._container_layout.addWidget(caution_projections_row)
+
+        # Row 3: Graph A + Graph B
         graphs_row = QWidget()
         graphs_layout = QHBoxLayout(graphs_row)
         graphs_layout.setContentsMargins(0, 0, 0, 0)
@@ -1024,18 +1091,10 @@ class VectorLensPage(QWidget):
         graphs_layout.addWidget(self._graph_b)
         self._container_layout.addWidget(graphs_row)
 
-        # ── Insight row (caution score + MC context) ──────────────────────
-        insights_row = QWidget()
-        insights_layout = QHBoxLayout(insights_row)
-        insights_layout.setContentsMargins(0, 0, 0, 0)
-        insights_layout.setSpacing(16)
-        self._caution_card = _CautionCard()
-        self._caution_card.setMinimumHeight(210)
+        # Row 4: MC context card — full width, alone
         self._mc_context_card = _MCContextCard()
         self._mc_context_card.setMinimumHeight(210)
-        insights_layout.addWidget(self._caution_card, stretch=1)
-        insights_layout.addWidget(self._mc_context_card, stretch=2)
-        self._container_layout.addWidget(insights_row)
+        self._container_layout.addWidget(self._mc_context_card)
 
         pies_row = QWidget()
         pies_layout = QHBoxLayout(pies_row)

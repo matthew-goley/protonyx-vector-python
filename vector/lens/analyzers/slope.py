@@ -82,11 +82,10 @@ def analyze(
                     # A stock's slope cannot be MORE negative than its
                     # peak-to-current decline. If it claims to be, cap it.
                     if annualized < peak_to_current_annualized - 5:
-                        print(
-                            f'[lens DEBUG] slope corrected for {t}: '
-                            f'regression={annualized:.1f}%, '
-                            f'peak_to_current={peak_to_current_annualized:.1f}%, '
-                            f'using peak_to_current'
+                        _log.debug(
+                            'slope corrected for %s: regression=%.1f%%, '
+                            'peak_to_current=%.1f%%, using peak_to_current',
+                            t, annualized, peak_to_current_annualized,
                         )
                         annualized = peak_to_current_annualized
                         raw_slope = annualized / 252
@@ -98,20 +97,19 @@ def analyze(
                             trough_to_current_pct = (last_price - min_price) / min_price * 100
                             trough_to_current_annualized = trough_to_current_pct * 2
                             if annualized > trough_to_current_annualized + 5:
-                                print(
-                                    f'[lens DEBUG] slope corrected for {t}: '
-                                    f'regression={annualized:.1f}%, '
-                                    f'trough_to_current={trough_to_current_annualized:.1f}%, '
-                                    f'using trough_to_current'
+                                _log.debug(
+                                    'slope corrected for %s: regression=%.1f%%, '
+                                    'trough_to_current=%.1f%%, using trough_to_current',
+                                    t, annualized, trough_to_current_annualized,
                                 )
                                 annualized = trough_to_current_annualized
                                 raw_slope = annualized / 252
                     # If regression still disagrees wildly with actual, use actual.
                     if abs(annualized - actual_annualized) > 25:
-                        print(
-                            f'[lens DEBUG] slope corrected for {t}: '
-                            f'regression={annualized:.1f}%, '
-                            f'actual={actual_annualized:.1f}%, using actual'
+                        _log.debug(
+                            'slope corrected for %s: regression=%.1f%%, '
+                            'actual=%.1f%%, using actual',
+                            t, annualized, actual_annualized,
                         )
                         annualized = actual_annualized
                         raw_slope = annualized / 252
