@@ -51,7 +51,8 @@
       "Bash(python -c ':*)",
       "Bash(xargs -0 wc -l)",
       "Bash(.venv/Scripts/python.exe -c \"from vector.lens.sentence1 import _load_templates; t = _load_templates\\(\\); print\\('loaded keys:', list\\(t.keys\\(\\)\\)[:5]\\)\")",
-      "Bash(.venv/Scripts/python.exe -c \"import vector.app, vector.lens.lens_output, vector.lens.sentence1, vector.lens.sentence2, vector.lens.sentence3, vector.lens.debug_runner, vector.paths; print\\('imports ok'\\)\")"
+      "Bash(.venv/Scripts/python.exe -c \"import vector.app, vector.lens.lens_output, vector.lens.sentence1, vector.lens.sentence2, vector.lens.sentence3, vector.lens.debug_runner, vector.paths; print\\('imports ok'\\)\")",
+      "Bash(ls *.bat *.ps1 *.sh)"
     ]
   }
 }

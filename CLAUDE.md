@@ -21,12 +21,25 @@ No build step, test suite, or linter is configured.
 
 ## Building (Nuitka)
 
+Use `build.bat` (release) or `build-debug.bat` (console-enabled for tracebacks). Both wipe the previous `.dist/` folder first.
+
 ```bash
-python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 --output-filename="Vector-v0.4.0.exe" --include-data-dir=assets=assets main.py
+python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 ^
+  --output-filename="Vector-v0.4.0.exe" ^
+  --include-data-dir=assets=assets ^
+  --include-data-dir=vector/lens/templates=vector/lens/templates ^
+  --include-package=vector.lens --include-package=vector.lens.analyzers ^
+  --include-package=yfinance --include-package=pandas --include-package=numpy ^
+  --include-package=lxml --include-package=bs4 --include-package=requests ^
+  --include-package=urllib3 --include-package=certifi ^
+  main.py
 ```
 
 - `--include-data-dir=assets=assets` copies the entire `assets/` folder next to the exe
-- `resource_path()` automatically resolves assets correctly in all three environments: dev, PyInstaller, and Nuitka standalone (see `vector/paths.py`)
+- `--include-data-dir=vector/lens/templates=...` bundles `sentences.json` — required or all Lens sentences come back empty
+- `--include-package=yfinance|pandas|numpy|lxml|bs4|requests|urllib3|certifi` — yfinance runtime deps Nuitka misses statically; without these, onboarding crashes on ticker validation
+- `--include-package=vector.lens|vector.lens.analyzers` — belt-and-suspenders for the Lens subpackages
+- `resource_path()` automatically resolves assets correctly in all three environments: dev, PyInstaller, and Nuitka standalone (see `vector/paths.py`). `vector/lens/_templates.py` uses it with a package-local fallback, so `sentences.json` loads regardless of where the packager placed it.
 
 ## Architecture
 
