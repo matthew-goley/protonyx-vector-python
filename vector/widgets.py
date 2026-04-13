@@ -279,11 +279,15 @@ class SpinnerWidget(QWidget):
         self.hide()
 
     def _tick(self) -> None:
+        if not hasattr(self, '_angle'):
+            return
         self._angle = (self._angle + 12) % 360
         self.update()
 
     def paintEvent(self, event) -> None:  # noqa: N802
         del event
+        if not hasattr(self, '_angle') or not hasattr(self, '_color'):
+            return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         rect = self.rect().adjusted(2, 2, -2, -2)
