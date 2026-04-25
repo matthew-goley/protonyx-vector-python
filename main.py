@@ -1,15 +1,17 @@
 """
 Vector entry point.
 
-The splash screen must appear before the heavy import chain
-(yfinance, numpy, all page/widget modules) runs.  We achieve this by:
+Startup ordering (matches CLAUDE.md):
 
-  1. _bootstrap() — creates QApplication and paints the splash using only
-     PyQt6 (already linked, fast) and nothing else from the vector package.
-  2. Only after the splash is visible do we import vector.app (which pulls in
-     yfinance, numpy, DataStore, all pages, etc.).
-  3. main() receives the already-created app, splash, and start-time so the
-     2-second minimum is measured from when the splash first appeared.
+  1. _create_app() — creates QApplication using only PyQt6 (already linked,
+     fast). Does NOT yet import the vector package.
+  2. _run_auth_gate() — verifies a saved token via auth.auth.get_me, or shows
+     the LoginWindow until the user signs in. If the user dismisses the
+     dialog without authenticating we exit cleanly.
+  3. _show_splash() — paints the splash so it appears BEFORE the heavy import
+     chain (yfinance, numpy, all page/widget modules) runs.
+  4. Only then is vector.app imported, and main() proceeds with the existing
+     splash → window construction → 2-second minimum → splash.finish() flow.
 """
 
 
@@ -17,19 +19,45 @@ The splash screen must appear before the heavy import chain
 import sys
 
 
-def _bootstrap():
+def _create_app():
+    """Create the QApplication with no UI yet — auth comes before splash."""
+    from PyQt6.QtWidgets import QApplication
+    return QApplication(sys.argv)
+
+
+def _run_auth_gate(app):
+    """Resolve (token, user_data) before the splash and main app load.
+
+    Tries the saved session first; falls back to LoginWindow.exec(). Exits the
+    process with status 0 if the user closes the login dialog without
+    authenticating.
     """
-    Create QApplication and show the splash as the very first visible action.
-    Imports only PyQt6 — no vector package modules.
-    """
+    from auth.auth import clear_token, get_me, load_token
+    from auth.login_window import LoginWindow
+
+    saved = load_token()
+    if saved:
+        try:
+            user_data = get_me(saved)
+            return saved, user_data
+        except Exception:
+            clear_token()
+
+    dialog = LoginWindow()
+    dialog.exec()
+    if not dialog.token or not dialog.user_data:
+        sys.exit(0)
+    return dialog.token, dialog.user_data
+
+
+def _show_splash(app):
+    """Paint the splash screen and return (splash, t_start)."""
     import time
     from pathlib import Path
 
     from PyQt6.QtCore import Qt
     from PyQt6.QtGui import QPixmap
-    from PyQt6.QtWidgets import QApplication, QSplashScreen
-
-    app = QApplication(sys.argv)
+    from PyQt6.QtWidgets import QSplashScreen
 
     # Replicate resource_path() logic without importing vector.paths
     if hasattr(sys, '_MEIPASS'):            # PyInstaller
@@ -58,14 +86,17 @@ def _bootstrap():
     splash.show()
     app.processEvents()   # force OS to paint before any heavy work starts
 
-    t_start = time.monotonic()
-    return app, splash, t_start
+    return splash, time.monotonic()
 
 
 if __name__ == '__main__':
-    _app, _splash, _t_start = _bootstrap()   # splash is visible here
+    _app = _create_app()
 
-    from vector.app import main              # heavy imports happen now,
-                                             # splash already on screen
+    _token, _user_data = _run_auth_gate(_app)
 
-    raise SystemExit(main(_app, _splash, _t_start))
+    _splash, _t_start = _show_splash(_app)        # splash visible here
+
+    from vector.app import main                   # heavy imports happen now,
+                                                  # splash already on screen
+
+    raise SystemExit(main(_app, _splash, _t_start, token=_token, user_data=_user_data))

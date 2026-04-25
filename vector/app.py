@@ -462,8 +462,14 @@ class _ShortcutsDialog(QDialog):
 
 
 class VectorMainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        token: str | None = None,
+        user_data: dict | None = None,
+    ) -> None:
         super().__init__()
+        self.token = token
+        self.user_data = user_data
         self.store = DataStore()
         self.settings = self.store.load_settings()
         self.settings['volatility']['lookback_period'] = VOLATILITY_LOOKBACK_PERIODS.get(self.settings['volatility'].get('lookback', '6 months'), '6mo')
@@ -656,14 +662,17 @@ def main(
     app: 'QApplication | None' = None,
     splash: 'QSplashScreen | None' = None,
     t_start: 'float | None' = None,
+    token: 'str | None' = None,
+    user_data: 'dict | None' = None,
 ) -> int:
     """
     Main entry point.
 
     When called from main.py the bootstrapper has already created the
-    QApplication and painted the splash screen.  Accepts those objects so we
-    don't create duplicates.  Falls back to creating them here when invoked
-    directly (e.g. during development without going through main.py).
+    QApplication, run the auth gate, and painted the splash screen.  Accepts
+    those objects so we don't create duplicates.  Falls back to creating them
+    here when invoked directly (e.g. during development without going through
+    main.py) — including the auth gate, which always runs before the splash.
     """
     if app is None:
         app = QApplication(sys.argv)
@@ -675,6 +684,29 @@ def main(
         taskbar_icon if not taskbar_icon.isNull()
         else QIcon(VectorMainWindow.create_placeholder_logo(128))
     )
+
+    # Auth gate — always runs before the splash sequence. main.py normally
+    # handles this and passes token/user_data in; this fallback covers direct
+    # invocations of vector.app.main().
+    if token is None or user_data is None:
+        from auth.auth import clear_token, get_me, load_token
+        from auth.login_window import LoginWindow
+
+        saved = load_token()
+        if saved:
+            try:
+                user_data = get_me(saved)
+                token = saved
+            except Exception:  # noqa: BLE001
+                clear_token()
+
+        if token is None or user_data is None:
+            dialog = LoginWindow()
+            dialog.exec()
+            if not dialog.token or not dialog.user_data:
+                return 0
+            token = dialog.token
+            user_data = dialog.user_data
 
     if splash is None:
         # Fallback: bootstrapper didn't run — show splash here instead.
@@ -701,7 +733,7 @@ def main(
         t_start = time.monotonic()
 
     # Heavy UI construction — splash already visible
-    window = VectorMainWindow()
+    window = VectorMainWindow(token=token, user_data=user_data)
 
     # Prefetch prices for common tickers so Add Position shows instant estimates
     threading.Thread(
