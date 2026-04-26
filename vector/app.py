@@ -334,13 +334,16 @@ class MainShell(QWidget):
         sidebar_layout.setSpacing(12)
         sidebar_layout.addWidget(self.window.make_logo_label(44))
         for name in ('Dashboard', 'Vector Lens', 'Profile', 'Settings'):
-            button = QPushButton(name)
+            is_lens_gated = name == 'Vector Lens' and self._is_gated()
+            label = f'{name}  \U0001F512' if is_lens_gated else name
+            button = QPushButton(label)
             button.setObjectName('navButton')
-            if name == 'Vector Lens' and self._is_gated():
+            if is_lens_gated:
                 opacity = QGraphicsOpacityEffect(button)
                 opacity.setOpacity(0.35)
                 button.setGraphicsEffect(opacity)
                 button.setCursor(Qt.CursorShape.ArrowCursor)
+                button.setStyleSheet('QPushButton#navButton { color: #4a5568; }')
             else:
                 button.clicked.connect(partial(self.set_page, name))
                 button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -675,6 +678,32 @@ class VectorMainWindow(QMainWindow):
         self.positions = []
         self.apply_theme()
         self.setCentralWidget(OnboardingPage(self))
+
+    def logout(self) -> None:
+        confirm = QMessageBox.question(
+            self,
+            'Sign out of Vector',
+            'You\'ll need to log in again to continue. Continue?',
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+        if self.shell is not None:
+            try:
+                self.shell.dashboard_page.save_layout()
+            except Exception:  # noqa: BLE001 — restart should not be blocked by save errors
+                pass
+        try:
+            from auth.auth import clear_token
+            clear_token()
+        except Exception:  # noqa: BLE001 — even if delete fails, still relaunch
+            pass
+        import subprocess
+        relaunch_args = [sys.executable] + (sys.argv[1:] if getattr(sys, 'frozen', False) else sys.argv)
+        try:
+            subprocess.Popen(relaunch_args, close_fds=True)
+        except OSError:
+            pass
+        QApplication.instance().quit()
 
 
 def main(

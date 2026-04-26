@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -47,7 +48,22 @@ class ProfilePage(QWidget):
 
         layout.addWidget(self._build_hero())
         layout.addWidget(self._build_details())
+
+        logout_row = QHBoxLayout()
+        logout_row.setContentsMargins(0, 0, 0, 0)
+        logout_row.addStretch(1)
+        self._logout_button = QPushButton('Logout')
+        self._logout_button.setProperty('accent', True)
+        self._logout_button.setMinimumWidth(160)
+        self._logout_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._logout_button.clicked.connect(self._on_logout)
+        logout_row.addWidget(self._logout_button)
+        layout.addLayout(logout_row)
+
         layout.addStretch(1)
+
+    def _on_logout(self) -> None:
+        self.window.logout()
 
     def _build_hero(self) -> QWidget:
         hero = CardFrame()

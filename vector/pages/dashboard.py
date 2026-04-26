@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
+    QStackedLayout,
     QVBoxLayout,
     QWidget,
 )
@@ -417,7 +418,28 @@ class DashboardPage(QWidget):
 
         self._lens = LensDisplay(window=self.window, show_button=True)
         self._lens.open_lens_clicked.connect(self._navigate_to_lens)
-        self._dash_grid.add_widget(self._lens, row=0, col=1, rowspan=_LENS_ROWSPAN, colspan=10, fixed=True)
+
+        self._lens_wrapper = QWidget()
+        lens_stack = QStackedLayout(self._lens_wrapper)
+        lens_stack.setStackingMode(QStackedLayout.StackingMode.StackAll)
+        lens_stack.setContentsMargins(0, 0, 0, 0)
+        lens_stack.addWidget(self._lens)
+
+        self._lens_overlay = QLabel()
+        self._lens_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lens_overlay.setTextFormat(Qt.TextFormat.RichText)
+        self._lens_overlay.setText(
+            '<div align="center" style="font-size:18pt;">\U0001F512</div>'
+            '<div align="center" style="font-size:13pt; font-weight:700; color:#ffffff;">'
+            'Get Vector Professional</div>'
+        )
+        self._lens_overlay.setStyleSheet(
+            'QLabel { background-color: rgba(11, 16, 32, 140); border-radius: 16px; color: #ffffff; }'
+        )
+        self._lens_overlay.hide()
+        lens_stack.addWidget(self._lens_overlay)
+
+        self._dash_grid.add_widget(self._lens_wrapper, row=0, col=1, rowspan=_LENS_ROWSPAN, colspan=10, fixed=True)
 
         self._scroll = QScrollArea()
         self._scroll.setWidget(self._dash_grid)
@@ -459,6 +481,11 @@ class DashboardPage(QWidget):
                 child.setGraphicsEffect(blur)
             else:
                 child.setGraphicsEffect(None)
+        if gated:
+            self._lens_overlay.show()
+            self._lens_overlay.raise_()
+        else:
+            self._lens_overlay.hide()
 
     def save_layout(self) -> None:
         self.window.store.save_layout(self._dash_grid.get_layout())
