@@ -448,12 +448,17 @@ class DashboardPage(QWidget):
             shell.set_page('Vector Lens')
 
     def apply_lens_gate(self, gated: bool) -> None:
-        if gated:
-            blur = QGraphicsBlurEffect(self._lens)
-            blur.setBlurRadius(8)
-            self._lens.setGraphicsEffect(blur)
-        else:
-            self._lens.setGraphicsEffect(None)
+        # Clear any blur on the outer widget so the card's painted border stays crisp.
+        self._lens.setGraphicsEffect(None)
+        card = getattr(self._lens, '_card', None)
+        targets = list(card.findChildren(QWidget)) if card is not None else [self._lens]
+        for child in targets:
+            if gated:
+                blur = QGraphicsBlurEffect(child)
+                blur.setBlurRadius(50)
+                child.setGraphicsEffect(blur)
+            else:
+                child.setGraphicsEffect(None)
 
     def save_layout(self) -> None:
         self.window.store.save_layout(self._dash_grid.get_layout())
