@@ -57,7 +57,8 @@
       "Bash(.venv/Scripts/python.exe -c ' *)",
       "Bash(xargs wc *)",
       "Bash(where python *)",
-      "Bash(.venv/Scripts/python.exe -c \"import PyQt6; print\\('venv has PyQt6'\\)\")"
+      "Bash(.venv/Scripts/python.exe -c \"import PyQt6; print\\('venv has PyQt6'\\)\")",
+      "Bash(.venv/Scripts/python.exe *)"
     ]
   }
 }

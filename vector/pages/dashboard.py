@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
     QFrame,
+    QGraphicsBlurEffect,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -445,6 +446,14 @@ class DashboardPage(QWidget):
         shell = self.window.shell
         if shell:
             shell.set_page('Vector Lens')
+
+    def apply_lens_gate(self, gated: bool) -> None:
+        if gated:
+            blur = QGraphicsBlurEffect(self._lens)
+            blur.setBlurRadius(8)
+            self._lens.setGraphicsEffect(blur)
+        else:
+            self._lens.setGraphicsEffect(None)
 
     def save_layout(self) -> None:
         self.window.store.save_layout(self._dash_grid.get_layout())

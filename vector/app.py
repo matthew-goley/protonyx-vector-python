@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QSplashScreen,
@@ -335,8 +336,14 @@ class MainShell(QWidget):
         for name in ('Dashboard', 'Vector Lens', 'Profile', 'Settings'):
             button = QPushButton(name)
             button.setObjectName('navButton')
-            button.clicked.connect(partial(self.set_page, name))
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            if name == 'Vector Lens' and self._is_gated():
+                opacity = QGraphicsOpacityEffect(button)
+                opacity.setOpacity(0.35)
+                button.setGraphicsEffect(opacity)
+                button.setCursor(Qt.CursorShape.ArrowCursor)
+            else:
+                button.clicked.connect(partial(self.set_page, name))
+                button.setCursor(Qt.CursorShape.PointingHandCursor)
             sidebar_layout.addWidget(button)
             self.sidebar_buttons[name] = button
         sidebar_layout.addStretch(1)
@@ -388,8 +395,20 @@ class MainShell(QWidget):
         content_wrapper.setLayout(content)
         root.addWidget(content_wrapper, stretch=1)
         self.set_page('Dashboard')
+        self.dashboard_page.apply_lens_gate(self._is_gated())
+
+    def _is_gated(self) -> bool:
+        user_data = getattr(self.window, 'user_data', None)
+        if not isinstance(user_data, dict):
+            return True
+        user = user_data.get('user', {})
+        if not isinstance(user, dict):
+            return True
+        return user.get('plan', 'free') != 'pro'
 
     def set_page(self, page_name: str) -> None:
+        if page_name == 'Vector Lens' and self._is_gated():
+            return
         mapping = {'Dashboard': 0, 'Vector Lens': 1, 'Profile': 2, 'Settings': 3}
         self.page_stack.setCurrentIndex(mapping[page_name])
         self.header_title.setText(page_name)
@@ -626,7 +645,7 @@ class VectorMainWindow(QMainWindow):
         self.state = self.store.load_app_state()
         self.shell.dashboard_page.update_dashboard(self.positions, analytics)
         self.shell.lens_page.refresh()
-        self.shell.profile_page.update_profile(self.state, self.positions, analytics)
+        self.shell.profile_page.update_profile(self.state, self.positions, analytics, self.user_data)
         self.shell.settings_page.load_from_settings(self.settings, self.positions)
         self._setup_auto_refresh()
 
