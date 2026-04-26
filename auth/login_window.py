@@ -77,7 +77,7 @@ QPushButton[accent='true']:disabled {
     background: #1e3a6e;
     color: #6a8fc4;
 }
-QCheckBox { color: #9aa7be; spacing: 8px; }
+QCheckBox { color: #9aa7be; spacing: 8px; background: transparent; }
 QCheckBox::indicator {
     width: 16px;
     height: 16px;
@@ -92,6 +92,8 @@ QTabWidget::pane {
     background: #161b26;
     top: -1px;
 }
+QTabWidget::tab-bar { left: 18px; }
+QTabBar { background: transparent; }
 QTabBar::tab {
     background: #121828;
     color: #9aa7be;

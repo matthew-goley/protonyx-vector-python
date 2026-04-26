@@ -54,7 +54,10 @@
       "Bash(.venv/Scripts/python.exe -c \"import vector.app, vector.lens.lens_output, vector.lens.sentence1, vector.lens.sentence2, vector.lens.sentence3, vector.lens.debug_runner, vector.paths; print\\('imports ok'\\)\")",
       "Bash(ls *.bat *.ps1 *.sh)",
       "Bash(python *)",
-      "Bash(.venv/Scripts/python.exe -c ' *)"
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(xargs wc *)",
+      "Bash(where python *)",
+      "Bash(.venv/Scripts/python.exe -c \"import PyQt6; print\\('venv has PyQt6'\\)\")"
     ]
   }
 }

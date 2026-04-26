@@ -39,7 +39,7 @@ def login(username_or_email: str, password: str) -> str:
     """POST /login. Returns the bearer token on success."""
     response = requests.post(
         f'{API_URL}/login',
-        json={'username_or_email': username_or_email, 'password': password},
+        json={'username': username_or_email, 'password': password},
         timeout=_REQUEST_TIMEOUT,
     )
     if response.status_code >= 400:
