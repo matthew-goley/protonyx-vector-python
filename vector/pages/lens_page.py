@@ -687,7 +687,7 @@ class _CTAReportCard(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
         self._scroll.setMinimumHeight(80)
-        self._scroll.setMaximumHeight(750)
+        self._scroll.setMaximumHeight(500)
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
         # Clear existing items
@@ -768,7 +768,7 @@ class _CTAReportCard(QFrame):
             text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
             text.setStyleSheet(
                 'QLabel {'
-                ' font-size: 20pt;'
+                ' font-size: 15pt;'
                 ' color: #e7ebf3;'
                 ' background: transparent;'
                 ' border: none;'
@@ -1081,7 +1081,7 @@ class VectorLensPage(QWidget):
         caution_projections_layout.addWidget(
             self._caution_card, 0, Qt.AlignmentFlag.AlignTop,
         )
-        caution_projections_layout.addWidget(self._cta_report, 1)
+        caution_projections_layout.addWidget(self._cta_report, 0, Qt.AlignmentFlag.AlignTop)
         self._container_layout.addWidget(caution_projections_row)
 
         # Row 3: Graph A + Graph B
