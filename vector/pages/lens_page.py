@@ -686,8 +686,8 @@ class _CTAReportCard(QFrame):
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        # Default minimal height until first refresh
-        self._scroll.setFixedHeight(80)
+        self._scroll.setMinimumHeight(80)
+        self._scroll.setMaximumHeight(750)
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
         # Clear existing items
@@ -782,7 +782,7 @@ class _CTAReportCard(QFrame):
         self._items_layout.addStretch(1)
 
         # Recompute height after layout settles (word-wrap needs a real width).
-        QTimer.singleShot(0, lambda: self._resize_for_cards(cards))
+        QTimer.singleShot(50, lambda: self._resize_for_cards(cards))
 
     def _resize_for_cards(self, cards: list[QFrame]) -> None:
         if not cards:
@@ -791,21 +791,24 @@ class _CTAReportCard(QFrame):
         MAX_HEIGHT = 750
         PADDING = 24
 
-        self._items_container.adjustSize()
-        self._items_layout.activate()
-        self._items_container.layout().activate()
+        # Force each card to compute its word-wrapped height at the actual width
+        container_width = self._items_container.width()
+        if container_width < 10:
+            container_width = self.width() - 40  # fallback
 
-        actual_content_height = self._items_container.sizeHint().height()
+        total_height = 0
+        for card in cards:
+            card.setFixedWidth(container_width)
+            card.adjustSize()
+            total_height += card.sizeHint().height() + 4  # +4 for spacing
 
-        if actual_content_height + PADDING <= MAX_HEIGHT:
-            self._scroll.setVerticalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
-            )
-            self._scroll.setFixedHeight(actual_content_height + PADDING)
+        total_height += PADDING
+
+        if total_height <= MAX_HEIGHT:
+            self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self._scroll.setFixedHeight(total_height)
         else:
-            self._scroll.setVerticalScrollBarPolicy(
-                Qt.ScrollBarPolicy.ScrollBarAsNeeded,
-            )
+            self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self._scroll.setFixedHeight(MAX_HEIGHT)
 
 
@@ -1033,13 +1036,14 @@ class VectorLensPage(QWidget):
         outer.setSpacing(0)
 
         scroll = QScrollArea()
-        scroll.setWidgetResizable(False)
+        scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         container = QWidget()
-        container.setFixedWidth(_CONTENT_W())
+        container.setMinimumWidth(_CONTENT_W())
+        container.setMaximumWidth(_CONTENT_W())
         self._container_layout = QVBoxLayout(container)
         self._container_layout.setContentsMargins(0, 8, 0, 24)
         self._container_layout.setSpacing(16)
