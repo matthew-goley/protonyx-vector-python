@@ -9,6 +9,7 @@ DEBUG_SCREEN_SCALE: float | None = None
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
 APP_VERSION = '0.4.2'
+FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
 DATA_DIR = user_data_dir()
 POSITIONS_FILE = DATA_DIR / 'positions.json'
 SETTINGS_FILE = DATA_DIR / 'settings.json'

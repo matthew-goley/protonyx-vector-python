@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt, QThread, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices, QIcon, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+from vector.constants import FORGOT_PASSWORD_URL, TASKBAR_LOGO_PATH
 
 from .auth import get_me, login, save_token, signup
 
@@ -77,7 +79,18 @@ QPushButton[accent='true']:disabled {
     background: #1e3a6e;
     color: #6a8fc4;
 }
-QCheckBox { color: #9aa7be; spacing: 8px; background: transparent; }
+QPushButton#forgotLink {
+    background: transparent;
+    border: none;
+    color: #8d98af;
+    font-size: 10pt;
+    padding: 0;
+    text-align: right;
+}
+QPushButton#forgotLink:hover { color: #cbd5e1; }
+QPushButton#forgotLink:pressed { color: #e7ebf3; }
+QCheckBox { color: #8d98af; spacing: 8px; background: transparent; }
+QCheckBox:hover { color: #cbd5e1; }
 QCheckBox::indicator {
     width: 16px;
     height: 16px;
@@ -171,6 +184,9 @@ class LoginWindow(QDialog):
         self._active_worker: Optional[_ApiWorker] = None
 
         self.setWindowTitle('Vector — Sign In')
+        icon = QIcon(str(TASKBAR_LOGO_PATH))
+        if not icon.isNull():
+            self.setWindowIcon(icon)
         self.setModal(True)
         self.setMinimumWidth(440)
         self.setStyleSheet(_DIALOG_STYLESHEET)
@@ -241,7 +257,19 @@ class LoginWindow(QDialog):
         layout.addWidget(self._login_pw)
 
         self._stay_signed_in = QCheckBox('Stay signed in')
-        layout.addWidget(self._stay_signed_in)
+        self._forgot_link = QPushButton('Forgot Password?')
+        self._forgot_link.setObjectName('forgotLink')
+        self._forgot_link.setFlat(True)
+        self._forgot_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._forgot_link.clicked.connect(self._on_forgot_password_clicked)
+
+        options_row = QHBoxLayout()
+        options_row.setContentsMargins(0, 0, 0, 0)
+        options_row.setSpacing(8)
+        options_row.addWidget(self._stay_signed_in)
+        options_row.addStretch(1)
+        options_row.addWidget(self._forgot_link)
+        layout.addLayout(options_row)
 
         self._login_button = QPushButton('Login')
         self._login_button.setProperty('accent', 'true')
@@ -323,6 +351,9 @@ class LoginWindow(QDialog):
         return pixmap.scaledToHeight(size, Qt.TransformationMode.SmoothTransformation)
 
     # ----------------------------------------------------------------- Login
+
+    def _on_forgot_password_clicked(self) -> None:
+        QDesktopServices.openUrl(QUrl(FORGOT_PASSWORD_URL))
 
     def _on_login_clicked(self) -> None:
         if self._active_worker is not None:
