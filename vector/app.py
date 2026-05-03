@@ -498,6 +498,7 @@ class VectorMainWindow(QMainWindow):
         self.state = self.store.load_app_state()
         self.positions = self.store.load_positions()
         self.shell: MainShell | None = None
+        self._version_toast = None
         self.setWindowTitle(f'{COMPANY_NAME} {APP_NAME}')
         self.setMinimumSize(1360, 860)
         self.apply_theme()
@@ -511,6 +512,15 @@ class VectorMainWindow(QMainWindow):
         if self.shell:
             self.shell.dashboard_page.save_layout()
         super().closeEvent(event)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        toast = getattr(self, '_version_toast', None)
+        if toast is not None:
+            try:
+                toast.reposition()
+            except RuntimeError:
+                self._version_toast = None
 
     def _build_menu(self) -> None:
         refresh_action = QAction('Refresh Market Data', self)
@@ -584,6 +594,8 @@ class VectorMainWindow(QMainWindow):
         self.shell = MainShell(self)
         self.setCentralWidget(self.shell)
         self._register_shortcuts()
+        from .version_check import check_version
+        QTimer.singleShot(1500, lambda: check_version(self, self.token))
         self.refresh_data()
         self._setup_auto_refresh()
 
