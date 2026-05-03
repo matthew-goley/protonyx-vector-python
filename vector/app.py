@@ -490,6 +490,8 @@ class VectorMainWindow(QMainWindow):
         user_data: dict | None = None,
     ) -> None:
         super().__init__()
+        from .notifications import NotificationManager
+        self.notifications = NotificationManager(self)
         self.token = token
         self.user_data = user_data
         self.store = DataStore()
@@ -498,7 +500,6 @@ class VectorMainWindow(QMainWindow):
         self.state = self.store.load_app_state()
         self.positions = self.store.load_positions()
         self.shell: MainShell | None = None
-        self._version_toast = None
         self.setWindowTitle(f'{COMPANY_NAME} {APP_NAME}')
         self.setMinimumSize(1360, 860)
         self.apply_theme()
@@ -515,12 +516,8 @@ class VectorMainWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
-        toast = getattr(self, '_version_toast', None)
-        if toast is not None:
-            try:
-                toast.reposition()
-            except RuntimeError:
-                self._version_toast = None
+        if getattr(self, 'notifications', None) is not None:
+            self.notifications.reposition_all()
 
     def _build_menu(self) -> None:
         refresh_action = QAction('Refresh Market Data', self)
