@@ -9,6 +9,7 @@ from typing import Any
 
 import yfinance as yf
 
+from .yfinance_counter import yf_count
 from .constants import (
     APP_STATE_FILE,
     DATA_DIR,
@@ -190,6 +191,7 @@ class DataStore:
 
         info: dict[str, Any] = {}
         try:
+            yf_count()
             info = instrument.info or {}
         except Exception:  # noqa: BLE001
             pass
@@ -230,12 +232,14 @@ class DataStore:
 
         info: dict[str, Any] = {}
         try:
+            yf_count()
             info = instrument.info or {}
         except Exception:  # noqa: BLE001
             pass
 
         fi: dict[str, Any] = {}
         try:
+            yf_count()
             fi = {k: instrument.fast_info[k] for k in instrument.fast_info}
         except Exception:  # noqa: BLE001
             pass
@@ -314,6 +318,7 @@ class DataStore:
         if period in histories and is_fresh:
             return histories[period]
 
+        yf_count()
         frame = yf.Ticker(ticker).history(period=period, interval='1d', auto_adjust=False)
         closes = [float(v) for v in frame['Close'].dropna().tolist()] if not frame.empty else []
 
@@ -345,6 +350,7 @@ class DataStore:
         if key in cache and is_fresh:
             return cache[key]
 
+        yf_count()
         frame = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=False)
         closes = [float(v) for v in frame['Close'].dropna().tolist()] if not frame.empty else []
 
@@ -375,6 +381,7 @@ class DataStore:
         if period in ohlcv_store and is_fresh:
             return ohlcv_store[period]
 
+        yf_count()
         frame = yf.Ticker(ticker).history(period=period, interval='1d', auto_adjust=False)
         if frame.empty:
             result: dict[str, Any] = {
@@ -410,6 +417,7 @@ class DataStore:
 
         divs: list[dict[str, Any]] = []
         try:
+            yf_count()
             series = yf.Ticker(ticker).dividends
             if not series.empty:
                 divs = [
@@ -441,6 +449,7 @@ class DataStore:
 
         earnings: list[dict[str, Any]] = []
         try:
+            yf_count()
             cal = yf.Ticker(ticker).calendar or {}
             for d in cal.get('Earnings Date', []):
                 earnings.append({
@@ -555,6 +564,7 @@ class DataStore:
         if not to_fetch:
             return
         try:
+            yf_count()
             raw = yf.download(
                 to_fetch, period='5d', interval='1d',
                 progress=False, auto_adjust=False, actions=False,
@@ -627,6 +637,7 @@ def _get_price(instrument: yf.Ticker) -> float | None:
     """Try multiple yfinance price sources. Returns None if all fail."""
     # fast_info bracket access — raises KeyError on invalid ticker
     try:
+        yf_count()
         raw = instrument.fast_info['lastPrice']
         if raw:
             return float(raw)
@@ -635,6 +646,7 @@ def _get_price(instrument: yf.Ticker) -> float | None:
 
     # fall through to info dict
     try:
+        yf_count()
         info = instrument.info or {}
         price = info.get('currentPrice') or info.get('regularMarketPrice')
         if price:
@@ -644,6 +656,7 @@ def _get_price(instrument: yf.Ticker) -> float | None:
 
     # last resort: recent history
     try:
+        yf_count()
         hist = instrument.history(period='5d', interval='1d', auto_adjust=False)
         if not hist.empty:
             return float(hist['Close'].dropna().iloc[-1])

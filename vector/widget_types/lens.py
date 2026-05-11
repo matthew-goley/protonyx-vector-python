@@ -305,14 +305,32 @@ class LensDisplay(QFrame):
             result.append(f'</{tag}>')
         return ''.join(result)
 
-    def _ensure_tw_timer(self) -> None:
-        """Recreate _tw_timer if its underlying C++ object has been deleted."""
+    def _ensure_tw_timer(self) -> bool:
+        """Recreate _tw_timer if its underlying C++ object has been deleted.
+
+        Returns True if the timer is usable, False if reconstruction failed
+        (e.g. self itself has been torn down — see _is_alive).
+        """
         try:
             self._tw_timer.isActive()
+            return True
         except RuntimeError:
+            pass
+        try:
             self._tw_timer = QTimer(self)
             self._tw_timer.setInterval(5)
             self._tw_timer.timeout.connect(self._tw_step)
+            return True
+        except RuntimeError:
+            return False
+
+    def _is_alive(self) -> bool:
+        """Return False if our own C++ wrapper has been torn down."""
+        try:
+            self.objectName()
+            return True
+        except RuntimeError:
+            return False
 
     def _tw_step(self) -> None:
         self._tw_pos += 1
@@ -321,15 +339,16 @@ class LensDisplay(QFrame):
             self._text_lbl.setTextFormat(Qt.TextFormat.RichText)
             self._text_lbl.setText(truncated)
         except RuntimeError:
-            self._ensure_tw_timer()
-            self._tw_timer.stop()
+            if self._ensure_tw_timer():
+                self._tw_timer.stop()
             return
         if self._tw_pos >= len(self._tw_plain):
-            self._ensure_tw_timer()
-            self._tw_timer.stop()
+            if self._ensure_tw_timer():
+                self._tw_timer.stop()
 
     def _start_typewrite(self, plain: str) -> None:
-        self._ensure_tw_timer()
+        if not self._ensure_tw_timer():
+            return
         self._tw_timer.stop()
         self._tw_plain = plain
         self._tw_html  = _highlight_html(plain)
@@ -341,7 +360,7 @@ class LensDisplay(QFrame):
         self._tw_timer.start()
 
     def refresh(self) -> None:
-        if not self._window:
+        if not self._window or not self._is_alive():
             return
 
         positions = self._window.positions or []
