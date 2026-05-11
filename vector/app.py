@@ -685,7 +685,10 @@ class VectorMainWindow(QMainWindow):
         self.settings['volatility']['lookback_period'] = VOLATILITY_LOOKBACK_PERIODS.get(self.settings['volatility'].get('lookback', '6 months'), '6mo')
         self.state = self.store.load_app_state()
         self.positions = []
+        if hasattr(self, 'refresh_timer'):
+            self.refresh_timer.stop()
         self.apply_theme()
+        self.shell = None
         self.setCentralWidget(OnboardingPage(self))
 
     def logout(self) -> None:

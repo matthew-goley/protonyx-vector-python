@@ -187,6 +187,22 @@ class DashboardGrid(QWidget):
         widget.deleteLater()
         self._refresh_height()
 
+    def prune_dead(self) -> None:
+        """Drop items whose widget's C++ wrapper has been torn down.
+
+        Onboarding reset and other shell-rebuild flows can leave entries in
+        _items pointing at deleted QWidgets; touching them raises RuntimeError.
+        """
+        live = []
+        for item in self._items:
+            try:
+                item['widget'].objectName()
+            except RuntimeError:
+                continue
+            live.append(item)
+        if len(live) != len(self._items):
+            self._items = live
+
     def set_edit_mode(self, enabled: bool) -> None:
         self._edit_mode = enabled
         for item in self._items:
@@ -510,10 +526,14 @@ class DashboardPage(QWidget):
 
     def update_dashboard(self, positions: list[dict[str, Any]], analytics: dict[str, Any]) -> None:
         self._lens.refresh()
+        self._dash_grid.prune_dead()
         for item in self._dash_grid._items:
             w = item['widget']
-            if hasattr(w, 'refresh'):
-                w.refresh()
+            try:
+                if hasattr(w, 'refresh'):
+                    w.refresh()
+            except RuntimeError:
+                continue
         self._last_refresh = datetime.now()
         self._update_refresh_label()
 
