@@ -230,6 +230,20 @@ Returns `projected_positions` (list) and `net_cta_delta` (net cash flow: buys mi
 
 `LensDisplay.refresh()` in `widget_types/lens.py` handles all tuple lengths (7, 6, 5, 4, 3, 2) for backwards compatibility.
 
+### Swapping in an updated Lens engine from `lens_standalone/`
+
+`lens_standalone/lens/` is a self-contained copy of the engine used for offline testing (`python -m lens_standalone`). When you've iterated on it and want to promote those changes back into the app, the process is:
+
+1. **Copy `vector/lens/debug_runner.py` into `lens_standalone/lens/`** — it's the only file the standalone tree is missing. The app's Settings page imports it via `from vector.lens.debug_runner import run_debug_tests` (see `vector/pages/settings.py`), so without it the debug-tests button breaks. You can either:
+   - Rewire its imports (`from vector.lens.lens_output` → `from .lens_output`, `from vector.paths` → `..paths`), or
+   - Leave it untouched — after the move, `vector.lens.lens_output` resolves to the new code anyway.
+2. **Replace `vector/lens/` with the contents of `lens_standalone/lens/`** (the `lens/` subfolder only — not `runner.py`, `data_shim.py`, `__main__.py`, `debug_test.json`, `constants.py`, `analytics.py`, or `paths.py` — those are standalone-only shims).
+3. **No app code changes needed.** The standalone files use relative imports (`..constants`, `..analytics`, `..paths`) which resolve to `vector.constants` / `vector.analytics` / `vector.paths` once moved. All symbols Lens reads from those modules (`INDEX_ETFS`, `LOW_BETA_BY_SECTOR`, `SECTOR_SUGGESTIONS`, `DEFAULT_RISK_PROFILES`, `INDEX_FUND_TYPES`, `linear_regression_slope_percent`, `portfolio_daily_returns`, `portfolio_beta`, `resource_path`) already exist in the app.
+
+Signature compatibility: `build_lens_output()` and `run_analysis()` in the standalone copy add an optional `progress_cb` kwarg (default `None`) used by the CLI runner — the app's existing call sites pass nothing and behave identically. The lazy `from vector.paths import user_file` inside `_save_snapshot()` is the intentional hook: it stays inert in standalone mode (which passes `save_history=False`) and works normally inside the app.
+
+Behavioral diff to be aware of: two `print('[lens DEBUG] ...')` calls (winner-drift in `cta_engine.py`, weight-sum warning in `analysis_pool.py`) were converted to `_log.debug(...)` in the standalone copy, so stdout is quieter unless DEBUG logging is enabled. Engine output is unchanged.
+
 ### Vector Lens Page Layout (`pages/lens_page.py`)
 
 Top-to-bottom order inside the scroll container:
