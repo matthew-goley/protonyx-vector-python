@@ -1,0 +1,49 @@
+{
+    "positions": [
+        {
+            "ticker": "AAPL",
+            "shares": 10,
+            "equity": 1500.00,
+            "price": 195.00,
+            "sector": "Technology",
+            "name": "Apple Inc."
+        },
+        {
+            "ticker": "NVDA",
+            "shares": 25,
+            "equity": 8000.00,
+            "price": 950.00,
+            "sector": "Technology",
+            "name": "NVIDIA Corp"
+        },
+        {
+            "ticker": "JNJ",
+            "shares": 15,
+            "equity": 2400.00,
+            "price": 155.00,
+            "sector": "Healthcare",
+            "name": "Johnson & Johnson"
+        },
+        {
+            "ticker": "VOO",
+            "shares": 5,
+            "equity": 2000.00,
+            "price": 480.00,
+            "sector": "ETF",
+            "name": "Vanguard S&P 500 ETF"
+        },
+        {
+            "ticker": "KO",
+            "shares": 20,
+            "equity": 1100.00,
+            "price": 62.00,
+            "sector": "Consumer Defensive",
+            "name": "Coca-Cola Co"
+        }
+    ],
+    "settings": {
+        "risk_tier": "regular",
+        "refresh_interval": "5 min",
+        "lens_signals": {}
+    }
+}

@@ -1,0 +1,248 @@
+{
+    "sentence1": {
+        "combined": {
+            "high_vol_declining": [
+                "{ticker} is showing {vol:.0f}% annualized volatility alongside a {slope:+.1f}% downward slope — a combination that historically amplifies drawdown risk.",
+                "Elevated volatility ({vol:.0f}%) paired with a declining trajectory ({slope:+.1f}%) on {ticker} means price swings are wide and trending lower.",
+                "{ticker} carries {vol:.0f}% annualized vol while its 6-month slope sits at {slope:+.1f}% — high dispersion in a negative direction.",
+                "The {vol:.0f}% volatility reading on {ticker} coincides with a {slope:+.1f}% annualized decline, indicating turbulent downside movement.",
+                "With {vol:.0f}% vol and a {slope:+.1f}% slope, {ticker} is the most risk-elevated position in the portfolio right now."
+            ],
+            "position_loss_with_volatility": [
+                "{ticker} is down {loss_pct:.1f}% from entry and carrying {vol:.0f}% annualized volatility — losses are compounding in a turbulent tape.",
+                "An unrealized loss of {loss_pct:.1f}% on {ticker} is pairing with {vol:.0f}% volatility, so the drawdown is happening amid wide daily swings.",
+                "{ticker} sits {loss_pct:.1f}% below cost with {vol:.0f}% vol — the position is both underwater and unusually volatile.",
+                "The {loss_pct:.1f}% drawdown on {ticker} is compounded by {vol:.0f}% annualized volatility, making the path back to breakeven a noisy one.",
+                "{ticker} combines a {loss_pct:.1f}% unrealized loss with {vol:.0f}% vol — risk and weakness are showing up in the same position."
+            ],
+            "high_vol_rising": [
+                "{ticker} is rising at {slope:+.1f}% annualized but with {vol:.0f}% volatility — strong momentum with wider-than-usual price swings.",
+                "Momentum on {ticker} is running at {slope:+.1f}% annualized, though {vol:.0f}% volatility suggests the ride up has been choppy.",
+                "{ticker} combines a {slope:+.1f}% upward slope with {vol:.0f}% annualized vol — gains are accumulating but through significant daily swings.",
+                "The {slope:+.1f}% annualized gain on {ticker} comes with {vol:.0f}% volatility, meaning sharp intraday moves are common even as the trend holds.",
+                "High volatility ({vol:.0f}%) on {ticker} has not derailed its {slope:+.1f}% uptrend, but the path has been anything but smooth."
+            ],
+            "low_vol_stable": [
+                "Portfolio volatility is contained at {vol:.0f}% with a {slope:+.1f}% annualized slope — a quiet, steady state across holdings.",
+                "No individual position is showing unusual movement — portfolio-wide vol sits at {vol:.0f}% with a {slope:+.1f}% slope.",
+                "The portfolio is in a low-volatility phase at {vol:.0f}% annualized, with direction holding steady at {slope:+.1f}%.",
+                "Across all positions, volatility reads {vol:.0f}% and the weighted slope is {slope:+.1f}% — nothing demanding attention right now.",
+                "A {vol:.0f}% volatility reading with {slope:+.1f}% slope indicates the portfolio is moving in a narrow, predictable band."
+            ]
+        },
+        "slope": {
+            "portfolio_broad_decline": [
+                "{down_count} of {total} positions are trending downward — the portfolio's weighted slope is {slope:+.1f}% annualized.",
+                "A broad decline is underway: {down_count} out of {total} holdings are in negative territory, dragging the portfolio slope to {slope:+.1f}%.",
+                "The majority of positions ({down_count}/{total}) are declining, producing a weighted portfolio slope of {slope:+.1f}% annualized.",
+                "With {down_count} of {total} tickers trending down, the portfolio-level slope has fallen to {slope:+.1f}% annualized.",
+                "Downward pressure is broad-based — {down_count} positions are declining out of {total}, and the weighted slope reads {slope:+.1f}%."
+            ],
+            "portfolio_broad_uptrend": [
+                "{up_count} of {total} positions are trending upward — the portfolio's weighted slope is {slope:+.1f}% annualized.",
+                "Momentum is broad-based: {up_count} out of {total} holdings are in positive territory with a portfolio slope of {slope:+.1f}%.",
+                "The portfolio is in a broad uptrend with {up_count}/{total} tickers rising and a weighted slope of {slope:+.1f}% annualized.",
+                "Strength across holdings — {up_count} of {total} positions are appreciating, driving the portfolio slope to {slope:+.1f}%.",
+                "With {up_count} tickers in positive territory out of {total}, the portfolio's annualized slope reads {slope:+.1f}%."
+            ],
+            "portfolio_mixed": [
+                "The portfolio is showing mixed signals — {up_count} positions trending up versus {down_count} declining, with a net slope of {slope:+.1f}%.",
+                "Direction is split: {up_count} holdings are rising while {down_count} are falling, netting out to a {slope:+.1f}% portfolio slope.",
+                "No clear consensus across holdings — {up_count} up, {down_count} down, with the portfolio-level slope at {slope:+.1f}% annualized.",
+                "The portfolio is in a mixed state with {up_count} tickers appreciating and {down_count} depreciating (net slope: {slope:+.1f}%).",
+                "Some winners, some losers — {up_count} positions are rising and {down_count} are falling, blending to a {slope:+.1f}% annualized slope."
+            ]
+        }
+    },
+
+    "sentence2": {
+        "earnings": {
+            "earnings_imminent": {
+                "beat_likely": [
+                    "{e_ticker} reports earnings in {e_days} days — the stock's positive trajectory and moderate volatility suggest a stable setup heading into the print.",
+                    "Earnings for {e_ticker} are {e_days} days out, and the stock has been trending positively with contained vol — historically a constructive pre-earnings posture.",
+                    "{e_ticker} has earnings in {e_days} days with positive momentum and steady price action heading into the report.",
+                    "With {e_days} days until {e_ticker}'s earnings, the stock's upward slope and low volatility suggest a calm market ahead of results.",
+                    "{e_ticker}'s earnings are approaching in {e_days} days — recent price action and momentum indicators lean constructive."
+                ],
+                "miss_risk": [
+                    "{e_ticker} reports in {e_days} days while the stock is in a declining trend with elevated volatility — the market may already be pricing in uncertainty.",
+                    "Earnings for {e_ticker} land in {e_days} days against a backdrop of negative slope and high vol — the setup carries elevated risk.",
+                    "{e_ticker} faces earnings in {e_days} days while trending lower with above-average volatility, which typically signals market unease.",
+                    "With {e_days} days until results, {e_ticker}'s declining trajectory and volatile price action suggest caution around the earnings event.",
+                    "{e_ticker} reports in {e_days} days — the combination of negative momentum and high vol creates an uncertain pre-earnings environment."
+                ],
+                "neutral": [
+                    "{e_ticker} has earnings coming up in {e_days} days — price action heading into the report is neither especially strong nor weak.",
+                    "Earnings for {e_ticker} are {e_days} days away with the stock showing neutral momentum heading into the event.",
+                    "{e_ticker} reports in {e_days} days — the stock is relatively flat going into results, with no strong directional signal either way.",
+                    "With {e_days} days until {e_ticker}'s earnings, the stock's trajectory is unremarkable — the report itself will likely set the next direction.",
+                    "{e_ticker}'s earnings in {e_days} days arrive with the stock in a neutral holding pattern — no strong signal from recent price action."
+                ]
+            },
+            "earnings_distant": [
+                "The next earnings event across held positions is more than 30 days out — no imminent catalysts from quarterly reports.",
+                "No earnings are due within the next month for any held ticker — the portfolio is in a catalyst-light window.",
+                "Earnings season is distant for current holdings — the next known report date is beyond 30 days.",
+                "All held positions are outside their near-term earnings windows — no quarterly reports expected within 30 days.",
+                "The portfolio is in a quiet period for earnings — no reports are expected across holdings for at least a month."
+            ],
+            "no_earnings_data": [
+                "Earnings calendar data is unavailable for current holdings — this may update on the next refresh cycle.",
+                "No upcoming earnings dates could be loaded for the portfolio — check back after a data refresh.",
+                "Earnings data is currently unavailable — the information will populate once market data sources respond.",
+                "Unable to retrieve earnings calendar information at this time — results may appear after the next refresh.",
+                "The earnings calendar is empty for current positions — this typically resolves after a full data refresh."
+            ]
+        },
+        "dividends": {
+            "dividend_upcoming": [
+                "{d_ticker} goes ex-dividend in {d_days} days — shares held before the ex-date will receive the upcoming distribution.",
+                "An ex-dividend date for {d_ticker} is {d_days} days away — the record date determines eligibility for the next payout.",
+                "{d_ticker} has a dividend ex-date in {d_days} days, with a trailing 12-month yield of {yield_pct:.1f}%.",
+                "The next dividend event is {d_ticker}'s ex-date in {d_days} days — holders of record will receive the distribution.",
+                "{d_ticker}'s ex-dividend date lands in {d_days} days — the stock's trailing annual yield is {yield_pct:.1f}%."
+            ],
+            "no_dividends": [
+                "No upcoming dividend events were found across current holdings — the portfolio's trailing yield is {yield_pct:.1f}%.",
+                "None of the held positions have imminent ex-dividend dates — portfolio-wide yield sits at {yield_pct:.1f}% trailing.",
+                "Dividend catalysts are quiet — no ex-dates are approaching within 30 days for any held ticker.",
+                "The portfolio's trailing yield is {yield_pct:.1f}% with no dividend dates expected in the near term.",
+                "No near-term dividend events — the portfolio's income component is generating {yield_pct:.1f}% annualized yield."
+            ]
+        },
+        "combined_catalyst": {
+            "earnings_and_dividend": [
+                "Two catalysts are approaching: {e_ticker} earnings in {e_days} days and {d_ticker} going ex-dividend in {d_days} days.",
+                "Both an earnings report ({e_ticker} in {e_days} days) and an ex-dividend date ({d_ticker} in {d_days} days) are on the near-term calendar.",
+                "The portfolio has overlapping catalysts — {e_ticker} reports earnings in {e_days} days while {d_ticker}'s ex-dividend date is {d_days} days out.",
+                "Near-term events: {e_ticker} earnings in {e_days} days and {d_ticker} ex-dividend in {d_days} days — both within a two-week window.",
+                "Two events are converging: {e_ticker}'s quarterly report in {e_days} days and {d_ticker}'s ex-dividend in {d_days} days."
+            ]
+        }
+    },
+
+    "sentence3": {
+        "sell": {
+            "steep_decline": {
+                "critical": [
+                    "At a {slope:+.1f}% annualized decline, trimming ${dollars:,.0f} from {ticker} would reduce exposure to the steepest drawdown in the portfolio.",
+                    "Reducing {ticker} by ${dollars:,.0f} addresses the {slope:+.1f}% annualized drop — the sharpest negative trajectory among current holdings.",
+                    "A ${dollars:,.0f} reduction in {ticker} (currently at {slope:+.1f}% annualized slope) would limit the portfolio's downside exposure to this position.",
+                    "{ticker}'s {slope:+.1f}% annualized decline is the most severe in the portfolio — a ${dollars:,.0f} trim would reduce that drag.",
+                    "The {slope:+.1f}% slope on {ticker} represents significant capital erosion — reducing by ${dollars:,.0f} would contain the impact."
+                ],
+                "high": [
+                    "{ticker} is declining at {slope:+.1f}% annualized — a ${dollars:,.0f} trim would reduce exposure to this downtrend.",
+                    "Reducing {ticker} by ${dollars:,.0f} addresses the {slope:+.1f}% annualized decline currently dragging on portfolio returns.",
+                    "A ${dollars:,.0f} reduction in {ticker} would limit exposure to its {slope:+.1f}% downward trajectory.",
+                    "With {ticker} at {slope:+.1f}% annualized slope, trimming ${dollars:,.0f} would meaningfully reduce downside drag.",
+                    "{ticker}'s {slope:+.1f}% decline suggests a ${dollars:,.0f} trim to reduce the portfolio's exposure to continued depreciation."
+                ],
+                "default": [
+                    "{ticker} is in a declining trend at {slope:+.1f}% annualized — a ${dollars:,.0f} reduction would limit further exposure.",
+                    "Trimming ${dollars:,.0f} from {ticker} would reduce exposure to its {slope:+.1f}% annualized downtrend.",
+                    "A ${dollars:,.0f} trim on {ticker} addresses the ongoing {slope:+.1f}% annualized decline.",
+                    "Reducing {ticker} by ${dollars:,.0f} would limit the drag from its {slope:+.1f}% negative slope.",
+                    "The {slope:+.1f}% downtrend on {ticker} could be addressed by trimming ${dollars:,.0f} from the position."
+                ]
+            },
+            "high_volatility": {
+                "default": [
+                    "{ticker} is showing {vol:.0f}% annualized volatility at {weight:.0f}% of the portfolio — reducing by ${dollars:,.0f} would lower portfolio-wide risk.",
+                    "At {vol:.0f}% vol and {weight:.0f}% weight, {ticker} is a significant risk contributor — a ${dollars:,.0f} trim would stabilize returns.",
+                    "Trimming ${dollars:,.0f} from {ticker} ({vol:.0f}% vol, {weight:.0f}% weight) would reduce the portfolio's overall volatility profile.",
+                    "{ticker}'s {vol:.0f}% volatility at {weight:.0f}% portfolio weight makes it the largest vol contributor — ${dollars:,.0f} reduction would help.",
+                    "Reducing {ticker} by ${dollars:,.0f} addresses the {vol:.0f}% volatility risk concentrated in {weight:.0f}% of the portfolio."
+                ]
+            },
+            "dead_weight": {
+                "default": [
+                    "{ticker} represents just {weight:.1f}% of the portfolio with flat-to-negative momentum — exiting the ${dollars:,.0f} position simplifies holdings.",
+                    "At {weight:.1f}% weight with no positive momentum, {ticker} is dead weight — the ${dollars:,.0f} position could be redeployed more effectively.",
+                    "{ticker} sits at {weight:.1f}% of the portfolio with minimal contribution — selling the ${dollars:,.0f} position would streamline the portfolio.",
+                    "The ${dollars:,.0f} in {ticker} ({weight:.1f}% weight) is contributing negligible returns — a full exit would simplify the portfolio.",
+                    "Exiting {ticker} (${dollars:,.0f}, {weight:.1f}% weight) removes a position that is neither growing nor generating meaningful income."
+                ]
+            }
+        },
+        "buy_new": {
+            "high_beta": {
+                "default": [
+                    "Portfolio beta is {value:.2f} — adding ${dollars:,.0f} in lower-beta names like {ticker} would bring the portfolio's market sensitivity closer to 1.0.",
+                    "At {value:.2f} beta, the portfolio amplifies market swings — ${dollars:,.0f} into {ticker} would help moderate that sensitivity.",
+                    "A ${dollars:,.0f} allocation to {ticker} would help offset the portfolio's {value:.2f} beta by introducing a lower-volatility return stream.",
+                    "The portfolio's {value:.2f} beta means it moves faster than the market — ${dollars:,.0f} in {ticker} would introduce a stabilizing counterweight.",
+                    "Adding ${dollars:,.0f} to lower-beta {ticker} would moderate the portfolio's {value:.2f} beta, reducing sensitivity to broad market drops."
+                ]
+            },
+            "reduce_concentration": {
+                "default": [
+                    "{heavy_ticker} is at {weight:.0f}% of the portfolio — adding ${dollars:,.0f} to {sector} names like {ticker} would dilute that concentration below {target_weight:.0f}%.",
+                    "A ${dollars:,.0f} deposit into {sector} ({ticker}) would reduce {heavy_ticker}'s {weight:.0f}% concentration toward the {target_weight:.0f}% target.",
+                    "{heavy_ticker} dominates at {weight:.0f}% — ${dollars:,.0f} into {ticker} ({sector}) would bring better balance across holdings.",
+                    "Deploying ${dollars:,.0f} into {ticker} would dilute {heavy_ticker}'s {weight:.0f}% weight, improving single-stock diversification.",
+                    "At {weight:.0f}%, {heavy_ticker} carries outsized influence — ${dollars:,.0f} into {sector} through {ticker} would rebalance exposure."
+                ]
+            },
+            "sector_underweight": {
+                "default": [
+                    "{sector} is underrepresented at {sector_weight:.0f}% — a ${dollars:,.0f} allocation to names like {ticker} would improve sector balance.",
+                    "Adding ${dollars:,.0f} to {sector} ({ticker}) would address the {sector_weight:.0f}% underweight and improve diversification.",
+                    "The portfolio is light on {sector} at {sector_weight:.0f}% — ${dollars:,.0f} into {ticker} would bring it closer to equal sector weight.",
+                    "{sector} exposure is thin at {sector_weight:.0f}% — deploying ${dollars:,.0f} toward {ticker} would strengthen the diversification profile.",
+                    "A ${dollars:,.0f} deposit into {ticker} ({sector}) addresses the portfolio's {sector_weight:.0f}% underexposure to this sector."
+                ]
+            }
+        },
+        "rebalance": {
+            "winner_drift": {
+                "default": [
+                    "{ticker} has drifted from {entry_weight:.0f}% to {weight:.0f}% through appreciation — trimming ${dollars:,.0f} would lock in gains and restore the original allocation.",
+                    "Originally {entry_weight:.0f}% of the portfolio, {ticker} has grown to {weight:.0f}% — a ${dollars:,.0f} rebalance would capture the drift.",
+                    "{ticker}'s weight has expanded from {entry_weight:.0f}% to {weight:.0f}% via price gains — rebalancing ${dollars:,.0f} would realign the allocation.",
+                    "Price appreciation has pushed {ticker} from {entry_weight:.0f}% to {weight:.0f}% — redirecting ${dollars:,.0f} would rebalance toward the original target.",
+                    "A ${dollars:,.0f} rebalance on {ticker} (drifted from {entry_weight:.0f}% to {weight:.0f}%) would lock in appreciation and restore diversification."
+                ]
+            }
+        },
+        "hold": {
+            "index_fund_informational": {
+                "default": [
+                    "{ticker} at {weight:.0f}% provides broad market exposure through a single position — built-in diversification with market-average return characteristics.",
+                    "The {weight:.0f}% position in {ticker} delivers instant diversification across hundreds of underlying holdings.",
+                    "{ticker} ({weight:.0f}% of portfolio) is an index fund — it provides market-level diversification but caps upside at market-average returns.",
+                    "At {weight:.0f}%, {ticker} anchors the portfolio with broad market exposure — a stable diversification base with predictable correlation.",
+                    "The {ticker} position ({weight:.0f}%) offers built-in sector spread — the trade-off is that returns will track the broader market."
+                ]
+            },
+            "winner_drift_informational": {
+                "default": [
+                    "{ticker} has grown to {weight:.0f}% of your portfolio through price appreciation alone — that's concentration by success, not by choice.",
+                    "Price gains pushed {ticker} to {weight:.0f}% of your holdings. It's worth being aware of, even if you're comfortable holding.",
+                    "{ticker} drifted to {weight:.0f}% of your portfolio just from performance. Not necessarily a problem, but it's a lot of weight in one name.",
+                    "{ticker} now makes up {weight:.0f}% of your portfolio — all from appreciation. Something to keep an eye on over time.",
+                    "Through gains alone, {ticker} grew into {weight:.0f}% of your portfolio. That's not a red flag, but it's worth knowing."
+                ]
+            },
+            "unrealized_loss": {
+                "default": [
+                    "{ticker} is down {unrealized_pct:.0f}% from entry (${unrealized_dollar:,.0f}) — the position is underwater but no additional action is indicated by current signals.",
+                    "An unrealized loss of {unrealized_pct:.0f}% on {ticker} (${unrealized_dollar:,.0f}) is noted — the current trend and volatility profile do not trigger an exit signal.",
+                    "{ticker} sits {unrealized_pct:.0f}% below cost basis — the loss is unrealized and the position is being monitored for further deterioration signals.",
+                    "The {unrealized_pct:.0f}% unrealized loss on {ticker} (${unrealized_dollar:,.0f}) is significant but below the threshold for an active exit signal.",
+                    "{ticker} is carrying a {unrealized_pct:.0f}% unrealized loss — while notable, other risk signals are not confirming a sell at this time."
+                ]
+            },
+            "portfolio_healthy": {
+                "default": [
+                    "No actionable signals detected — the portfolio's risk metrics, diversification, and momentum are all within normal bounds.",
+                    "All positions are operating within healthy parameters — concentration, volatility, beta, and direction are balanced.",
+                    "The portfolio is well-positioned with no signals exceeding their thresholds — a hold posture is appropriate for the current state.",
+                    "Risk metrics are contained, diversification is adequate, and no individual position is flagging — the portfolio is in a stable state.",
+                    "No positions require attention right now — the portfolio's weighted slope, volatility, and concentration are all within acceptable ranges."
+                ]
+            }
+        }
+    }
+}
