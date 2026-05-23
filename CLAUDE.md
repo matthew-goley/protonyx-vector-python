@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Keeping This File Current (read first)
+
+**Whenever you add or materially change something important — a new module, a new page/widget, a new dependency, a startup-sequence change, a new storage file, a non-obvious invariant, or anything else a future contributor would need to know — update this CLAUDE.md in the same change.** Treat the documentation as part of the work, not an afterthought. If you introduce a file that isn't in the Module Responsibilities table, add a row. If you change a documented behaviour, fix the description. Out-of-date guidance here is worse than none.
+
 ## Project Overview
 
 **Vector** is a PyQt6 desktop portfolio analytics app for stock investors. It tracks positions, fetches market data via Yahoo Finance (yfinance), and displays analytics (trend direction, volatility, sector allocation, Sharpe ratio, beta, dividends) in a customisable dark/light themed dashboard. Data is persisted locally in `%LOCALAPPDATA%/Protonyx/Vector/` (falls back to `~/Vector/data/`) as JSON files.
@@ -47,12 +51,18 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 
 | Module | Role |
 |---|---|
-| `main.py` | Entry point — calls `vector.app.main()` |
+| `main.py` | Bootstrapper — creates `QApplication`, runs the auth gate, paints the splash, then imports `vector.app` and calls `main(app, splash, t_start, token, user_data)`. See **Startup & Splash Screen**. |
+| `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = http://localhost:3000`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`. Token persisted to `auth/session.json`. |
+| `auth/login_window.py` | `LoginWindow` `QDialog` (Login / Sign Up tabs) shown when no valid saved token exists. Background `QThread` workers call the auth functions; emits `login_successful(token, user_data)`. |
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `_ShortcutsDialog`, `main()` — all page classes live in `vector/pages/` |
+| `vector/scale.py` | DPI scaling: `init_scale(app)` reads the primary screen's `devicePixelRatio` (or `DEBUG_SCREEN_SCALE` override); `sc(px)` scales a pixel value. Used in `app.py` and `pages/dashboard.py`. |
+| `vector/notifications.py` | `NotificationManager` + `NotificationToast` — top-right slide-in toast stack. `window.notifications` is the live instance; repositioned on window resize. |
+| `vector/version_check.py` | `check_version(parent, token)` — background `QThread` that GETs `http://localhost:3000/version`; if the latest differs from `APP_VERSION`, shows an "out of date" toast. Never crashes the app on failure. |
+| `vector/yfinance_counter.py` | `yf_count()` / `get_count()` — running tally of yfinance API calls, rendered in-place to stderr only when it's a TTY (silent in release builds). |
 | `vector/pages/dashboard.py` | `DashboardPage`, `DashboardGrid`, `WidgetPickerDialog`, grid constants (`_UNIT`, `_GAP`, `_CELL`, `_CONTENT_W`) |
 | `vector/pages/lens_page.py` | `VectorLensPage`, `_GraphCard`, `_PieCard`, `_CTAReportCard`, `_CautionCard`, `_MCContextCard`, `_LensHistoryDialog`, `_LensHistoryCard`, `_CautionBadge` |
-| `vector/pages/onboarding.py` | `OnboardingPage`, `PositionDialog`, `PositionCard`, `_RiskTierCard` |
-| `vector/pages/profile.py` | `ProfilePage` |
+| `vector/pages/onboarding.py` | `OnboardingPage`, `PositionDialog`, `EditPositionDialog` (edit an existing holding's share count — also used by Settings), `PositionCard`, `_RiskTierCard` |
+| `vector/pages/profile.py` | `ProfilePage` — renders the authenticated account (username, email, plan, member-since, beta, downloads) from `window.user_data`; has a Logout button (clears `session.json`, returns to login). |
 | `vector/pages/settings.py` | `SettingsPage`, `_AccordionSection`, `_AnimatedChevron`, `QDoubleSpinBoxCompat`, `_RiskTierOption` |
 | `vector/analytics.py` | Portfolio math: trend slope, volatility, Sharpe ratio, beta, insight HTML generation |
 | `vector/store.py` | `DataStore` — single source of truth: positions, settings, app state, market data, layout |
@@ -74,12 +84,13 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `vector/lens/analyzers/performance.py` | Unrealized P&L from cost basis |
 | `vector/lens/analyzers/index_fund.py` | Index ETF detection and classification |
 | `vector/lens/templates/sentences.json` | All sentence templates (5+ variations per category) |
+| `vector/lens/_templates.py` | Loads `sentences.json` via `resource_path()` with a package-local fallback, so templates resolve in dev, PyInstaller, and Nuitka builds. |
 | `vector/lens/debug_runner.py` | Synthetic-portfolio harness for exercising the Lens engine offline. Passes `save_history=False` so test runs do not pollute `lens_history.json`. |
 | `vector/monte_carlo.py` | `run_projection()`, `build_historical_curve()` — GBM Monte Carlo simulation |
 | `vector/widget_base.py` | `VectorWidget` — base `QFrame` for all dashboard widgets; handles edit-mode drag, context menu |
 | `vector/widget_registry.py` | `discover_widgets()` / `get_widget_class()` — registry of all concrete widget types |
 | `vector/widget_types/` | 8 concrete widget implementations + `LensDisplay` |
-| `vector/widgets.py` | Shared UI primitives: `CardFrame`, `GradientBorderFrame`, `GradientLine`, `BlurrableStack`, `DimOverlay`, `EmptyState`, `LoadingButton` |
+| `vector/widgets.py` | Shared UI primitives: `CardFrame`, `GradientBorderFrame`, `GradientLine`, `BlurrableStack`, `DimOverlay`, `EmptyState`, `LoadingButton`, `OutlineButton` (transparent fill + custom-painted rounded border; `gradient=True` for the Vector brand outline or a solid `color`) |
 | `vector/constants.py` | File paths, TTL constants, default settings values, threshold maps, `APP_VERSION` |
 | `vector/paths.py` | `resource_path()` (PyInstaller + Nuitka-aware asset lookup), `user_data_dir()`, `user_file()` |
 
@@ -118,22 +129,33 @@ All page-level QWidget classes live here. `vector/app.py` imports from this subp
 5. Register it in `vector/widget_registry.py` by importing and adding to `_WIDGETS`
 6. `window` arg gives access to `window.store`, `window.positions`, `window.settings`
 
+### Authentication
+
+Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fastify) at `API_URL = http://localhost:3000` — swapping deployments only requires changing that constant. The token is saved to `auth/session.json` next to the module.
+
+- On launch `main.py` calls `_run_auth_gate()`: tries `load_token()` → `get_me(token)`; on success it proceeds, otherwise it shows `LoginWindow` (Login / Sign Up tabs). If the user closes the dialog without authenticating, the process exits cleanly (status 0).
+- The resolved `(token, user_data)` is threaded into `VectorMainWindow`; `ProfilePage` displays it (username, email, plan, member-since, beta flag, downloads) and offers **Logout** (clears the session and returns to login).
+- `version_check.check_version()` reuses the same backend host for the update check.
+
 ### Startup & Splash Screen
 
-`main()` in `vector/app.py` follows this exact sequence:
+`main.py` is the bootstrapper; `vector.app.main()` finishes the sequence. The auth gate runs **before** the splash, and heavy imports (`vector.app`, yfinance, numpy, all pages/widgets) happen **after** the splash is already painted:
 
-1. `QApplication` is created and the taskbar icon is set.
-2. `assets/splashboard.png` is loaded and displayed immediately as a `QSplashScreen` (700×400 px, centred on the primary screen, always-on-top) — this is the **first thing the user sees**.
-3. `app.processEvents()` forces the OS to paint the splash before any heavy work begins.
-4. `VectorMainWindow()` is constructed (loads data, builds UI) while the splash remains visible.
-5. The splash is shown for a **minimum of 2 seconds** total. If construction finishes in under 2 s, a `QTimer` waits out the remainder.
-6. `splash.finish(window)` closes the splash and `window.show()` reveals the main window.
+1. `main.py:_create_app()` creates the `QApplication` using only PyQt6 (fast — the `vector` package is not imported yet).
+2. `main.py:_run_auth_gate(app)` resolves `(token, user_data)` — saved session or `LoginWindow`. Exits if the user cancels.
+3. `main.py:_show_splash(app)` loads `assets/splashboard.png` and displays it as an always-on-top `QSplashScreen`, then calls `app.processEvents()` to force the OS to paint it before any heavy work. The splash is **responsive-sized**, not fixed: width = `min(screen_width × 0.55, 900)`, height keeps the source 1400:800 ratio, centred on the primary screen.
+4. `from vector.app import main` (the heavy import chain runs here, splash already visible), then `main(app, splash, t_start, token=…, user_data=…)`.
+5. `init_scale(app)` initialises the DPI scale factor, then the taskbar icon is set.
+6. `VectorMainWindow(token, user_data)` is constructed (loads data, builds UI). A daemon thread prefetches prices for `COMMON_TICKERS` so Add Position shows instant estimates.
+7. The splash is shown for a **minimum of 2 seconds** total (measured from `t_start`); a `QTimer` waits out any remainder, then `window.show()` + `splash.finish(window)`.
+
+`vector.app.main()` also has a self-contained fallback (auth gate + splash) for when it's invoked directly without going through `main.py` (e.g. during development).
 
 ### Data Flow
 
-1. `VectorMainWindow` owns `DataStore`, all settings/state, and the `QTimer` for auto-refresh.
+1. `VectorMainWindow` owns `DataStore`, all settings/state, the auth `token`/`user_data`, a `NotificationManager` (`self.notifications`), and the `QTimer` for auto-refresh. ~1.5 s after launch it kicks off `check_version()` (background thread → update toast if out of date).
 2. On startup: load JSON state → show `OnboardingPage` (first run) or `MainShell` (returning).
-3. `MainShell` hosts a sidebar + `QStackedWidget` with `DashboardPage`, `VectorLensPage`, `ProfilePage`, `SettingsPage`. Header contains a "?" icon button (48×48 px, rounded) that opens the keyboard-shortcuts modal.
+3. `MainShell` hosts a 220 px sidebar + `QStackedWidget` with `DashboardPage`, `VectorLensPage`, `ProfilePage`, `SettingsPage`. Header contains a "?" icon button (48×48 px, rounded) that opens the keyboard-shortcuts modal. On window resize, `self.notifications.reposition_all()` keeps the toast stack pinned to the top-right.
 4. `DashboardPage` has a permanent `LensDisplay` at the top, followed by a free-form grid of `VectorWidget` instances; grid layout is loaded from / saved to `dashboard_layout.json`. Beneath the grid, a muted "Last updated N minutes ago" label updates every 30 s from a second `QTimer`.
 5. `DashboardPage.update_dashboard()` calls `compute_portfolio_analytics()` → refreshes the lens, calls `widget.refresh()` on each placed widget, and stamps `_last_refresh` (used by `_update_refresh_label()`).
 6. Edit mode (toolbar button) enables drag-to-reposition and right-click delete on grid widgets (the lens is not affected).
@@ -150,7 +172,7 @@ Registered in `VectorMainWindow._register_shortcuts()`. All use `QShortcutContex
 | **D** | Open Dashboard page |
 | **S** | Open Settings page |
 | **A** | Open Add Position dialog (only active on onboarding page; widget-scoped) |
-| **?** | Open Keyboard Shortcuts modal (`_ShortcutsDialog`) |
+| **?** / **Shift+/** | Open Keyboard Shortcuts modal (`_ShortcutsDialog`) — both sequences are registered |
 | **Esc** | Close any open modal |
 | **Space** | Advance to next onboarding step (widget-scoped on `OnboardingPage`; ignored if focus is a `QLineEdit`) |
 
@@ -341,10 +363,12 @@ Seven accordion sections plus static sections:
 | Volatility | Accordion | Lookback period, low/high vol cutoffs |
 | Lens Signal Thresholds | Accordion | Stock/sector concentration %, steep downtrend %, high beta, vol %, dead weight %, loss alert %, winner drift multiple. Shows active risk tier note. |
 | Monte Carlo | Accordion | Projection period combo, simulation count combo |
-| Positions | Static card | Add/remove positions |
+| Positions | Static card | Holdings list, then three buttons below it (in order): **Add New Position** (`OutlineButton`, Vector gradient outline), **Remove Selected Position** (`OutlineButton`, red outline), **Edit Selected Holding** (plain `LoadingButton`). Edit opens `EditPositionDialog` for the selected ticker. |
 | About | Static card | Version, brand, credits |
 
 **Export Positions to CSV:** `SettingsPage._export_to_csv()` opens a `QFileDialog.getSaveFileName` and writes 11 columns: `ticker, name, sector, shares, entry_price, current_price, cost_basis, current_value, unrealized_pnl_dollar, unrealized_pnl_pct, added_at`.
+
+**Edit a holding:** `SettingsPage.edit_selected_position()` reads the selected `remove_list` item, finds the matching position, and opens `EditPositionDialog` (asks "How many total shares of `<ticker>` do you own?", prefilled with the current count, live equity preview). On save it updates `position['shares']` and calls `refresh_data()`, which recomputes `equity = shares × current_price` for every position. Add and remove keep their existing handlers (`window.add_position_from_settings`, `remove_selected_position`).
 
 **Accordion fix**: `_AccordionSection._measure()` always remeasures (no cache), forces `layout().activate()` before `sizeHint()`, and calls `parent.adjustSize()` in `_on_finished()` so the scroll area recomputes its range when multiple accordions are open simultaneously.
 

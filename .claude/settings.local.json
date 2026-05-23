@@ -58,7 +58,9 @@
       "Bash(xargs wc *)",
       "Bash(where python *)",
       "Bash(.venv/Scripts/python.exe -c \"import PyQt6; print\\('venv has PyQt6'\\)\")",
-      "Bash(.venv/Scripts/python.exe *)"
+      "Bash(.venv/Scripts/python.exe *)",
+      "Bash(findstr /R \"\\\\.py$ \\\\.json$ \\\\.bat$ \\\\.txt$\")",
+      "Bash(findstr /V \"lens_standalone\")"
     ]
   }
 }

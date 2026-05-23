@@ -341,6 +341,77 @@ class LoadingButton(QPushButton):
         return self._loading
 
 
+class OutlineButton(QPushButton):
+    """QPushButton with a transparent fill and a custom-painted rounded border.
+
+    Pass ``gradient=True`` for the Vector brand gradient outline, or a solid hex
+    ``color`` for a single-colour outline. Padding/radius match the app's other
+    buttons so it lines up in the same layouts.
+    """
+
+    _RADIUS = 12.0
+    _BORDER_W = 1.6
+
+    def __init__(
+        self,
+        text: str,
+        color: str = '#2c364a',
+        gradient: bool = False,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(text, parent)
+        self._color = color
+        self._gradient = gradient
+        self._hover = False
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Transparent fill in every state so only the painted border shows. The
+        # :hover/:pressed rules are required to override the app-level QPushButton
+        # pseudo-state rules (which would otherwise paint an opaque fill over the
+        # border). Padding/radius keep it sized like the app's standard buttons.
+        self.setStyleSheet(
+            'QPushButton { background: transparent; border: none;'
+            ' border-radius: 12px; padding: 10px 16px; font-weight: 600; }'
+            'QPushButton:hover { background: transparent; }'
+            'QPushButton:pressed { background: transparent; }'
+        )
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def _border_brush(self) -> QBrush:
+        if self._gradient:
+            grad = QLinearGradient(0.0, 0.0, float(max(self.width(), 1)), 0.0)
+            grad.setColorAt(0.0, QColor('#2dd4bf'))
+            grad.setColorAt(0.5, QColor('#38bdf8'))
+            grad.setColorAt(1.0, QColor('#1e3a8a'))
+            return QBrush(grad)
+        return QBrush(QColor(self._color))
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        bw = self._BORDER_W
+        r = self._RADIUS
+        border_rect = QRectF(self.rect()).adjusted(bw / 2, bw / 2, -bw / 2, -bw / 2)
+        path = QPainterPath()
+        path.addRoundedRect(border_rect, r, r)
+        if self._hover:
+            painter.fillPath(path, QColor(255, 255, 255, 14))
+        pen = QPen(self._border_brush(), bw)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.drawPath(path)
+        painter.end()
+        super().paintEvent(event)  # draws the label on top of the border
+
+
 class GradientLabel(QWidget):
     """A label that renders text with a horizontal gradient fill matching the Vector logo."""
 

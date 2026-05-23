@@ -17,6 +17,7 @@ from PyQt6.QtGui import QColor, QDesktopServices, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
+    QDialog,
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
@@ -41,8 +42,9 @@ from ..constants import (
     MONTE_CARLO_SIMULATIONS,
     VOLATILITY_LOOKBACK_PERIODS,
 )
-from ..widgets import CardFrame, LoadingButton
+from ..widgets import CardFrame, LoadingButton, OutlineButton
 from .dashboard import _CONTENT_W
+from .onboarding import EditPositionDialog
 
 if TYPE_CHECKING:
     from vector.app import VectorMainWindow
@@ -453,13 +455,16 @@ class SettingsPage(QWidget):
         self._lens_test_worker: _DebugTestWorker | None = None
 
         positions = self._add_section(layout, 'Positions')
-        add_position = LoadingButton('Add New Position')
+        add_position = OutlineButton('Add New Position', gradient=True)
         add_position.clicked.connect(self.window.add_position_from_settings)
-        remove_button = LoadingButton('Remove Selected Position')
+        remove_button = OutlineButton('Remove Selected Position', color='#ff4d4d')
         remove_button.clicked.connect(self.remove_selected_position)
-        positions.addRow('', add_position)
+        edit_button = LoadingButton('Edit Selected Holding')
+        edit_button.clicked.connect(self.edit_selected_position)
         positions.addRow('Current Positions', self.remove_list)
+        positions.addRow('', add_position)
         positions.addRow('', remove_button)
+        positions.addRow('', edit_button)
 
         about = self._add_section(layout, 'About')
         about.addRow('App Version', QLabel(APP_VERSION))
@@ -688,6 +693,23 @@ class SettingsPage(QWidget):
         confirm = QMessageBox.question(self, 'Remove Position', f'Remove {ticker} from the portfolio?')
         if confirm == QMessageBox.StandardButton.Yes:
             self.window.positions = [position for position in self.window.positions if position['ticker'] != ticker]
+            self.window.store.save_positions(self.window.positions)
+            self.window.refresh_data()
+            self.load_from_settings(self.window.settings, self.window.positions)
+
+    def edit_selected_position(self) -> None:
+        item = self.remove_list.currentItem()
+        if not item:
+            QMessageBox.information(self, 'Edit Holding', 'Select a holding from the list to edit first.')
+            return
+        ticker = item.data(Qt.ItemDataRole.UserRole)
+        position = next((p for p in self.window.positions if p['ticker'] == ticker), None)
+        if position is None:
+            return
+        dialog = EditPositionDialog(self.window.store, position, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.new_shares is not None:
+            position['shares'] = dialog.new_shares
+            position['equity'] = position['shares'] * (position.get('current_price') or position.get('price') or 0)
             self.window.store.save_positions(self.window.positions)
             self.window.refresh_data()
             self.load_from_settings(self.window.settings, self.window.positions)

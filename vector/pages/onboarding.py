@@ -67,7 +67,9 @@ class PositionDialog(QDialog):
         self.ticker_input.textChanged.connect(self._uppercase_ticker)
         self.ticker_input.editingFinished.connect(self._try_update_equity_label)
         self.shares_input = QLineEdit()
-        self.shares_input.setValidator(QDoubleValidator(0.0, 10_000_000.0, 4, self))
+        shares_validator = QDoubleValidator(0.0, 10_000_000.0, 4, self)
+        shares_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        self.shares_input.setValidator(shares_validator)
         self.shares_input.setPlaceholderText('10')
         self.shares_input.textChanged.connect(lambda _: self._try_update_equity_label())
         form.addRow('Ticker Symbol', self.ticker_input)
@@ -125,7 +127,11 @@ class PositionDialog(QDialog):
         if not ticker or not shares_text:
             self.error_label.setText('Please enter a ticker and a share count.')
             return
-        shares = float(shares_text)
+        try:
+            shares = float(shares_text)
+        except ValueError:
+            self.error_label.setText('Please enter a valid share count — numbers only, no special characters (, # $).')
+            return
         if shares <= 0:
             self.error_label.setText('Shares must be greater than zero.')
             return
@@ -149,6 +155,113 @@ class PositionDialog(QDialog):
         }
         self.equity_label.setText(f'≈ ${equity:,.2f}')
         QTimer.singleShot(700, self.accept)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# EditPositionDialog
+# ──────────────────────────────────────────────────────────────────────────────
+
+class EditPositionDialog(QDialog):
+    """Edit the share count of an existing holding. Same styling as PositionDialog."""
+
+    def __init__(self, store: DataStore, position: dict[str, Any], parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.store = store
+        self.position = position
+        self.new_shares: float | None = None
+        self.setModal(True)
+        self.setWindowTitle('Edit Holding')
+        self.setMinimumWidth(380)
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        ticker = self.position['ticker']
+        layout = QVBoxLayout(self)
+        title = QLabel(f'Edit {ticker} holding')
+        title_font = QFont()
+        title_font.setPointSize(15)
+        title_font.setBold(True)
+        title.setFont(title_font)
+        title.setStyleSheet('font-size: 15pt;')
+        subtitle = QLabel(f'How many total shares of {ticker} do you own?')
+        subtitle.setWordWrap(True)
+        subtitle.setProperty('role', 'muted')
+        layout.addWidget(title)
+        layout.addWidget(subtitle)
+
+        form = QFormLayout()
+        self.shares_input = QLineEdit()
+        shares_validator = QDoubleValidator(0.0, 10_000_000.0, 4, self)
+        shares_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        self.shares_input.setValidator(shares_validator)
+        self.shares_input.setPlaceholderText('10')
+        current_shares = float(self.position.get('shares', 0) or 0)
+        if current_shares > 0:
+            self.shares_input.setText(f'{current_shares:.4f}'.rstrip('0').rstrip('.'))
+        self.shares_input.textChanged.connect(lambda _: self._update_equity_label())
+        form.addRow('Number of Shares', self.shares_input)
+        layout.addLayout(form)
+
+        self.error_label = QLabel('')
+        self.error_label.setStyleSheet('color: #ff6b6b;')
+        self.error_label.setWordWrap(True)
+        layout.addWidget(self.error_label)
+
+        btn_row = QHBoxLayout()
+        cancel_button = QPushButton('Cancel')
+        cancel_button.clicked.connect(self.reject)
+        self.submit_button = LoadingButton('Save')
+        self.submit_button.setProperty('accent', True)
+        self.submit_button.setDefault(True)
+        self.submit_button.clicked.connect(self.submit)
+        self.equity_label = QLabel('')
+        self.equity_label.setMinimumWidth(120)
+        self.equity_label.setProperty('role', 'accent-info')
+        self.equity_label.setStyleSheet('font-weight: bold;')
+        btn_row.addWidget(cancel_button)
+        btn_row.addStretch(1)
+        btn_row.addWidget(self.equity_label)
+        btn_row.addWidget(self.submit_button)
+        layout.addLayout(btn_row)
+        self._update_equity_label()
+
+    def _price_per_share(self) -> float | None:
+        price = self.position.get('current_price') or self.position.get('price')
+        if not price:
+            price = self.store.get_quote(self.position['ticker']).get('price')
+        return price or None
+
+    def _update_equity_label(self) -> None:
+        shares_text = self.shares_input.text().strip()
+        if not shares_text:
+            self.equity_label.setText('')
+            return
+        try:
+            shares = float(shares_text)
+        except ValueError:
+            return
+        if shares <= 0:
+            return
+        price = self._price_per_share()
+        if not price:
+            return
+        self.equity_label.setText(f'≈ ${shares * price:,.2f}')
+
+    def submit(self) -> None:
+        shares_text = self.shares_input.text().strip()
+        if not shares_text:
+            self.error_label.setText('Please enter a share count.')
+            return
+        try:
+            shares = float(shares_text)
+        except ValueError:
+            self.error_label.setText('Please enter a valid share count — numbers only, no special characters (, # $).')
+            return
+        if shares <= 0:
+            self.error_label.setText('Shares must be greater than zero.')
+            return
+        self.new_shares = shares
+        self.accept()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
