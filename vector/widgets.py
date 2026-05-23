@@ -18,6 +18,8 @@ from PyQt6.QtWidgets import (
 )
 
 
+from .scale import sc, scpt
+
 CARD_BACKGROUND = '#161b26'
 BORDER_COLOR = '#2a3142'
 TEXT_MUTED = '#7f8aa2'
@@ -76,7 +78,7 @@ class GradientLine(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedWidth(2)
+        self.setFixedWidth(max(1, sc(2)))
 
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
@@ -202,19 +204,19 @@ class PieChartWidget(QWidget):
 class EmptyState(QWidget):
     def __init__(self, title: str, subtitle: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setMinimumHeight(200)
+        self.setMinimumHeight(sc(200))
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 24, 32, 24)
-        layout.setSpacing(8)
+        layout.setContentsMargins(sc(32), sc(24), sc(32), sc(24))
+        layout.setSpacing(sc(8))
         title_label = QLabel(title)
         title_font = QFont()
-        title_font.setPointSize(16)
+        title_font.setPointSize(scpt(16))
         title_font.setBold(True)
         title_label.setFont(title_font)
-        title_label.setStyleSheet('font-size: 16pt;')
+        title_label.setStyleSheet(f'font-size: {scpt(16)}pt;')
         subtitle_label = QLabel(subtitle)
         subtitle_label.setWordWrap(True)
-        subtitle_label.setMinimumHeight(40)
+        subtitle_label.setMinimumHeight(sc(40))
         subtitle_label.setStyleSheet(f'color: {TEXT_MUTED};')
         layout.addStretch(1)
         layout.addWidget(title_label, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -418,12 +420,12 @@ class GradientLabel(QWidget):
     def __init__(self, text: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._text = text
-        self._font = QFont('Segoe UI', 14)
+        self._font = QFont('Segoe UI', scpt(14))
         self._font.setBold(True)
         self._font.setWeight(QFont.Weight.ExtraBold)
         metrics = QFontMetrics(self._font)
-        self.setFixedHeight(metrics.height() + 4)
-        self.setMinimumWidth(metrics.horizontalAdvance(text) + 8)
+        self.setFixedHeight(metrics.height() + sc(4))
+        self.setMinimumWidth(metrics.horizontalAdvance(text) + sc(8))
 
     def paintEvent(self, event) -> None:  # noqa: N802
         del event

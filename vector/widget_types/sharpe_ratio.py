@@ -20,6 +20,7 @@ from PyQt6.QtCore import Qt
 from vector.widget_base import VectorWidget
 from vector.analytics import portfolio_daily_returns, sharpe_ratio
 from vector.constants import VOLATILITY_LOOKBACK_PERIODS
+from vector.scale import sc, scpt
 
 _MUTED  = '#8d98af'
 _GREEN  = '#4ade80'
@@ -62,7 +63,7 @@ class _TierRow(QLabel):
         super().__init__(parent)
         self._tier = tier
         self._desc = desc
-        self.setStyleSheet('border: none; font-size: 12pt;')
+        self.setStyleSheet(f'border: none; font-size: {scpt(11)}pt;')
         self.setTextFormat(Qt.TextFormat.RichText)
         self.set_active(False)
 
@@ -76,7 +77,7 @@ class _TierRow(QLabel):
         weight = '700' if active else '400'
         self.setText(
             f'<span style="color:{color};font-weight:{weight};">{self._tier}</span>'
-            f'<span style="color:{muted_color};font-size:11pt;"> — {self._desc}</span>'
+            f'<span style="color:{muted_color};font-size:{scpt(10)}pt;"> — {self._desc}</span>'
         )
 
 
@@ -90,32 +91,32 @@ class SharpeRatioWidget(VectorWidget):
         super().__init__(window=window, parent=parent)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 16, 18, 14)
-        layout.setSpacing(4)
+        layout.setContentsMargins(sc(16), sc(12), sc(16), sc(10))
+        layout.setSpacing(sc(3))
 
         # Header
         header = QHBoxLayout()
         title_lbl = QLabel('Sharpe Ratio')
-        title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
+        title_lbl.setFont(_title_font(scpt(16)))
+        title_lbl.setStyleSheet(f'font-size: {scpt(16)}pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._period_lbl = QLabel('')
         self._period_lbl.setProperty('role', 'muted')
-        self._period_lbl.setStyleSheet('font-size: 10pt; border: none;')
+        self._period_lbl.setStyleSheet(f'font-size: {scpt(10)}pt; border: none;')
         header.addWidget(self._period_lbl)
         layout.addLayout(header)
 
         # Score row
         score_row = QHBoxLayout()
         self._score_lbl = QLabel('—')
-        self._score_lbl.setFont(_title_font(16))
-        self._score_lbl.setStyleSheet('font-size: 16pt; border: none;')
+        self._score_lbl.setFont(_title_font(scpt(16)))
+        self._score_lbl.setStyleSheet(f'font-size: {scpt(16)}pt; border: none;')
         score_row.addWidget(self._score_lbl)
 
         self._label_lbl = QLabel('')
         self._label_lbl.setProperty('role', 'muted')
-        self._label_lbl.setStyleSheet('font-size: 13pt; font-weight: 700; border: none;')
+        self._label_lbl.setStyleSheet(f'font-size: {scpt(13)}pt; font-weight: 700; border: none;')
         self._label_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         score_row.addWidget(self._label_lbl)
         score_row.addStretch(1)
@@ -123,10 +124,10 @@ class SharpeRatioWidget(VectorWidget):
 
         self._rf_lbl = QLabel(f'rf = {_RISK_FREE_RATE * 100:.1f}%')
         self._rf_lbl.setProperty('role', 'muted')
-        self._rf_lbl.setStyleSheet('font-size: 10pt; border: none;')
+        self._rf_lbl.setStyleSheet(f'font-size: {scpt(10)}pt; border: none;')
         layout.addWidget(self._rf_lbl)
 
-        layout.addSpacing(8)
+        layout.addSpacing(sc(4))
 
         # Interpretation tiers
         self._tiers: list[_TierRow] = []
@@ -176,10 +177,10 @@ class SharpeRatioWidget(VectorWidget):
         label = _sharpe_label(s)
 
         self._score_lbl.setText(f'{s:.2f}')
-        self._score_lbl.setStyleSheet(f'color: {color}; font-size: 16pt; border: none;')
+        self._score_lbl.setStyleSheet(f'color: {color}; font-size: {scpt(16)}pt; border: none;')
         self._label_lbl.setText(label)
         self._label_lbl.setStyleSheet(
-            f'color: {color}; font-size: 13pt; font-weight: 700; border: none;'
+            f'color: {color}; font-size: {scpt(13)}pt; font-weight: 700; border: none;'
         )
 
         # Highlight the active tier

@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from ..scale import sc
+from ..scale import sc, scpt
 from ..widget_registry import discover_widgets, get_widget_class
 
 if TYPE_CHECKING:
@@ -255,22 +255,22 @@ class _PickerCard(QFrame):
         super().__init__(parent)
         self._on_click = on_click
         self._featured = featured
-        self.setFixedHeight(64)
+        self.setFixedHeight(sc(64))
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 10, 16, 10)
-        layout.setSpacing(12)
+        layout.setContentsMargins(sc(16), sc(10), sc(16), sc(10))
+        layout.setSpacing(sc(12))
         name_lbl = QLabel(name)
         name_font = QFont()
         name_font.setBold(True)
-        name_font.setPointSize(11)
+        name_font.setPointSize(scpt(11))
         name_lbl.setFont(name_font)
-        name_lbl.setStyleSheet('font-size: 11pt;')
-        name_lbl.setFixedWidth(160)
+        name_lbl.setStyleSheet(f'font-size: {scpt(11)}pt;')
+        name_lbl.setFixedWidth(sc(160))
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc_lbl = QLabel(description)
         desc_lbl.setWordWrap(True)
-        desc_lbl.setStyleSheet('color: #8d98af; font-size: 11pt;')
+        desc_lbl.setStyleSheet(f'color: #8d98af; font-size: {scpt(11)}pt;')
         layout.addWidget(name_lbl)
         layout.addWidget(desc_lbl, stretch=1)
         self._set_style(False)
@@ -310,7 +310,7 @@ class WidgetPickerDialog(QDialog):
         self.chosen_class: type | None = None
         self.setModal(True)
         self.setWindowTitle('Add Widget')
-        self.setMinimumWidth(440)
+        self.setMinimumWidth(sc(440))
         main_win = QApplication.activeWindow()
         if main_win is not None:
             self.setMaximumWidth(main_win.width())
@@ -318,20 +318,20 @@ class WidgetPickerDialog(QDialog):
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(sc(16))
         title = QLabel('Choose a widget')
         title_font = QFont()
-        title_font.setPointSize(15)
+        title_font.setPointSize(scpt(15))
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setStyleSheet('font-size: 15pt;')
+        title.setStyleSheet(f'font-size: {scpt(15)}pt;')
         layout.addWidget(title)
         sub = QLabel('Select the widget you want to add to your dashboard.')
         sub.setStyleSheet('color: #8d98af;')
         sub.setWordWrap(True)
         layout.addWidget(sub)
         cards_col = QVBoxLayout()
-        cards_col.setSpacing(8)
+        cards_col.setSpacing(sc(8))
         for cls in discover_widgets():
             cards_col.addWidget(_PickerCard(
                 cls.NAME, cls.DESCRIPTION,
@@ -352,7 +352,9 @@ class WidgetPickerDialog(QDialog):
 # ---------------------------------------------------------------------------
 
 def _circle_btn_style(font_size: int, active: bool = False) -> str:
-    r = sc(32)
+    # Rounded-corner (not circular) to match the rest of the app's buttons,
+    # which use a 12 px corner radius.
+    r = sc(12)
     if active:
         return f"""
             QPushButton {{
@@ -420,13 +422,13 @@ class DashboardPage(QWidget):
         self._add_btn = QPushButton('+')
         self._add_btn.setFixedSize(sc(64), sc(64))
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._add_btn.setStyleSheet(_circle_btn_style(28))
+        self._add_btn.setStyleSheet(_circle_btn_style(scpt(28)))
         self._add_btn.clicked.connect(self._open_picker)
 
         self._edit_btn = QPushButton('Edit')
         self._edit_btn.setFixedSize(sc(64), sc(64))
         self._edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._edit_btn.setStyleSheet(_circle_btn_style(13))
+        self._edit_btn.setStyleSheet(_circle_btn_style(scpt(13)))
         self._edit_btn.clicked.connect(self._toggle_edit_mode)
 
         self._dash_grid.add_widget(self._add_btn, row=0, col=0, fixed=True)
@@ -445,8 +447,8 @@ class DashboardPage(QWidget):
         self._lens_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lens_overlay.setTextFormat(Qt.TextFormat.RichText)
         self._lens_overlay.setText(
-            '<div align="center" style="font-size:18pt;">\U0001F512</div>'
-            '<div align="center" style="font-size:13pt; font-weight:700; color:#ffffff;">'
+            f'<div align="center" style="font-size:{scpt(18)}pt;">\U0001F512</div>'
+            f'<div align="center" style="font-size:{scpt(13)}pt; font-weight:700; color:#ffffff;">'
             'Get Vector Professional</div>'
         )
         self._lens_overlay.setStyleSheet(
@@ -466,7 +468,7 @@ class DashboardPage(QWidget):
 
         self._refresh_label = QLabel('Not yet refreshed')
         self._refresh_label.setStyleSheet(
-            'color: #8d98af; font-size: 9pt; padding: 2px 6px;'
+            f'color: #8d98af; font-size: {scpt(9)}pt; padding: {sc(2)}px {sc(6)}px;'
         )
         self._refresh_label.setAlignment(
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
@@ -522,7 +524,7 @@ class DashboardPage(QWidget):
     def _toggle_edit_mode(self) -> None:
         self._edit_mode = not self._edit_mode
         self._dash_grid.set_edit_mode(self._edit_mode)
-        self._edit_btn.setStyleSheet(_circle_btn_style(13, active=self._edit_mode))
+        self._edit_btn.setStyleSheet(_circle_btn_style(scpt(13), active=self._edit_mode))
 
     def update_dashboard(self, positions: list[dict[str, Any]], analytics: dict[str, Any]) -> None:
         self._lens.refresh()

@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
 from .analytics import compute_portfolio_analytics
 from .constants import APP_NAME, APP_VERSION, COMMON_TICKERS, COMPANY_NAME, LOGO_PATH, TASKBAR_LOGO_PATH, VOLATILITY_LOOKBACK_PERIODS
 from .paths import resource_path
-from .scale import init_scale
+from .scale import init_scale, sc, scpt
 from .pages.dashboard import DashboardPage
 from .pages.lens_page import VectorLensPage
 from .pages.onboarding import OnboardingPage, PositionDialog
@@ -328,11 +328,11 @@ class MainShell(QWidget):
 
         sidebar = QFrame()
         sidebar.setObjectName('sidebarFrame')
-        sidebar.setFixedWidth(220)
+        sidebar.setFixedWidth(sc(220))
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(20, 24, 20, 24)
-        sidebar_layout.setSpacing(12)
-        sidebar_layout.addWidget(self.window.make_logo_label(44))
+        sidebar_layout.setContentsMargins(sc(20), sc(24), sc(20), sc(24))
+        sidebar_layout.setSpacing(sc(12))
+        sidebar_layout.addWidget(self.window.make_logo_label(sc(44)))
         for name in ('Dashboard', 'Vector Lens', 'Profile', 'Settings'):
             is_lens_gated = name == 'Vector Lens' and self._is_gated()
             label = f'{name}  \U0001F512' if is_lens_gated else name
@@ -354,14 +354,14 @@ class MainShell(QWidget):
         root.addWidget(GradientLine())
 
         content = QVBoxLayout()
-        content.setContentsMargins(24, 24, 24, 24)
-        content.setSpacing(18)
+        content.setContentsMargins(sc(24), sc(24), sc(24), sc(24))
+        content.setSpacing(sc(18))
 
         header = GradientBorderFrame()
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(20, 18, 20, 18)
+        header_layout.setContentsMargins(sc(20), sc(18), sc(20), sc(18))
         text_col = QVBoxLayout()
-        self.header_title.setStyleSheet('font-size: 22pt; font-weight: 700;')
+        self.header_title.setStyleSheet(f'font-size: {scpt(22)}pt; font-weight: 700;')
         self.header_breadcrumb.setObjectName('headerBreadcrumb')
         text_col.addWidget(self.header_title)
         text_col.addWidget(self.header_breadcrumb)
@@ -370,14 +370,14 @@ class MainShell(QWidget):
 
         self._help_btn = QPushButton('?')
         self._help_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._help_btn.setFixedSize(48, 48)
+        self._help_btn.setFixedSize(sc(48), sc(48))
         self._help_btn.setToolTip('Keyboard shortcuts')
         self._help_btn.setStyleSheet(
             'QPushButton {'
             '  background: qlineargradient(x1:0, y1:0, x2:1, y2:1,'
             '    stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);'
-            '  color: #ffffff; border: none; border-radius: 24px;'
-            '  padding: 0px; font-size: 16pt; font-weight: 700;'
+            f'  color: #ffffff; border: none; border-radius: {sc(24)}px;'
+            f'  padding: 0px; font-size: {scpt(16)}pt; font-weight: 700;'
             '}'
             'QPushButton:hover {'
             '  background: qlineargradient(x1:0, y1:0, x2:1, y2:1,'
@@ -443,35 +443,35 @@ class _ShortcutsDialog(QDialog):
         super().__init__(parent)
         self.setModal(True)
         self.setWindowTitle('Keyboard Shortcuts')
-        self.setMinimumWidth(360)
+        self.setMinimumWidth(sc(360))
         self._build_ui()
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(14)
+        layout.setContentsMargins(sc(24), sc(24), sc(24), sc(24))
+        layout.setSpacing(sc(14))
 
         title = QLabel('Keyboard Shortcuts')
         f = QFont()
-        f.setPointSize(15)
+        f.setPointSize(scpt(15))
         f.setBold(True)
         title.setFont(f)
-        title.setStyleSheet('font-size: 15pt; font-weight: 700;')
+        title.setStyleSheet(f'font-size: {scpt(15)}pt; font-weight: 700;')
         layout.addWidget(title)
 
         for key, description in self._ROWS:
             row = QHBoxLayout()
-            row.setSpacing(16)
+            row.setSpacing(sc(16))
             k = QLabel(key)
-            k.setFixedWidth(64)
+            k.setFixedWidth(sc(64))
             k.setStyleSheet(
-                'padding: 4px 10px; border: 1px solid #2c364a;'
-                ' border-radius: 6px; font-weight: 700; font-size: 11pt;'
+                f'padding: {sc(4)}px {sc(10)}px; border: 1px solid #2c364a;'
+                f' border-radius: {sc(6)}px; font-weight: 700; font-size: {scpt(11)}pt;'
                 ' background: #151e30;'
             )
             k.setAlignment(Qt.AlignmentFlag.AlignCenter)
             d = QLabel(description)
-            d.setStyleSheet('font-size: 11pt;')
+            d.setStyleSheet(f'font-size: {scpt(11)}pt;')
             row.addWidget(k)
             row.addWidget(d, stretch=1)
             layout.addLayout(row)
@@ -501,7 +501,15 @@ class VectorMainWindow(QMainWindow):
         self.positions = self.store.load_positions()
         self.shell: MainShell | None = None
         self.setWindowTitle(f'{COMPANY_NAME} {APP_NAME}')
-        self.setMinimumSize(1360, 860)
+        # Scale the minimum with the UI, but never demand more than the screen
+        # offers — at large scales sc(860) can exceed a 1080p work area.
+        screen = QApplication.primaryScreen()
+        avail = screen.availableGeometry() if screen is not None else None
+        min_w, min_h = sc(1360), sc(860)
+        if avail is not None:
+            min_w = min(min_w, avail.width())
+            min_h = min(min_h, avail.height())
+        self.setMinimumSize(min_w, min_h)
         self.apply_theme()
         self._build_menu()
         if self.state.get('onboarding_complete') and self.positions:
@@ -525,7 +533,11 @@ class VectorMainWindow(QMainWindow):
         self.addAction(refresh_action)
 
     def apply_theme(self) -> None:
-        QApplication.instance().setStyleSheet(DARK_STYLESHEET if self.settings.get('theme', 'Dark') == 'Dark' else LIGHT_STYLESHEET)
+        sheet = DARK_STYLESHEET if self.settings.get('theme', 'Dark') == 'Dark' else LIGHT_STYLESHEET
+        # Scale the base widget font with the global UI scale so default-font text
+        # (breadcrumbs, inputs, table cells) stays in proportion with the rest.
+        sheet = sheet.replace('font-size: 13px;', f'font-size: {sc(13)}px;')
+        QApplication.instance().setStyleSheet(sheet)
 
     def format_currency(self, value: float) -> str:
         symbols = {'USD': '$', 'EUR': '€', 'GBP': '£'}

@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 
 from ..constants import APP_NAME, COMPANY_NAME
 from ..paths import resource_path
+from ..scale import sc, scpt
 from ..store import DataStore
 from ..widgets import BlurrableStack, CardFrame, DimOverlay, EmptyState, LoadingButton
 
@@ -30,7 +31,9 @@ if TYPE_CHECKING:
 
 
 # ── Panel geometry ─────────────────────────────────────────────────────────────
-_PANEL_W = 640
+# Lazy (function) so it is evaluated after init_scale() runs, like _CONTENT_W.
+def _PANEL_W() -> int:
+    return sc(640)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -44,17 +47,17 @@ class PositionDialog(QDialog):
         self.position_data: dict[str, Any] | None = None
         self.setModal(True)
         self.setWindowTitle('Add Position')
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(sc(380))
         self._build_ui()
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
         title = QLabel('Add a portfolio position')
         title_font = QFont()
-        title_font.setPointSize(15)
+        title_font.setPointSize(scpt(15))
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setStyleSheet('font-size: 15pt;')
+        title.setStyleSheet(f'font-size: {scpt(15)}pt;')
         subtitle = QLabel('Vector will validate the ticker with Yahoo Finance before saving it.')
         subtitle.setWordWrap(True)
         subtitle.setProperty('role', 'muted')
@@ -89,7 +92,7 @@ class PositionDialog(QDialog):
         self.submit_button.setDefault(True)
         self.submit_button.clicked.connect(self.submit)
         self.equity_label = QLabel('')
-        self.equity_label.setMinimumWidth(120)
+        self.equity_label.setMinimumWidth(sc(120))
         self.equity_label.setProperty('role', 'accent-info')
         self.equity_label.setStyleSheet('font-weight: bold;')
         btn_row.addWidget(cancel_button)
@@ -171,7 +174,7 @@ class EditPositionDialog(QDialog):
         self.new_shares: float | None = None
         self.setModal(True)
         self.setWindowTitle('Edit Holding')
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(sc(380))
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -179,10 +182,10 @@ class EditPositionDialog(QDialog):
         layout = QVBoxLayout(self)
         title = QLabel(f'Edit {ticker} holding')
         title_font = QFont()
-        title_font.setPointSize(15)
+        title_font.setPointSize(scpt(15))
         title_font.setBold(True)
         title.setFont(title_font)
-        title.setStyleSheet('font-size: 15pt;')
+        title.setStyleSheet(f'font-size: {scpt(15)}pt;')
         subtitle = QLabel(f'How many total shares of {ticker} do you own?')
         subtitle.setWordWrap(True)
         subtitle.setProperty('role', 'muted')
@@ -215,7 +218,7 @@ class EditPositionDialog(QDialog):
         self.submit_button.setDefault(True)
         self.submit_button.clicked.connect(self.submit)
         self.equity_label = QLabel('')
-        self.equity_label.setMinimumWidth(120)
+        self.equity_label.setMinimumWidth(sc(120))
         self.equity_label.setProperty('role', 'accent-info')
         self.equity_label.setStyleSheet('font-weight: bold;')
         btn_row.addWidget(cancel_button)
@@ -272,14 +275,14 @@ class PositionCard(CardFrame):
     def __init__(self, position: dict[str, Any], currency_formatter, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(8)
+        layout.setContentsMargins(sc(18), sc(18), sc(18), sc(18))
+        layout.setSpacing(sc(8))
         ticker = QLabel(position['ticker'])
         ticker_font = QFont()
-        ticker_font.setPointSize(18)
+        ticker_font.setPointSize(scpt(18))
         ticker_font.setBold(True)
         ticker.setFont(ticker_font)
-        ticker.setStyleSheet('font-size: 18pt;')
+        ticker.setStyleSheet(f'font-size: {scpt(18)}pt;')
         layout.addWidget(ticker)
         for label, value in (
             ('Shares', f"{position['shares']:.4f}".rstrip('0').rstrip('.')),
@@ -291,7 +294,7 @@ class PositionCard(CardFrame):
             row.setWordWrap(True)
             layout.addWidget(row)
         layout.addStretch(1)
-        self.setFixedWidth(220)
+        self.setFixedWidth(sc(220))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -332,7 +335,7 @@ class _RiskTierCard(QFrame):
         self._accent = tier['color']
         self._selected = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(200)
+        self.setFixedHeight(sc(200))
 
         from PyQt6.QtWidgets import QGraphicsDropShadowEffect
         shadow = QGraphicsDropShadowEffect(self)
@@ -342,20 +345,20 @@ class _RiskTierCard(QFrame):
         self.setGraphicsEffect(shadow)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(8)
+        layout.setContentsMargins(sc(20), sc(20), sc(20), sc(20))
+        layout.setSpacing(sc(8))
 
         label = QLabel(tier['label'])
-        label.setStyleSheet('font-size: 16pt; font-weight: 700; background: transparent; border: none;')
+        label.setStyleSheet(f'font-size: {scpt(16)}pt; font-weight: 700; background: transparent; border: none;')
         layout.addWidget(label)
 
         sub = QLabel(tier['subtitle'])
-        sub.setStyleSheet('font-size: 11pt; color: #8d98af; background: transparent; border: none;')
+        sub.setStyleSheet(f'font-size: {scpt(11)}pt; color: #8d98af; background: transparent; border: none;')
         layout.addWidget(sub)
 
         desc = QLabel(tier['description'])
         desc.setWordWrap(True)
-        desc.setStyleSheet('font-size: 10pt; color: #6b7a94; background: transparent; border: none;')
+        desc.setStyleSheet(f'font-size: {scpt(10)}pt; color: #6b7a94; background: transparent; border: none;')
         layout.addWidget(desc)
         layout.addStretch(1)
 
@@ -507,7 +510,7 @@ class OnboardingPage(QWidget):
 
         # Centering layout inside the blurrable content
         content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(40, 40, 40, 40)
+        content_layout.setContentsMargins(sc(40), sc(40), sc(40), sc(40))
         content_layout.addStretch(1)
 
         h_layout = QHBoxLayout()
@@ -517,7 +520,7 @@ class OnboardingPage(QWidget):
         # ── Panel frame ───────────────────────────────────────────────────
         panel = QFrame()
         panel.setObjectName('onboardingPanel')
-        panel.setFixedWidth(_PANEL_W)
+        panel.setFixedWidth(_PANEL_W())
 
         h_layout.addWidget(panel)
         h_layout.addStretch(1)
@@ -526,8 +529,8 @@ class OnboardingPage(QWidget):
 
         # Panel inner layout
         panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(32, 28, 32, 28)
-        panel_layout.setSpacing(18)
+        panel_layout.setContentsMargins(sc(32), sc(28), sc(32), sc(28))
+        panel_layout.setSpacing(sc(18))
 
         # Logo
         panel_layout.addWidget(self._build_logo(), alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -544,7 +547,7 @@ class OnboardingPage(QWidget):
 
         # Pages
         self._stack = QStackedWidget()
-        self._stack.setMinimumHeight(340)
+        self._stack.setMinimumHeight(sc(340))
         self._stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._stack.addWidget(self._build_step_terms())
         self._stack.addWidget(self._build_step_account())
@@ -580,14 +583,14 @@ class OnboardingPage(QWidget):
         try:
             px = QPixmap(str(resource_path('assets', 'vector_full.png')))
             if not px.isNull():
-                px = px.scaledToHeight(44, Qt.TransformationMode.SmoothTransformation)
+                px = px.scaledToHeight(sc(44), Qt.TransformationMode.SmoothTransformation)
                 lbl.setPixmap(px)
                 return lbl
         except Exception:  # noqa: BLE001
             pass
         lbl.setText(APP_NAME)
         f = QFont()
-        f.setPointSize(18)
+        f.setPointSize(scpt(18))
         f.setBold(True)
         lbl.setFont(f)
         return lbl
@@ -596,7 +599,7 @@ class OnboardingPage(QWidget):
         container = QWidget()
         container.setStyleSheet('background: transparent;')
         row = QHBoxLayout(container)
-        row.setContentsMargins(8, 4, 8, 4)
+        row.setContentsMargins(sc(8), sc(4), sc(8), sc(4))
         row.setSpacing(0)
 
         step_names = ['Terms & Privacy', 'Account', 'Risk Profile', 'Portfolio Setup']
@@ -607,14 +610,14 @@ class OnboardingPage(QWidget):
             col_widget.setStyleSheet('background: transparent;')
             col = QVBoxLayout(col_widget)
             col.setContentsMargins(0, 0, 0, 0)
-            col.setSpacing(5)
+            col.setSpacing(sc(5))
             col.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
             dot = QLabel(str(i + 1))
-            dot.setFixedSize(28, 28)
+            dot.setFixedSize(sc(28), sc(28))
             dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
             f = QFont()
-            f.setPointSize(10)
+            f.setPointSize(scpt(10))
             f.setBold(True)
             dot.setFont(f)
             self._dots.append(dot)
@@ -622,7 +625,7 @@ class OnboardingPage(QWidget):
 
             name_lbl = QLabel(name)
             nf = QFont()
-            nf.setPointSize(8)
+            nf.setPointSize(scpt(8))
             name_lbl.setFont(nf)
             name_lbl.setAlignment(Qt.AlignmentFlag.AlignHCenter)
             name_lbl.setProperty('role', 'muted')
@@ -638,8 +641,8 @@ class OnboardingPage(QWidget):
                 lw_layout = QVBoxLayout(line_wrap)
                 lw_layout.setContentsMargins(0, 0, 0, 0)
                 lw_layout.setSpacing(0)
-                # Push line down by half a dot (14px) to align with dot centre
-                lw_layout.addSpacing(14)
+                # Push line down by half a dot to align with dot centre
+                lw_layout.addSpacing(sc(14))
                 line = QFrame()
                 line.setFrameShape(QFrame.Shape.HLine)
                 line.setFixedHeight(2)
@@ -652,10 +655,10 @@ class OnboardingPage(QWidget):
 
     def _build_nav(self) -> QHBoxLayout:
         layout = QHBoxLayout()
-        layout.setSpacing(12)
+        layout.setSpacing(sc(12))
 
         self._back_btn = QPushButton('← Back')
-        self._back_btn.setFixedWidth(110)
+        self._back_btn.setFixedWidth(sc(110))
         self._back_btn.setStyleSheet(_BACK_BTN_QSS)
         self._back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._back_btn.clicked.connect(lambda: self._go_to(self._current_step - 1))
@@ -665,7 +668,7 @@ class OnboardingPage(QWidget):
 
         self._next_btn = LoadingButton('Skip for now')
         self._next_btn.setStyleSheet(_NEXT_BTN_QSS)
-        self._next_btn.setMinimumWidth(170)
+        self._next_btn.setMinimumWidth(sc(170))
         self._next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._next_btn.clicked.connect(self._on_next)
         layout.addWidget(self._next_btn)
@@ -678,29 +681,29 @@ class OnboardingPage(QWidget):
         page = QWidget()
         page.setStyleSheet('background: transparent;')
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 4, 0, 4)
-        layout.setSpacing(6)
+        layout.setContentsMargins(0, sc(4), 0, sc(4))
+        layout.setSpacing(sc(6))
 
         title = QLabel('Terms & Privacy')
-        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        tf = QFont(); tf.setPointSize(scpt(17)); tf.setBold(True)
         title.setFont(tf)
         title.setStyleSheet('color: #e8eaf0; border: none;')
         layout.addWidget(title)
 
         subtitle = QLabel('Legal terms and privacy policy will be available here.')
-        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        subtitle.setStyleSheet(f'color: #6b7280; font-size: {sc(12)}px; border: none;')
         layout.addWidget(subtitle)
 
-        layout.addSpacing(12)
+        layout.addSpacing(sc(12))
 
         card = QFrame()
         card.setStyleSheet(_CARD_QSS)
-        card.setMinimumHeight(200)
+        card.setMinimumHeight(sc(200))
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(24, 24, 24, 24)
+        card_layout.setContentsMargins(sc(24), sc(24), sc(24), sc(24))
         ph = QLabel('Terms of Service and Privacy Policy\ncoming soon.')
         ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph.setStyleSheet('color: #4b5563; font-size: 13px; border: none;')
+        ph.setStyleSheet(f'color: #4b5563; font-size: {sc(13)}px; border: none;')
         card_layout.addWidget(ph, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(card, stretch=1)
 
@@ -710,29 +713,29 @@ class OnboardingPage(QWidget):
         page = QWidget()
         page.setStyleSheet('background: transparent;')
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 4, 0, 4)
-        layout.setSpacing(6)
+        layout.setContentsMargins(0, sc(4), 0, sc(4))
+        layout.setSpacing(sc(6))
 
         title = QLabel('Account Setup')
-        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        tf = QFont(); tf.setPointSize(scpt(17)); tf.setBold(True)
         title.setFont(tf)
         title.setStyleSheet('color: #e8eaf0; border: none;')
         layout.addWidget(title)
 
         subtitle = QLabel('Profile and account configuration will be available here.')
-        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        subtitle.setStyleSheet(f'color: #6b7280; font-size: {sc(12)}px; border: none;')
         layout.addWidget(subtitle)
 
-        layout.addSpacing(12)
+        layout.addSpacing(sc(12))
 
         card = QFrame()
         card.setStyleSheet(_CARD_QSS)
-        card.setMinimumHeight(200)
+        card.setMinimumHeight(sc(200))
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(24, 24, 24, 24)
+        card_layout.setContentsMargins(sc(24), sc(24), sc(24), sc(24))
         ph = QLabel('Account setup and profile configuration\ncoming soon.')
         ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph.setStyleSheet('color: #4b5563; font-size: 13px; border: none;')
+        ph.setStyleSheet(f'color: #4b5563; font-size: {sc(13)}px; border: none;')
         card_layout.addWidget(ph, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(card, stretch=1)
 
@@ -742,11 +745,11 @@ class OnboardingPage(QWidget):
         page = QWidget()
         page.setStyleSheet('background: transparent;')
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 4, 0, 4)
-        layout.setSpacing(6)
+        layout.setContentsMargins(0, sc(4), 0, sc(4))
+        layout.setSpacing(sc(6))
 
         title = QLabel('How do you want to invest?')
-        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        tf = QFont(); tf.setPointSize(scpt(17)); tf.setBold(True)
         title.setFont(tf)
         title.setStyleSheet('color: #e8eaf0; border: none;')
         layout.addWidget(title)
@@ -756,16 +759,16 @@ class OnboardingPage(QWidget):
             'actions. You can change this later in Settings.'
         )
         subtitle.setWordWrap(True)
-        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        subtitle.setStyleSheet(f'color: #6b7280; font-size: {sc(12)}px; border: none;')
         layout.addWidget(subtitle)
 
-        layout.addSpacing(12)
+        layout.addSpacing(sc(12))
 
         tier_frame = QFrame()
         tier_frame.setStyleSheet(_CARD_QSS)
         tier_inner = QHBoxLayout(tier_frame)
-        tier_inner.setContentsMargins(16, 16, 16, 16)
-        tier_inner.setSpacing(12)
+        tier_inner.setContentsMargins(sc(16), sc(16), sc(16), sc(16))
+        tier_inner.setSpacing(sc(12))
 
         for tier in _RISK_TIERS:
             card = _RiskTierCard(tier, selected=(tier['key'] == 'regular'))
@@ -780,11 +783,11 @@ class OnboardingPage(QWidget):
         page = QWidget()
         page.setStyleSheet('background: transparent;')
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 4, 0, 4)
-        layout.setSpacing(6)
+        layout.setContentsMargins(0, sc(4), 0, sc(4))
+        layout.setSpacing(sc(6))
 
         title = QLabel('Add Your Positions')
-        tf = QFont(); tf.setPointSize(17); tf.setBold(True)
+        tf = QFont(); tf.setPointSize(scpt(17)); tf.setBold(True)
         title.setFont(tf)
         title.setStyleSheet('color: #e8eaf0; border: none;')
         layout.addWidget(title)
@@ -794,27 +797,27 @@ class OnboardingPage(QWidget):
             'Vector validates each ticker with Yahoo Finance.'
         )
         subtitle.setWordWrap(True)
-        subtitle.setStyleSheet('color: #6b7280; font-size: 12px; border: none;')
+        subtitle.setStyleSheet(f'color: #6b7280; font-size: {sc(12)}px; border: none;')
         layout.addWidget(subtitle)
 
-        layout.addSpacing(8)
+        layout.addSpacing(sc(8))
 
         add_btn = QPushButton('Add Position  (a)')
         add_btn.setStyleSheet(_ADD_BTN_QSS)
-        add_btn.setFixedWidth(200)
+        add_btn.setFixedWidth(sc(200))
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.clicked.connect(self.open_add_modal)
         layout.addWidget(add_btn)
 
-        layout.addSpacing(6)
+        layout.addSpacing(sc(6))
 
         # Cards scroll area inside a styled frame — horizontal scroll only
         cards_frame = QFrame()
         cards_frame.setStyleSheet(_CARD_QSS)
-        cards_frame.setMinimumHeight(170)
-        cards_frame.setMaximumHeight(230)
+        cards_frame.setMinimumHeight(sc(170))
+        cards_frame.setMaximumHeight(sc(230))
         cf_layout = QVBoxLayout(cards_frame)
-        cf_layout.setContentsMargins(6, 6, 6, 6)
+        cf_layout.setContentsMargins(sc(6), sc(6), sc(6), sc(6))
         cf_layout.setSpacing(0)
 
         cards_scroll = QScrollArea()
@@ -844,8 +847,8 @@ class OnboardingPage(QWidget):
         self.cards_container = QWidget()
         self.cards_container.setStyleSheet('background: transparent;')
         self.cards_layout = QHBoxLayout(self.cards_container)
-        self.cards_layout.setContentsMargins(8, 8, 8, 8)
-        self.cards_layout.setSpacing(12)
+        self.cards_layout.setContentsMargins(sc(8), sc(8), sc(8), sc(8))
+        self.cards_layout.setSpacing(sc(12))
         self.cards_layout.addWidget(
             EmptyState(
                 'No positions yet',

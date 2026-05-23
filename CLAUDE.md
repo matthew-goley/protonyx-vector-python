@@ -55,7 +55,7 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = http://localhost:3000`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`. Token persisted to `auth/session.json`. |
 | `auth/login_window.py` | `LoginWindow` `QDialog` (Login / Sign Up tabs) shown when no valid saved token exists. Background `QThread` workers call the auth functions; emits `login_successful(token, user_data)`. |
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `_ShortcutsDialog`, `main()` — all page classes live in `vector/pages/` |
-| `vector/scale.py` | DPI scaling: `init_scale(app)` reads the primary screen's `devicePixelRatio` (or `DEBUG_SCREEN_SCALE` override); `sc(px)` scales a pixel value. Used in `app.py` and `pages/dashboard.py`. |
+| `vector/scale.py` | **Width-driven UI scaling** (see **UI Scaling** below). `init_scale(app)` sets a single global factor = `available_screen_width / UI_BASE_WIDTH` (clamped to `[UI_SCALE_MIN, UI_SCALE_MAX]`), or a fixed `DEBUG_SCREEN_SCALE` override. Helpers: `sc(px)` scales a pixel dimension (int), `scf(px)` returns a float, `scpt(pt)` scales a font point size (floored at `UI_MIN_POINT_SIZE`), `scale_factor()` returns the raw factor. Used **app-wide** — every page, widget, dialog, and the shell chrome routes its sizes/fonts through these. |
 | `vector/notifications.py` | `NotificationManager` + `NotificationToast` — top-right slide-in toast stack. `window.notifications` is the live instance; repositioned on window resize. |
 | `vector/version_check.py` | `check_version(parent, token)` — background `QThread` that GETs `http://localhost:3000/version`; if the latest differs from `APP_VERSION`, shows an "out of date" toast. Never crashes the app on failure. |
 | `vector/yfinance_counter.py` | `yf_count()` / `get_count()` — running tally of yfinance API calls, rendered in-place to stderr only when it's a TTY (silent in release builds). |
@@ -98,8 +98,23 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 
 All page-level QWidget classes live here. `vector/app.py` imports from this subpackage — do not put new page classes directly in `app.py`.
 
-- `_CONTENT_W = 1090` is defined in `pages/dashboard.py` and imported by `pages/lens_page.py` and `pages/settings.py` for consistent fixed-width scroll layout.
-- All three scrollable pages (Dashboard, Lens, Settings) use `setWidgetResizable(False)` + `container.setFixedWidth(_CONTENT_W)` so content width is stable on window resize and the scrollbar sits at the window edge.
+- `_CONTENT_W()` is a **function** in `pages/dashboard.py` (base 1090 px → `sc(1090)`) imported by `pages/lens_page.py`, `pages/settings.py`, and `pages/onboarding.py` (`_PANEL_W()` mirrors the pattern). It is a function, not a constant, so it is evaluated *after* `init_scale()` runs. Call it: `_CONTENT_W()`.
+- All three scrollable pages (Dashboard, Lens, Settings) use `setWidgetResizable(False)`/fixed-width `container.setFixedWidth(_CONTENT_W())` so content width is stable on window resize and the scrollbar sits at the window edge. Because `_CONTENT_W()` tracks the UI scale, the content fills the window at any resolution instead of leaving a blank band on the right.
+
+### UI Scaling (read before touching any size or font)
+
+The entire UI scales by **one global, width-driven factor** so it fits the screen at any resolution. `vector/scale.py` computes `scale = available_screen_width / UI_BASE_WIDTH` (constants in `constants.py`: `UI_BASE_WIDTH=1422`, clamped `[0.70, 3.00]`; `UI_MIN_POINT_SIZE=7`). On a 1080p panel at 150% Windows scaling (logical viewport ~1280 px) this lands at **~0.9** (the verified "perfect fit"); on a logical-1920 viewport it is ~1.35; on 4K@100% (logical 3840) ~2.7. `DEBUG_SCREEN_SCALE` in `constants.py` forces a fixed factor for testing. Lower `UI_BASE_WIDTH` ⇒ larger UI; it is the single calibration knob.
+
+**The invariant:** every pixel dimension goes through `sc(...)` and every font point size through `scpt(...)`. This keeps the cell-to-content ratio **constant across resolutions** — which is what prevents text clipping. (The old system scaled only the dashboard grid by `devicePixelRatio` while fonts stayed fixed, so cells grew on 4K but text didn't, fitting on 4K yet clipping at base scale. Don't reintroduce a raw-pixel size or a bare `Npt` font on a visible widget — it will clip at small scales and look tiny at large ones.)
+
+Rules when adding/editing GUI:
+- Sizes: `setFixedWidth(sc(220))`, `setContentsMargins(sc(16), sc(12), …)`, `setSpacing(sc(8))`, `setMinimumHeight(sc(200))`, painter geometry via `scf(...)`.
+- Fonts: `setPointSize(scpt(16))` **and** stylesheet `f'font-size: {scpt(16)}pt;'` (set both when both are present, as the existing widgets do). Inline-HTML/`px` font sizes scale too: `f'font-size: {sc(13)}px;'`.
+- The global `DARK/LIGHT_STYLESHEET` base `font-size: 13px` is scaled at apply time in `VectorMainWindow.apply_theme()` via a `.replace(...)`; structural px in those sheets (border-radius, padding) are intentionally left unscaled (low impact).
+- The window minimum (`sc(1360) × sc(860)`) is **clamped to the available screen** in `VectorMainWindow.__init__` so large scales never demand a window taller/wider than the monitor.
+- `LensDisplay._fit_pt` and `_MCContextCard._fit_pt` auto-fit the brief text to the available box (search bounds are `scpt(...)`-scaled); leave that self-fitting logic in place.
+- Module-level geometry that other code reads (e.g. `_CONTENT_W`, `_PANEL_W`) must be a **function** returning `sc(...)`, never a module constant (the scale isn't known at import time).
+- Not yet scaled (acceptable, low-impact follow-ups): `notifications.py` toast geometry, the onboarding `_*_BTN_QSS` module-constant button stylesheets, and a few painter-internal arrow/gauge constants that are already proportional to their (scaled) widget.
 
 ### Widget Types (`vector/widget_types/`)
 
@@ -145,7 +160,7 @@ Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fast
 2. `main.py:_run_auth_gate(app)` resolves `(token, user_data)` — saved session or `LoginWindow`. Exits if the user cancels.
 3. `main.py:_show_splash(app)` loads `assets/splashboard.png` and displays it as an always-on-top `QSplashScreen`, then calls `app.processEvents()` to force the OS to paint it before any heavy work. The splash is **responsive-sized**, not fixed: width = `min(screen_width × 0.55, 900)`, height keeps the source 1400:800 ratio, centred on the primary screen.
 4. `from vector.app import main` (the heavy import chain runs here, splash already visible), then `main(app, splash, t_start, token=…, user_data=…)`.
-5. `init_scale(app)` initialises the DPI scale factor, then the taskbar icon is set.
+5. `init_scale(app)` initialises the global width-driven UI scale factor (see **UI Scaling**), then the taskbar icon is set.
 6. `VectorMainWindow(token, user_data)` is constructed (loads data, builds UI). A daemon thread prefetches prices for `COMMON_TICKERS` so Add Position shows instant estimates.
 7. The splash is shown for a **minimum of 2 seconds** total (measured from `t_start`); a `QTimer` waits out any remainder, then `window.show()` + `splash.finish(window)`.
 
@@ -155,7 +170,7 @@ Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fast
 
 1. `VectorMainWindow` owns `DataStore`, all settings/state, the auth `token`/`user_data`, a `NotificationManager` (`self.notifications`), and the `QTimer` for auto-refresh. ~1.5 s after launch it kicks off `check_version()` (background thread → update toast if out of date).
 2. On startup: load JSON state → show `OnboardingPage` (first run) or `MainShell` (returning).
-3. `MainShell` hosts a 220 px sidebar + `QStackedWidget` with `DashboardPage`, `VectorLensPage`, `ProfilePage`, `SettingsPage`. Header contains a "?" icon button (48×48 px, rounded) that opens the keyboard-shortcuts modal. On window resize, `self.notifications.reposition_all()` keeps the toast stack pinned to the top-right.
+3. `MainShell` hosts an `sc(220)` px sidebar + `QStackedWidget` with `DashboardPage`, `VectorLensPage`, `ProfilePage`, `SettingsPage` (all base sizes scaled — see **UI Scaling**). Header contains a "?" icon button (`sc(48)`², rounded) that opens the keyboard-shortcuts modal. On window resize, `self.notifications.reposition_all()` keeps the toast stack pinned to the top-right.
 4. `DashboardPage` has a permanent `LensDisplay` at the top, followed by a free-form grid of `VectorWidget` instances; grid layout is loaded from / saved to `dashboard_layout.json`. Beneath the grid, a muted "Last updated N minutes ago" label updates every 30 s from a second `QTimer`.
 5. `DashboardPage.update_dashboard()` calls `compute_portfolio_analytics()` → refreshes the lens, calls `widget.refresh()` on each placed widget, and stamps `_last_refresh` (used by `_update_refresh_label()`).
 6. Edit mode (toolbar button) enables drag-to-reposition and right-click delete on grid widgets (the lens is not affected).
@@ -176,7 +191,7 @@ Registered in `VectorMainWindow._register_shortcuts()`. All use `QShortcutContex
 | **Esc** | Close any open modal |
 | **Space** | Advance to next onboarding step (widget-scoped on `OnboardingPage`; ignored if focus is a `QLineEdit`) |
 
-The "?" button in the MainShell header also opens the shortcuts modal. Button is 48×48 px with radius 24 and `padding: 0` — do not shrink; glyph clips at smaller sizes.
+The "?" button in the MainShell header also opens the shortcuts modal. Button is `sc(48)`² with radius `sc(24)` and `padding: 0`, glyph at `scpt(16)` — its size/glyph scale together, so do not hardcode it back to raw pixels (a raw 48 px box with scaled text clips the glyph at large scales).
 
 ### Analytics Engine (`analytics.py`)
 
@@ -301,22 +316,22 @@ _CTAReportCard (QFrame#cardFrame, Expanding × Minimum)
 ```
 QFrame (Expanding × Minimum)
   └─ QVBoxLayout (margins 10,4,10,4; spacing 2)
-      ├─ tag QLabel    (AlignBottom | AlignLeft, setFixedHeight(fm.ascent() + 2))
+      ├─ tag QLabel    (AlignBottom | AlignLeft, fixed height from its OWN scaled font)
       └─ text QLabel   (word-wrap, AlignTop | AlignLeft, Expanding × Minimum)
 ```
 
 **Stylesheets must use class selectors** (`QFrame { … }` / `QLabel { … }`) to avoid Qt's "Could not parse stylesheet" warnings. Only supported properties: `background-color`, `border`, `border-left`, `border-radius`, `color`, `font-size`, `font-weight`, `background: transparent`. **No `padding` or `margin` in stylesheets** — use `setContentsMargins` in Python instead. No `box-shadow`, `calc()`, `gap`, `transform`, `::before/::after`.
 
 **Why each piece matters:**
-- `tag.setFixedHeight(fm.ascent() + 2)` + `AlignBottom` on tag + `AlignTop` on text → eliminates QLabel's natural leading gap between the action tag and the description.
-- `text` is 20pt white (`#e7ebf3`); `tag` is 10pt in the action's color.
+- The tag gets an explicit `QFont(pointSize=scpt(10), bold)` via `setFont` **before** measuring, because a stylesheet `font-size` does not update `QLabel.font()` — measuring the default font there clipped the BUY/SELL text's top at larger scales. Height is `fm.ascent() + fm.descent() + sc(3)` from that font (`AlignBottom` on tag + `AlignTop` on text keeps the gap to the description tight). Do not revert to `QFontMetrics(tag.font())` or `ascent()`-only.
+- `text` is `scpt(15)` white (`#e7ebf3`); `tag` is `scpt(10)` in the action's color. All sizes/margins in this card are scaled — see **UI Scaling**.
 - Trailing `addStretch(1)` in `_items_layout` absorbs any surplus space so individual cards are not stretched beyond their `sizeHint` (cards have `Minimum` vpolicy which CAN grow without the stretch).
 - `addWidget(card, 0)` sets stretch factor 0 on each card so only the stretch grows.
 
 **Measure-don't-guess sizing (`_resize_for_cards`):**
 ```python
-MAX_HEIGHT = 750
-PADDING = 24
+MAX_HEIGHT = sc(750)   # scaled — see UI Scaling
+PADDING = sc(24)
 self._items_container.adjustSize()
 self._items_layout.activate()
 self._items_container.layout().activate()

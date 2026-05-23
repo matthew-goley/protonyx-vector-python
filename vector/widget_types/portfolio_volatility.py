@@ -5,6 +5,7 @@ from PyQt6.QtCore import Qt, QRectF
 from vector.widget_base import VectorWidget
 from vector.analytics import annualized_volatility, score_volatility, classify_volatility
 from vector.constants import VOLATILITY_LOOKBACK_PERIODS
+from vector.scale import sc, scpt
 
 _MUTED = '#8d98af'
 _GREEN = '#4ade80'
@@ -25,33 +26,33 @@ class _VolBar(QWidget):
     def __init__(self, ticker: str, vol_pct: float, weight_pct: float,
                  color: str, parent=None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(28)
+        self.setFixedHeight(sc(28))
 
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(8)
+        row.setSpacing(sc(8))
 
         ticker_lbl = QLabel(ticker)
-        ticker_lbl.setFont(_title_font(12))
-        ticker_lbl.setFixedWidth(52)
-        ticker_lbl.setStyleSheet('font-size: 12pt; border: none;')
+        ticker_lbl.setFont(_title_font(scpt(12)))
+        ticker_lbl.setFixedWidth(sc(52))
+        ticker_lbl.setStyleSheet(f'font-size: {scpt(12)}pt; border: none;')
         row.addWidget(ticker_lbl)
 
         bar = _MiniBar(vol_pct, color)
-        bar.setFixedHeight(8)
+        bar.setFixedHeight(sc(8))
         row.addWidget(bar, stretch=3)
 
         vol_lbl = QLabel(f'{vol_pct:.1f}%')
-        vol_lbl.setMinimumWidth(52)
+        vol_lbl.setMinimumWidth(sc(52))
         vol_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        vol_lbl.setStyleSheet(f'color: {color}; font-size: 9pt; font-weight: 700; border: none;')
+        vol_lbl.setStyleSheet(f'color: {color}; font-size: {scpt(9)}pt; font-weight: 700; border: none;')
         row.addWidget(vol_lbl)
 
         wt_lbl = QLabel(f'{weight_pct:.0f}% wt')
-        wt_lbl.setMinimumWidth(46)
+        wt_lbl.setMinimumWidth(sc(46))
         wt_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         wt_lbl.setProperty('role', 'muted')
-        wt_lbl.setStyleSheet('font-size: 10pt; border: none;')
+        wt_lbl.setStyleSheet(f'font-size: {scpt(10)}pt; border: none;')
         row.addWidget(wt_lbl)
 
 
@@ -60,7 +61,7 @@ class _MiniBar(QWidget):
         super().__init__(parent)
         self._pct = min(pct, 100.0)
         self._color = QColor(color)
-        self.setFixedHeight(8)
+        self.setFixedHeight(sc(8))
 
     def paintEvent(self, _event) -> None:  # noqa: N802
         from PyQt6.QtWidgets import QApplication
@@ -97,44 +98,44 @@ class PortfolioVolatilityWidget(VectorWidget):
         super().__init__(window=window, parent=parent)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 16, 18, 12)
-        layout.setSpacing(4)
+        layout.setContentsMargins(sc(18), sc(16), sc(18), sc(12))
+        layout.setSpacing(sc(4))
 
         # Header row: title + label badge
         header = QHBoxLayout()
         title_lbl = QLabel('Volatility')
-        title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
+        title_lbl.setFont(_title_font(scpt(16)))
+        title_lbl.setStyleSheet(f'font-size: {scpt(16)}pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._label_lbl = QLabel('')
         self._label_lbl.setProperty('role', 'muted')
-        self._label_lbl.setStyleSheet('font-size: 11pt; border: none;')
+        self._label_lbl.setStyleSheet(f'font-size: {scpt(11)}pt; border: none;')
         header.addWidget(self._label_lbl)
         layout.addLayout(header)
 
         # Score + description row
         score_row = QHBoxLayout()
         self._score_lbl = QLabel('—')
-        self._score_lbl.setFont(_title_font(16))
-        self._score_lbl.setStyleSheet('font-size: 16pt; border: none;')
+        self._score_lbl.setFont(_title_font(scpt(16)))
+        self._score_lbl.setStyleSheet(f'font-size: {scpt(16)}pt; border: none;')
         score_row.addWidget(self._score_lbl)
         self._desc_lbl = QLabel('')
         self._desc_lbl.setProperty('role', 'muted')
-        self._desc_lbl.setStyleSheet('font-size: 8pt; border: none;')
+        self._desc_lbl.setStyleSheet(f'font-size: {scpt(8)}pt; border: none;')
         self._desc_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
         score_row.addWidget(self._desc_lbl)
         score_row.addStretch(1)
         layout.addLayout(score_row)
 
-        layout.addSpacing(6)
+        layout.addSpacing(sc(6))
 
         # Per-ticker bars
         self._bars_widget = QWidget()
         self._bars_widget.setStyleSheet('background: transparent;')
         self._bars_layout = QVBoxLayout(self._bars_widget)
         self._bars_layout.setContentsMargins(0, 0, 0, 0)
-        self._bars_layout.setSpacing(4)
+        self._bars_layout.setSpacing(sc(4))
 
         scroll = QScrollArea()
         scroll.setWidget(self._bars_widget)
@@ -191,9 +192,9 @@ class PortfolioVolatilityWidget(VectorWidget):
         label, color = classify_volatility(score, low_cutoff, high_cutoff)
 
         self._score_lbl.setText(str(score))
-        self._score_lbl.setStyleSheet(f'color: {color}; font-size: 16pt; border: none;')
+        self._score_lbl.setStyleSheet(f'color: {color}; font-size: {scpt(16)}pt; border: none;')
         self._label_lbl.setText(label)
-        self._label_lbl.setStyleSheet(f'color: {color}; font-size: 11pt; font-weight: 700; border: none;')
+        self._label_lbl.setStyleSheet(f'color: {color}; font-size: {scpt(11)}pt; font-weight: 700; border: none;')
         self._desc_lbl.setText(f'/ 100  ·  {lookback} annualized')
 
         # Sort by volatility descending

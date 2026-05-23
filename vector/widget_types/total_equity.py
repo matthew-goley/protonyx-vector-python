@@ -5,6 +5,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtCore import Qt, QRectF
 
 from vector.widget_base import VectorWidget
+from vector.scale import sc, scpt
 
 
 _GREEN = '#4ade80'
@@ -19,7 +20,7 @@ class _SparklineFill(QWidget):
         super().__init__(parent)
         self._values: list[float] = []
         self._color = QColor(_GREEN)
-        self.setFixedHeight(62)
+        self.setFixedHeight(sc(60))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def set_values(self, values: list[float], color: str = _GREEN) -> None:
@@ -89,50 +90,50 @@ class TotalEquityWidget(VectorWidget):
         super().__init__(window=window, parent=parent)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 18, 20, 16)
+        layout.setContentsMargins(sc(20), sc(16), sc(20), sc(14))
         layout.setSpacing(0)
 
         # ── Section descriptor ───────────────────────────────────────────
         title_lbl = QLabel('Total Equity')
-        tf = QFont(); tf.setPointSize(16); tf.setBold(True)
+        tf = QFont(); tf.setPointSize(scpt(16)); tf.setBold(True)
         title_lbl.setFont(tf)
-        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
+        title_lbl.setStyleSheet(f'font-size: {scpt(16)}pt; border: none;')
         layout.addWidget(title_lbl)
 
-        layout.addSpacing(8)
+        layout.addSpacing(sc(8))
 
         # ── Hero value ───────────────────────────────────────────────────
         self._value_lbl = QLabel('—')
-        vf = QFont(); vf.setPointSize(15); vf.setBold(True)
+        vf = QFont(); vf.setPointSize(scpt(15)); vf.setBold(True)
         self._value_lbl.setFont(vf)
-        self._value_lbl.setStyleSheet('font-size: 15pt; border: none;')
+        self._value_lbl.setStyleSheet(f'font-size: {scpt(15)}pt; border: none;')
         layout.addWidget(self._value_lbl)
 
-        layout.addSpacing(5)
+        layout.addSpacing(sc(5))
 
         # ── Change row ───────────────────────────────────────────────────
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(6)
+        row.setSpacing(sc(6))
 
         self._change_lbl = QLabel('')
-        cf = QFont(); cf.setPointSize(11); cf.setBold(True)
+        cf = QFont(); cf.setPointSize(scpt(11)); cf.setBold(True)
         self._change_lbl.setFont(cf)
         self._change_lbl.setProperty('role', 'muted')
-        self._change_lbl.setStyleSheet('font-size: 11pt; border: none;')
+        self._change_lbl.setStyleSheet(f'font-size: {scpt(11)}pt; border: none;')
         row.addWidget(self._change_lbl)
 
         row.addStretch(1)
 
         self._period_lbl = QLabel('5-day change')
         self._period_lbl.setProperty('role', 'muted')
-        self._period_lbl.setStyleSheet('font-size: 10pt; border: none;')
+        self._period_lbl.setStyleSheet(f'font-size: {scpt(10)}pt; border: none;')
         self._period_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(self._period_lbl)
 
         layout.addLayout(row)
 
-        layout.addSpacing(14)
+        layout.addSpacing(sc(10))
 
         # ── Sparkline ────────────────────────────────────────────────────
         self._chart = _SparklineFill()
@@ -149,7 +150,7 @@ class TotalEquityWidget(VectorWidget):
 
         if not positions:
             self._value_lbl.setText(fmt(0))
-            self._value_lbl.setStyleSheet('font-size: 15pt; border: none;')
+            self._value_lbl.setStyleSheet(f'font-size: {scpt(15)}pt; border: none;')
             self._change_lbl.setText('—')
             self._chart.set_values([])
             return
@@ -186,9 +187,9 @@ class TotalEquityWidget(VectorWidget):
         sign   = '+' if change >= 0 else ''
 
         self._value_lbl.setText(fmt(last if daily_totals else current_equity))
-        self._value_lbl.setStyleSheet(f'color: {color}; font-size: 15pt; border: none;')
+        self._value_lbl.setStyleSheet(f'color: {color}; font-size: {scpt(15)}pt; border: none;')
 
         self._change_lbl.setText(f'{sign}{fmt(change)}  {sign}{pct:.2f}%')
-        self._change_lbl.setStyleSheet(f'color: {color}; font-size: 11pt; font-weight: 700; border: none;')
+        self._change_lbl.setStyleSheet(f'color: {color}; font-size: {scpt(11)}pt; font-weight: 700; border: none;')
 
         self._chart.set_values(daily_totals if daily_totals else [current_equity], color)

@@ -44,6 +44,7 @@ from ..constants import (
     MONTE_CARLO_SIMULATIONS,
     VOLATILITY_LOOKBACK_PERIODS,
 )
+from ..scale import sc, scpt
 from ..widgets import CardFrame, LoadingButton, OutlineButton
 from .dashboard import _CONTENT_W
 from .onboarding import EditPositionDialog
@@ -58,7 +59,7 @@ class _AnimatedChevron(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._angle = 0.0
-        self.setFixedSize(22, 22)
+        self.setFixedSize(sc(22), sc(22))
         self._anim = QPropertyAnimation(self, b'angle')
         self._anim.setDuration(260)
         self._anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
@@ -113,11 +114,11 @@ class _AccordionSection(CardFrame):
         self._header.mousePressEvent = self._header_clicked
 
         header_row = QHBoxLayout(self._header)
-        header_row.setContentsMargins(20, 18, 20, 18)
-        header_row.setSpacing(12)
+        header_row.setContentsMargins(sc(20), sc(18), sc(20), sc(18))
+        header_row.setSpacing(sc(12))
 
         title_lbl = QLabel(title)
-        title_lbl.setStyleSheet('font-size: 16pt; font-weight: 700; background: transparent; border: none;')
+        title_lbl.setStyleSheet(f'font-size: {scpt(16)}pt; font-weight: 700; background: transparent; border: none;')
         self._chevron = _AnimatedChevron()
 
         header_row.addWidget(title_lbl)
@@ -131,10 +132,10 @@ class _AccordionSection(CardFrame):
         self._content.setMinimumHeight(0)
 
         inner = QVBoxLayout(self._content)
-        inner.setContentsMargins(20, 4, 20, 18)
+        inner.setContentsMargins(sc(20), sc(4), sc(20), sc(18))
         inner.setSpacing(0)
         self._form = QFormLayout()
-        self._form.setSpacing(12)
+        self._form.setSpacing(sc(12))
         inner.addLayout(self._form)
         root.addWidget(self._content)
 
@@ -188,7 +189,7 @@ class QDoubleSpinBoxCompat(QSpinBox):
         self.setSingleStep(1)
         self.setRange(-100, 100)
         self.setSuffix('%')
-        self.setMinimumWidth(120)
+        self.setMinimumWidth(sc(120))
 
     def value(self) -> float:  # type: ignore[override]
         return super().value() / 100
@@ -230,20 +231,20 @@ class _RiskTierOption(QFrame):
         self._accent = tier['color']
         self._selected = False
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedHeight(80)
+        self.setFixedHeight(sc(80))
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(4)
+        layout.setContentsMargins(sc(16), sc(12), sc(16), sc(12))
+        layout.setSpacing(sc(4))
 
         label = QLabel(tier['label'])
-        label.setStyleSheet('font-size: 13pt; font-weight: 700; background: transparent; border: none;')
+        label.setStyleSheet(f'font-size: {scpt(13)}pt; font-weight: 700; background: transparent; border: none;')
         layout.addWidget(label)
 
         desc = QLabel(tier['description'])
         desc.setWordWrap(True)
         desc.setProperty('role', 'muted')
-        desc.setStyleSheet('font-size: 10pt; background: transparent; border: none;')
+        desc.setStyleSheet(f'font-size: {scpt(10)}pt; background: transparent; border: none;')
         layout.addWidget(desc)
 
         if selected:
@@ -306,18 +307,18 @@ class SettingsPage(QWidget):
         super().__init__()
         self.window = window
         self.remove_list = QListWidget()
-        self.remove_list.setMinimumHeight(200)
+        self.remove_list.setMinimumHeight(sc(200))
         self._build_ui()
 
     def _add_section(self, parent: QVBoxLayout, title: str) -> QFormLayout:
         card = CardFrame()
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setContentsMargins(sc(20), sc(20), sc(20), sc(20))
         heading = QLabel(title)
-        heading.setStyleSheet('font-size: 16pt; font-weight: 700;')
+        heading.setStyleSheet(f'font-size: {scpt(16)}pt; font-weight: 700;')
         layout.addWidget(heading)
         form = QFormLayout()
-        form.setSpacing(12)
+        form.setSpacing(sc(12))
         layout.addLayout(form)
         parent.addWidget(card)
         return form
@@ -338,8 +339,8 @@ class SettingsPage(QWidget):
         container = QWidget()
         container.setFixedWidth(_CONTENT_W())
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 8, 0, 24)
-        layout.setSpacing(16)
+        layout.setContentsMargins(0, sc(8), 0, sc(24))
+        layout.setSpacing(sc(16))
 
         general = self._add_section(layout, 'General')
         self.theme_combo = QComboBox(); self.theme_combo.addItems(['Dark', 'Light'])
@@ -352,14 +353,14 @@ class SettingsPage(QWidget):
         # ── Investment Style ──
         style_card = CardFrame()
         style_layout = QVBoxLayout(style_card)
-        style_layout.setContentsMargins(20, 20, 20, 20)
-        style_layout.setSpacing(10)
+        style_layout.setContentsMargins(sc(20), sc(20), sc(20), sc(20))
+        style_layout.setSpacing(sc(10))
         style_heading = QLabel('Investment Style')
-        style_heading.setStyleSheet('font-size: 16pt; font-weight: 700;')
+        style_heading.setStyleSheet(f'font-size: {scpt(16)}pt; font-weight: 700;')
         style_layout.addWidget(style_heading)
 
         tier_row = QHBoxLayout()
-        tier_row.setSpacing(10)
+        tier_row.setSpacing(sc(10))
         self._tier_options: dict[str, _RiskTierOption] = {}
         for tier in _RISK_TIERS_SETTINGS:
             opt = _RiskTierOption(tier, selected=False)
@@ -369,7 +370,7 @@ class SettingsPage(QWidget):
 
         self._style_note = QLabel('Lens will update on the next refresh.')
         self._style_note.setProperty('role', 'muted')
-        self._style_note.setStyleSheet('font-size: 10pt;')
+        self._style_note.setStyleSheet(f'font-size: {scpt(10)}pt;')
         self._style_note.setVisible(False)
         style_layout.addWidget(self._style_note)
 
@@ -385,8 +386,8 @@ class SettingsPage(QWidget):
         self._style_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._style_overlay.setTextFormat(Qt.TextFormat.RichText)
         self._style_overlay.setText(
-            '<div align="center" style="font-size:18pt;">\U0001F512</div>'
-            '<div align="center" style="font-size:13pt; font-weight:700; color:#ffffff;">'
+            f'<div align="center" style="font-size:{scpt(18)}pt;">\U0001F512</div>'
+            f'<div align="center" style="font-size:{scpt(13)}pt; font-weight:700; color:#ffffff;">'
             'Get Vector Professional</div>'
         )
         self._style_overlay.setStyleSheet(
@@ -424,8 +425,8 @@ class SettingsPage(QWidget):
 
         volatility = self._add_accordion(layout, 'Volatility')
         self.lookback_combo = QComboBox(); self.lookback_combo.addItems(['3 months', '6 months', '1 year'])
-        self.low_vol_spin = QSpinBox(); self.low_vol_spin.setRange(1, 100); self.low_vol_spin.setMinimumWidth(120)
-        self.high_vol_spin = QSpinBox(); self.high_vol_spin.setRange(1, 100); self.high_vol_spin.setMinimumWidth(120)
+        self.low_vol_spin = QSpinBox(); self.low_vol_spin.setRange(1, 100); self.low_vol_spin.setMinimumWidth(sc(120))
+        self.high_vol_spin = QSpinBox(); self.high_vol_spin.setRange(1, 100); self.high_vol_spin.setMinimumWidth(sc(120))
         volatility.addRow('Lookback Period', self.lookback_combo)
         volatility.addRow('Low cutoff', self.low_vol_spin)
         volatility.addRow('High cutoff', self.high_vol_spin)
@@ -434,16 +435,16 @@ class SettingsPage(QWidget):
         self._lens_tier_note = QLabel('')
         self._lens_tier_note.setWordWrap(True)
         self._lens_tier_note.setProperty('role', 'muted')
-        self._lens_tier_note.setStyleSheet('font-size: 10pt; margin-bottom: 8px;')
+        self._lens_tier_note.setStyleSheet(f'font-size: {scpt(10)}pt; margin-bottom: {sc(8)}px;')
         lens_signals.addRow(self._lens_tier_note)
-        self.stock_conc_spin = QSpinBox(); self.stock_conc_spin.setRange(1, 100); self.stock_conc_spin.setSuffix('%'); self.stock_conc_spin.setMinimumWidth(120)
-        self.sector_conc_spin = QSpinBox(); self.sector_conc_spin.setRange(1, 100); self.sector_conc_spin.setSuffix('%'); self.sector_conc_spin.setMinimumWidth(120)
-        self.steep_dt_spin = QSpinBox(); self.steep_dt_spin.setRange(-100, -1); self.steep_dt_spin.setSuffix('%'); self.steep_dt_spin.setMinimumWidth(120)
-        self.high_beta_spin = QDoubleSpinBox(); self.high_beta_spin.setRange(0.5, 5.0); self.high_beta_spin.setSingleStep(0.1); self.high_beta_spin.setDecimals(1); self.high_beta_spin.setMinimumWidth(120)
-        self.stock_vol_spin = QSpinBox(); self.stock_vol_spin.setRange(1, 100); self.stock_vol_spin.setSuffix('%'); self.stock_vol_spin.setMinimumWidth(120)
-        self.dead_weight_spin = QSpinBox(); self.dead_weight_spin.setRange(1, 50); self.dead_weight_spin.setSuffix('%'); self.dead_weight_spin.setMinimumWidth(120)
-        self.loss_threshold_spin = QSpinBox(); self.loss_threshold_spin.setRange(-100, -1); self.loss_threshold_spin.setSuffix('%'); self.loss_threshold_spin.setMinimumWidth(120)
-        self.winner_drift_spin = QDoubleSpinBox(); self.winner_drift_spin.setRange(1.0, 10.0); self.winner_drift_spin.setSingleStep(0.5); self.winner_drift_spin.setDecimals(1); self.winner_drift_spin.setMinimumWidth(120); self.winner_drift_spin.setSuffix('×')
+        self.stock_conc_spin = QSpinBox(); self.stock_conc_spin.setRange(1, 100); self.stock_conc_spin.setSuffix('%'); self.stock_conc_spin.setMinimumWidth(sc(120))
+        self.sector_conc_spin = QSpinBox(); self.sector_conc_spin.setRange(1, 100); self.sector_conc_spin.setSuffix('%'); self.sector_conc_spin.setMinimumWidth(sc(120))
+        self.steep_dt_spin = QSpinBox(); self.steep_dt_spin.setRange(-100, -1); self.steep_dt_spin.setSuffix('%'); self.steep_dt_spin.setMinimumWidth(sc(120))
+        self.high_beta_spin = QDoubleSpinBox(); self.high_beta_spin.setRange(0.5, 5.0); self.high_beta_spin.setSingleStep(0.1); self.high_beta_spin.setDecimals(1); self.high_beta_spin.setMinimumWidth(sc(120))
+        self.stock_vol_spin = QSpinBox(); self.stock_vol_spin.setRange(1, 100); self.stock_vol_spin.setSuffix('%'); self.stock_vol_spin.setMinimumWidth(sc(120))
+        self.dead_weight_spin = QSpinBox(); self.dead_weight_spin.setRange(1, 50); self.dead_weight_spin.setSuffix('%'); self.dead_weight_spin.setMinimumWidth(sc(120))
+        self.loss_threshold_spin = QSpinBox(); self.loss_threshold_spin.setRange(-100, -1); self.loss_threshold_spin.setSuffix('%'); self.loss_threshold_spin.setMinimumWidth(sc(120))
+        self.winner_drift_spin = QDoubleSpinBox(); self.winner_drift_spin.setRange(1.0, 10.0); self.winner_drift_spin.setSingleStep(0.5); self.winner_drift_spin.setDecimals(1); self.winner_drift_spin.setMinimumWidth(sc(120)); self.winner_drift_spin.setSuffix('×')
         lens_signals.addRow('Stock concentration threshold %', self.stock_conc_spin)
         lens_signals.addRow('Sector concentration threshold %', self.sector_conc_spin)
         lens_signals.addRow('Steep downtrend threshold %', self.steep_dt_spin)
@@ -467,12 +468,12 @@ class SettingsPage(QWidget):
         )
         dev_desc.setWordWrap(True)
         dev_desc.setProperty('role', 'muted')
-        dev_desc.setStyleSheet('font-size: 10pt;')
+        dev_desc.setStyleSheet(f'font-size: {scpt(10)}pt;')
         self.run_lens_test_button = LoadingButton('Run Lens Test')
         self.run_lens_test_button.clicked.connect(self._run_lens_test)
         self._lens_test_status = QLabel('')
         self._lens_test_status.setProperty('role', 'muted')
-        self._lens_test_status.setStyleSheet('font-size: 10pt;')
+        self._lens_test_status.setStyleSheet(f'font-size: {scpt(10)}pt;')
         self._lens_test_status.setWordWrap(True)
         developer.addRow(dev_desc)
         developer.addRow('', self.run_lens_test_button)
@@ -504,11 +505,11 @@ class SettingsPage(QWidget):
         footer = QFrame()
         footer.setObjectName('settingsFooter')
         footer_layout = QHBoxLayout(footer)
-        footer_layout.setContentsMargins(24, 12, 24, 12)
+        footer_layout.setContentsMargins(sc(24), sc(12), sc(24), sc(12))
         footer_layout.addStretch(1)
         self.save_button = LoadingButton('Save Settings')
         self.save_button.setProperty('accent', True)
-        self.save_button.setMinimumWidth(160)
+        self.save_button.setMinimumWidth(sc(160))
         self.save_button.clicked.connect(self.save_settings)
         footer_layout.addWidget(self.save_button)
         outer.addWidget(footer)

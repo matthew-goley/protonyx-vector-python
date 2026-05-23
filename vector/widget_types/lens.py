@@ -5,6 +5,7 @@ from PyQt6.QtGui import QFont, QColor, QFontMetrics, QLinearGradient, QPainter, 
 from PyQt6.QtCore import Qt, QRect, QRectF, QTimer, pyqtSignal
 
 from vector.lens_engine import generate_lens
+from vector.scale import sc, scpt
 
 _MUTED      = '#8d98af'
 _BG         = '#121828'
@@ -168,12 +169,12 @@ class LensDisplay(QFrame):
 
         self._card = _AccentFrame(self)
         card_layout = QVBoxLayout(self._card)
-        card_layout.setContentsMargins(28, 24, 28, 24)
-        card_layout.setSpacing(10)
+        card_layout.setContentsMargins(sc(28), sc(24), sc(28), sc(24))
+        card_layout.setSpacing(sc(10))
 
         title_lbl = QLabel('Lens Brief')
-        title_lbl.setFont(_font(16, bold=True))
-        title_lbl.setStyleSheet('font-size: 16pt; border: none;')
+        title_lbl.setFont(_font(scpt(16), bold=True))
+        title_lbl.setStyleSheet(f'font-size: {scpt(16)}pt; border: none;')
         card_layout.addWidget(title_lbl)
 
         self._text_lbl = QLabel('')
@@ -181,7 +182,7 @@ class LensDisplay(QFrame):
         self._text_lbl.setTextFormat(Qt.TextFormat.RichText)
         self._text_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self._text_lbl.setStyleSheet(
-            'border: none; font-size: 18pt; font-weight: 700;'
+            f'border: none; font-size: {scpt(18)}pt; font-weight: 700;'
         )
         card_layout.addWidget(self._text_lbl, stretch=1)
 
@@ -190,21 +191,21 @@ class LensDisplay(QFrame):
             btn_row.addStretch(1)
             self._open_btn = QPushButton('Vector Lens  \u203a')
             self._open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            self._open_btn.setStyleSheet("""
-                QPushButton {
+            self._open_btn.setStyleSheet(f"""
+                QPushButton {{
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                         stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);
                     color: #ffffff;
                     border: none;
-                    border-radius: 10px;
-                    padding: 8px 18px;
-                    font-size: 11pt;
+                    border-radius: {sc(10)}px;
+                    padding: {sc(8)}px {sc(18)}px;
+                    font-size: {scpt(11)}pt;
                     font-weight: 600;
-                }
-                QPushButton:hover {
+                }}
+                QPushButton:hover {{
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                         stop:0 #4ee8d3, stop:0.5 #5dd1ff, stop:1 #2d52b2);
-                }
+                }}
             """)
             self._open_btn.clicked.connect(self.open_lens_clicked.emit)
             btn_row.addWidget(self._open_btn)
@@ -222,13 +223,13 @@ class LensDisplay(QFrame):
             return w, h
         cw = max(self._card.width(), self.width())
         ch = max(self._card.height(), self.height())
-        return max(cw - 56, 200), max(ch - 88, 60)
+        return max(cw - sc(56), sc(200)), max(ch - sc(88), sc(60))
 
     def _fit_pt(self, text: str) -> int:
         """Find the largest pt size where wrapped text fully fits with no clipping."""
         w, h = self._available_size()
 
-        for pt in range(28, 9, -1):
+        for pt in range(scpt(28), scpt(9), -1):
             fm = QFontMetrics(_font(pt))
             br = fm.boundingRect(
                 QRect(0, 0, w, 10000),
@@ -237,7 +238,7 @@ class LensDisplay(QFrame):
             )
             if br.height() <= int(h * 0.80):
                 return pt
-        return 10
+        return scpt(10)
 
     def _apply_font(self, pt: int) -> None:
         self._text_lbl.setStyleSheet(

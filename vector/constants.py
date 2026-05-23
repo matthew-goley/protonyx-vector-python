@@ -1,10 +1,23 @@
 from .paths import resource_path, user_data_dir
 
-# Debug: override the DPI scale factor used for window/UI sizing.
-# None = use the real screen devicePixelRatio (normal behaviour).
-# Set to a float to simulate a different screen density, e.g.:
-#   1.0  → 1080p feel   2.0 → native 4K feel
+# Debug: override the global UI scale factor used for window/UI sizing.
+# None = use the width-driven scale computed in vector/scale.py (normal behaviour).
+# Set to a float to force a fixed factor, e.g.:
+#   0.9  → the "perfect fit" 1080p feel   1.35 → a roomy 1080p@100% feel
 DEBUG_SCREEN_SCALE: float | None = None
+
+# UI scaling (see vector/scale.py). The dashboard is authored for UI_BASE_WIDTH
+# logical px of horizontal space — the 220 px sidebar, 2×24 px content margins,
+# and the 11-column, 1090 px grid (~1358 px) plus breathing room for window
+# borders and the scrollbar. The runtime scale = available_screen_width /
+# UI_BASE_WIDTH, clamped to [UI_SCALE_MIN, UI_SCALE_MAX], so the layout fills the
+# screen on any resolution instead of leaving a blank band on the right. Lower
+# UI_BASE_WIDTH ⇒ larger UI. On a logical-1280 viewport (1080p @ 150%) this lands
+# at ~0.9; tune UI_BASE_WIDTH to shift that calibration.
+UI_BASE_WIDTH: float = 1422.0
+UI_SCALE_MIN: float = 0.70
+UI_SCALE_MAX: float = 3.00
+UI_MIN_POINT_SIZE: int = 7
 
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'

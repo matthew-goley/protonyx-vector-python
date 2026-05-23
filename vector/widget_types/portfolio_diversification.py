@@ -3,6 +3,7 @@ from PyQt6.QtGui import QFont, QColor, QPainter
 from PyQt6.QtCore import Qt, QRectF
 
 from vector.widget_base import VectorWidget
+from vector.scale import sc, scpt
 
 _MUTED = '#8d98af'
 # Gradient-themed palette: solid picks inspired by the 3-key gradient
@@ -33,7 +34,7 @@ class _DonutChart(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._slices: list[tuple[float, QColor]] = []  # (pct, color)
-        self.setMinimumSize(100, 100)
+        self.setMinimumSize(sc(100), sc(100))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def set_slices(self, slices: list[tuple[float, str]]) -> None:
@@ -72,24 +73,24 @@ class _LegendRow(QWidget):
 
     def __init__(self, sector: str, pct: float, color: str, parent=None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(22)
+        self.setFixedHeight(sc(22))
 
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(6)
+        row.setSpacing(sc(6))
 
         dot = QLabel('●')
-        dot.setFixedWidth(12)
-        dot.setStyleSheet(f'color: {color}; font-size: 8pt; border: none;')
+        dot.setFixedWidth(sc(12))
+        dot.setStyleSheet(f'color: {color}; font-size: {scpt(8)}pt; border: none;')
         row.addWidget(dot)
 
         name = QLabel(sector)
-        name.setStyleSheet(f'color: #e7ebf3; font-size: 9pt; border: none;')
+        name.setStyleSheet(f'color: #e7ebf3; font-size: {scpt(9)}pt; border: none;')
         row.addWidget(name, stretch=1)
 
         pct_lbl = QLabel(f'{pct:.1f}%')
         pct_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        pct_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 9pt; font-weight: 700; border: none;')
+        pct_lbl.setStyleSheet(f'color: {_MUTED}; font-size: {scpt(9)}pt; font-weight: 700; border: none;')
         row.addWidget(pct_lbl)
 
 
@@ -103,30 +104,30 @@ class PortfolioDiversificationWidget(VectorWidget):
         super().__init__(window=window, parent=parent)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 16, 18, 12)
-        layout.setSpacing(6)
+        layout.setContentsMargins(sc(18), sc(16), sc(18), sc(12))
+        layout.setSpacing(sc(6))
 
         # Header
         header = QHBoxLayout()
         title_lbl = QLabel('Diversification')
-        title_lbl.setFont(_title_font(16))
-        title_lbl.setStyleSheet('color: #e7ebf3; font-size: 16pt; border: none;')
+        title_lbl.setFont(_title_font(scpt(16)))
+        title_lbl.setStyleSheet(f'color: #e7ebf3; font-size: {scpt(16)}pt; border: none;')
         header.addWidget(title_lbl)
         header.addStretch(1)
         self._sector_count_lbl = QLabel('')
-        self._sector_count_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 11pt; border: none;')
+        self._sector_count_lbl.setStyleSheet(f'color: {_MUTED}; font-size: {scpt(11)}pt; border: none;')
         header.addWidget(self._sector_count_lbl)
         layout.addLayout(header)
 
         # Insight line
         self._insight_lbl = QLabel('')
         self._insight_lbl.setWordWrap(True)
-        self._insight_lbl.setStyleSheet(f'color: {_MUTED}; font-size: 9pt; border: none;')
+        self._insight_lbl.setStyleSheet(f'color: {_MUTED}; font-size: {scpt(9)}pt; border: none;')
         layout.addWidget(self._insight_lbl)
 
         # Content: donut (left) + legend (right)
         content = QHBoxLayout()
-        content.setSpacing(12)
+        content.setSpacing(sc(12))
 
         self._donut = _DonutChart()
         content.addWidget(self._donut, stretch=3)
@@ -135,7 +136,7 @@ class PortfolioDiversificationWidget(VectorWidget):
         self._legend_widget.setStyleSheet('background: transparent;')
         self._legend_layout = QVBoxLayout(self._legend_widget)
         self._legend_layout.setContentsMargins(0, 0, 0, 0)
-        self._legend_layout.setSpacing(2)
+        self._legend_layout.setSpacing(sc(2))
         content.addWidget(self._legend_widget, stretch=2)
 
         layout.addLayout(content, stretch=1)

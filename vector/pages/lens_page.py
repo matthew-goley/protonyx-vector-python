@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .dashboard import _CONTENT_W
+from ..scale import sc, scpt
 
 if TYPE_CHECKING:
     from vector.app import VectorMainWindow
@@ -128,15 +129,15 @@ class _CautionCard(QFrame):
         self.setGraphicsEffect(shadow)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(6)
+        layout.setContentsMargins(sc(16), sc(16), sc(16), sc(16))
+        layout.setSpacing(sc(6))
 
         title = QLabel('Caution Score')
         f = QFont()
-        f.setPointSize(12)
+        f.setPointSize(scpt(12))
         f.setBold(True)
         title.setFont(f)
-        title.setStyleSheet('font-size: 12pt; font-weight: 700;')
+        title.setStyleSheet(f'font-size: {scpt(12)}pt; font-weight: 700;')
         layout.addWidget(title)
 
         self._gauge = _GaugeWidget()
@@ -144,13 +145,13 @@ class _CautionCard(QFrame):
 
         self._tier_lbl = QLabel('—')
         self._tier_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._tier_lbl.setStyleSheet('font-size: 13pt; font-weight: 700;')
+        self._tier_lbl.setStyleSheet(f'font-size: {scpt(13)}pt; font-weight: 700;')
         layout.addWidget(self._tier_lbl)
 
         self._sub_lbl = QLabel('Based on current portfolio state')
         self._sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._sub_lbl.setProperty('role', 'muted')
-        self._sub_lbl.setStyleSheet('font-size: 9pt;')
+        self._sub_lbl.setStyleSheet(f'font-size: {scpt(9)}pt;')
         layout.addWidget(self._sub_lbl)
 
     def set_score(self, score: int) -> None:
@@ -161,7 +162,7 @@ class _CautionCard(QFrame):
         _muted = '#8d98af' if (_app and '#0b1020' in (_app.styleSheet() or '')) else '#536075'
         color = _caution_color(score) if score > 0 else _muted
         self._tier_lbl.setText(label)
-        self._tier_lbl.setStyleSheet(f'font-size: 13pt; font-weight: 700; color: {color};')
+        self._tier_lbl.setStyleSheet(f'font-size: {scpt(13)}pt; font-weight: 700; color: {color};')
 
 
 class _MCContextCard(QFrame):
@@ -188,15 +189,15 @@ class _MCContextCard(QFrame):
         self._tw_pos   = 0
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(10)
+        layout.setContentsMargins(sc(20), sc(16), sc(20), sc(16))
+        layout.setSpacing(sc(10))
 
         title = QLabel('What the Lens Projection shows')
         f = QFont()
-        f.setPointSize(12)
+        f.setPointSize(scpt(12))
         f.setBold(True)
         title.setFont(f)
-        title.setStyleSheet('font-size: 12pt; font-weight: 700;')
+        title.setStyleSheet(f'font-size: {scpt(12)}pt; font-weight: 700;')
         layout.addWidget(title)
 
         self._body = QLabel('')
@@ -204,7 +205,7 @@ class _MCContextCard(QFrame):
         self._body.setTextFormat(Qt.TextFormat.RichText)
         self._body.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self._body.setProperty('role', 'muted')
-        self._body.setStyleSheet('font-size: 13pt; border: none;')
+        self._body.setStyleSheet(f'font-size: {scpt(13)}pt; border: none;')
         self._body.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self._body, stretch=1)
 
@@ -215,7 +216,7 @@ class _MCContextCard(QFrame):
         h = self._body.height()
         if w >= 20 and h >= 20:
             return w, h
-        return max(self.width() - 40, 200), max(self.height() - 60, 60)
+        return max(self.width() - sc(40), sc(200)), max(self.height() - sc(60), sc(60))
 
     def _make_font(self, pt: int) -> QFont:
         f = QFont()
@@ -226,7 +227,7 @@ class _MCContextCard(QFrame):
     def _fit_pt(self, text: str) -> int:
         """Largest pt size where the plain text fits without clipping."""
         w, h = self._available_size()
-        for pt in range(24, 9, -1):
+        for pt in range(scpt(24), scpt(9), -1):
             fm = QFontMetrics(self._make_font(pt))
             br = fm.boundingRect(
                 QRect(0, 0, w, 10000),
@@ -235,7 +236,7 @@ class _MCContextCard(QFrame):
             )
             if br.height() <= int(h * 0.85):
                 return pt
-        return 10
+        return scpt(10)
 
     def _apply_font(self, pt: int) -> None:
         self._body.setStyleSheet(
@@ -408,23 +409,23 @@ class _GraphCard(QFrame):
         self.setGraphicsEffect(shadow)
 
         self._outer = QVBoxLayout(self)
-        self._outer.setContentsMargins(16, 16, 16, 12)
-        self._outer.setSpacing(10)
+        self._outer.setContentsMargins(sc(16), sc(16), sc(16), sc(12))
+        self._outer.setSpacing(sc(10))
 
         self._title_lbl = QLabel(title)
         f = QFont()
-        f.setPointSize(12)
+        f.setPointSize(scpt(12))
         f.setBold(True)
         self._title_lbl.setFont(f)
-        self._title_lbl.setStyleSheet('font-size: 12pt; font-weight: 700;')
+        self._title_lbl.setStyleSheet(f'font-size: {scpt(12)}pt; font-weight: 700;')
         self._title_lbl.setWordWrap(True)
         self._outer.addWidget(self._title_lbl)
 
         self._placeholder = QLabel('Loading projection…')
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._placeholder.setProperty('role', 'muted')
-        self._placeholder.setStyleSheet('font-size: 11pt;')
-        self._placeholder.setMinimumHeight(280)
+        self._placeholder.setStyleSheet(f'font-size: {scpt(11)}pt;')
+        self._placeholder.setMinimumHeight(sc(280))
         self._outer.addWidget(self._placeholder, stretch=1)
 
         self._canvas = None
@@ -447,7 +448,7 @@ class _GraphCard(QFrame):
         self._fig.subplots_adjust(left=0.06, right=0.88, top=0.90, bottom=0.22)
         self._ax = self._fig.add_subplot(111)
         self._canvas = FigureCanvasQTAgg(self._fig)
-        self._canvas.setMinimumHeight(320)
+        self._canvas.setMinimumHeight(sc(320))
         # Pass scroll events up to the parent QScrollArea instead of consuming them
         self._canvas.wheelEvent = lambda event: event.ignore()
         self._placeholder.hide()
@@ -559,41 +560,41 @@ class _PieCard(QFrame):
         self.setGraphicsEffect(shadow)
 
         self._outer = QVBoxLayout(self)
-        self._outer.setContentsMargins(16, 16, 16, 12)
-        self._outer.setSpacing(10)
+        self._outer.setContentsMargins(sc(16), sc(16), sc(16), sc(12))
+        self._outer.setSpacing(sc(10))
 
         self._title_lbl = QLabel(title)
         f = QFont()
-        f.setPointSize(12)
+        f.setPointSize(scpt(12))
         f.setBold(True)
         self._title_lbl.setFont(f)
-        self._title_lbl.setStyleSheet('font-size: 12pt; font-weight: 700;')
+        self._title_lbl.setStyleSheet(f'font-size: {scpt(12)}pt; font-weight: 700;')
         self._title_lbl.setWordWrap(True)
         self._outer.addWidget(self._title_lbl)
 
         self._placeholder = QLabel('Add positions to see allocation.')
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._placeholder.setProperty('role', 'muted')
-        self._placeholder.setStyleSheet('font-size: 11pt;')
-        self._placeholder.setMinimumHeight(240)
+        self._placeholder.setStyleSheet(f'font-size: {scpt(11)}pt;')
+        self._placeholder.setMinimumHeight(sc(240))
         self._outer.addWidget(self._placeholder, stretch=1)
 
         self._content = QWidget()
         self._content.setStyleSheet('background: transparent;')
         content_layout = QHBoxLayout(self._content)
         content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(12)
+        content_layout.setSpacing(sc(12))
 
         from vector.widget_types.portfolio_diversification import _DonutChart
         self._donut = _DonutChart()
-        self._donut.setMinimumHeight(220)
+        self._donut.setMinimumHeight(sc(220))
         content_layout.addWidget(self._donut, stretch=3)
 
         self._legend_widget = QWidget()
         self._legend_widget.setStyleSheet('background: transparent;')
         self._legend_layout = QVBoxLayout(self._legend_widget)
         self._legend_layout.setContentsMargins(0, 0, 0, 0)
-        self._legend_layout.setSpacing(2)
+        self._legend_layout.setSpacing(sc(2))
         content_layout.addWidget(self._legend_widget, stretch=2)
 
         self._outer.addWidget(self._content, stretch=1)
@@ -649,15 +650,15 @@ class _CTAReportCard(QFrame):
         self.setGraphicsEffect(shadow)
 
         self._outer = QVBoxLayout(self)
-        self._outer.setContentsMargins(20, 16, 20, 16)
-        self._outer.setSpacing(10)
+        self._outer.setContentsMargins(sc(20), sc(16), sc(20), sc(16))
+        self._outer.setSpacing(sc(10))
 
         title = QLabel('All Projections')
         f = QFont()
-        f.setPointSize(12)
+        f.setPointSize(scpt(12))
         f.setBold(True)
         title.setFont(f)
-        title.setStyleSheet('font-size: 12pt; font-weight: 700;')
+        title.setStyleSheet(f'font-size: {scpt(12)}pt; font-weight: 700;')
         self._outer.addWidget(title)
 
         self._scroll = QScrollArea()
@@ -679,15 +680,15 @@ class _CTAReportCard(QFrame):
         self._items_container = QWidget()
         self._items_container.setStyleSheet('background: transparent;')
         self._items_layout = QVBoxLayout(self._items_container)
-        self._items_layout.setContentsMargins(0, 0, 0, 4)
-        self._items_layout.setSpacing(4)
+        self._items_layout.setContentsMargins(0, 0, 0, sc(4))
+        self._items_layout.setSpacing(sc(4))
         self._scroll.setWidget(self._items_container)
         self._outer.addWidget(self._scroll)
 
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        self._scroll.setMinimumHeight(80)
-        self._scroll.setMaximumHeight(500)
+        self._scroll.setMinimumHeight(sc(80))
+        self._scroll.setMaximumHeight(sc(500))
 
     def set_report(self, full_report: list[str], ctas: list[dict]) -> None:
         # Clear existing items
@@ -699,12 +700,12 @@ class _CTAReportCard(QFrame):
         if not full_report:
             lbl = QLabel('No projections at this time.')
             lbl.setProperty('role', 'muted')
-            lbl.setStyleSheet('font-size: 10pt;')
+            lbl.setStyleSheet(f'font-size: {scpt(10)}pt;')
             self._items_layout.addWidget(lbl)
             self._scroll.setVerticalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
             )
-            self._scroll.setFixedHeight(lbl.sizeHint().height() + 24)
+            self._scroll.setFixedHeight(lbl.sizeHint().height() + sc(24))
             return
 
         _ACTION_LABELS: dict[str, str] = {
@@ -737,28 +738,38 @@ class _CTAReportCard(QFrame):
                 'QFrame {'
                 ' background-color: #1a2035;'
                 f' border: 1px solid {color}40;'
-                f' border-left: 3px solid {color};'
-                ' border-radius: 6px;'
+                f' border-left: {sc(3)}px solid {color};'
+                f' border-radius: {sc(6)}px;'
                 ' }'
             )
             card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(10, 4, 10, 4)
-            card_layout.setSpacing(2)
+            card_layout.setContentsMargins(sc(10), sc(4), sc(10), sc(4))
+            card_layout.setSpacing(sc(2))
 
             tag = QLabel(tag_text)
             tag.setContentsMargins(0, 0, 0, 0)
             tag.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft)
+            # Set the QFont to the SAME size the stylesheet renders, so the
+            # height we compute below matches the painted glyphs (a stylesheet
+            # font-size does not update QLabel.font()). Measuring the default
+            # font here is what clipped the tag's top.
+            tag_font = QFont()
+            tag_font.setPointSize(scpt(10))
+            tag_font.setBold(True)
+            tag.setFont(tag_font)
             tag.setStyleSheet(
                 'QLabel {'
-                ' font-size: 10pt;'
+                f' font-size: {scpt(10)}pt;'
                 ' font-weight: 700;'
                 f' color: {color};'
                 ' background: transparent;'
                 ' border: none;'
                 ' }'
             )
-            tag_fm = QFontMetrics(tag.font())
-            tag.setFixedHeight(tag_fm.ascent() + 2)
+            tag_fm = QFontMetrics(tag_font)
+            # Full glyph height (cap-top to descender) + a little padding, so
+            # the top of the BUY/SELL text is never clipped at any scale.
+            tag.setFixedHeight(tag_fm.ascent() + tag_fm.descent() + sc(3))
             card_layout.addWidget(tag)
 
             text = QLabel(sentence)
@@ -768,7 +779,7 @@ class _CTAReportCard(QFrame):
             text.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
             text.setStyleSheet(
                 'QLabel {'
-                ' font-size: 15pt;'
+                f' font-size: {scpt(15)}pt;'
                 ' color: #e7ebf3;'
                 ' background: transparent;'
                 ' border: none;'
@@ -788,19 +799,19 @@ class _CTAReportCard(QFrame):
         if not cards:
             return
 
-        MAX_HEIGHT = 750
-        PADDING = 24
+        MAX_HEIGHT = sc(750)
+        PADDING = sc(24)
 
         # Force each card to compute its word-wrapped height at the actual width
         container_width = self._items_container.width()
         if container_width < 10:
-            container_width = self.width() - 40  # fallback
+            container_width = self.width() - sc(40)  # fallback
 
         total_height = 0
         for card in cards:
             card.setFixedWidth(container_width)
             card.adjustSize()
-            total_height += card.sizeHint().height() + 4  # +4 for spacing
+            total_height += card.sizeHint().height() + sc(4)  # +sc(4) for spacing
 
         total_height += PADDING
 
@@ -819,20 +830,20 @@ class _LensHistoryDialog(QDialog):
         super().__init__(parent)
         self.setModal(True)
         self.setWindowTitle('Lens History')
-        self.resize(700, 600)
+        self.resize(sc(700), sc(600))
         self._build_ui()
 
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(sc(20), sc(20), sc(20), sc(20))
+        layout.setSpacing(sc(12))
 
         title = QLabel('Lens History')
         f = QFont()
-        f.setPointSize(15)
+        f.setPointSize(scpt(15))
         f.setBold(True)
         title.setFont(f)
-        title.setStyleSheet('font-size: 15pt; font-weight: 700;')
+        title.setStyleSheet(f'font-size: {scpt(15)}pt; font-weight: 700;')
         layout.addWidget(title)
 
         sub = QLabel(
@@ -851,7 +862,7 @@ class _LensHistoryDialog(QDialog):
         items_container.setStyleSheet('background: transparent;')
         items_layout = QVBoxLayout(items_container)
         items_layout.setContentsMargins(0, 0, 0, 0)
-        items_layout.setSpacing(10)
+        items_layout.setSpacing(sc(10))
 
         snapshots = _load_history_snapshots()
         if not snapshots:
@@ -859,7 +870,7 @@ class _LensHistoryDialog(QDialog):
                 'No snapshots yet — the Lens will save its readings as you '
                 'use the app.'
             )
-            empty.setStyleSheet('color: #8d98af; font-size: 11pt;')
+            empty.setStyleSheet(f'color: #8d98af; font-size: {scpt(11)}pt;')
             empty.setWordWrap(True)
             items_layout.addWidget(empty)
         else:
@@ -871,7 +882,7 @@ class _LensHistoryDialog(QDialog):
         layout.addWidget(scroll, stretch=1)
 
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(8)
+        btn_row.setSpacing(sc(8))
 
         clear_btn = QPushButton('Clear History')
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -919,11 +930,11 @@ class _LensHistoryCard(QFrame):
         super().__init__(parent)
         self.setObjectName('cardFrame')
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(sc(14), sc(12), sc(14), sc(12))
+        layout.setSpacing(sc(8))
 
         header = QHBoxLayout()
-        header.setSpacing(10)
+        header.setSpacing(sc(10))
 
         score = int(snapshot.get('caution_score', 0) or 0)
         badge = _CautionBadge(score)
@@ -934,14 +945,14 @@ class _LensHistoryCard(QFrame):
         ts_f = QFont()
         ts_f.setBold(True)
         ts_lbl.setFont(ts_f)
-        ts_lbl.setStyleSheet('font-size: 10pt; font-weight: 700;')
+        ts_lbl.setStyleSheet(f'font-size: {scpt(10)}pt; font-weight: 700;')
         header.addWidget(ts_lbl)
         header.addStretch(1)
         layout.addLayout(header)
 
         brief = QLabel(snapshot.get('brief', '') or '—')
         brief.setWordWrap(True)
-        brief.setStyleSheet('font-size: 10pt; line-height: 1.3;')
+        brief.setStyleSheet(f'font-size: {scpt(10)}pt; line-height: 1.3;')
         layout.addWidget(brief)
 
         cta_count = int(snapshot.get('cta_count', 0) or 0)
@@ -950,7 +961,7 @@ class _LensHistoryCard(QFrame):
             f'{cta_count} projection{"s" if cta_count != 1 else ""} • '
             f'portfolio ${total_eq:,.0f}'
         )
-        foot.setStyleSheet('font-size: 9pt; color: #8d98af;')
+        foot.setStyleSheet(f'font-size: {scpt(9)}pt; color: #8d98af;')
         layout.addWidget(foot)
 
 
@@ -960,7 +971,7 @@ class _CautionBadge(QWidget):
     def __init__(self, score: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._score = max(1, min(99, score)) if score else 0
-        self.setFixedSize(32, 32)
+        self.setFixedSize(sc(32), sc(32))
 
     def paintEvent(self, _event) -> None:  # noqa: N802
         painter = QPainter(self)
@@ -971,7 +982,7 @@ class _CautionBadge(QWidget):
         painter.drawEllipse(0, 0, self.width(), self.height())
         painter.setPen(QColor('#ffffff'))
         f = QFont()
-        f.setPointSize(9)
+        f.setPointSize(scpt(9))
         f.setBold(True)
         painter.setFont(f)
         label = str(self._score) if self._score > 0 else '—'
@@ -1045,24 +1056,24 @@ class VectorLensPage(QWidget):
         container.setMinimumWidth(_CONTENT_W())
         container.setMaximumWidth(_CONTENT_W())
         self._container_layout = QVBoxLayout(container)
-        self._container_layout.setContentsMargins(0, 8, 0, 24)
-        self._container_layout.setSpacing(16)
+        self._container_layout.setContentsMargins(0, sc(8), 0, sc(24))
+        self._container_layout.setSpacing(sc(16))
 
         history_row = QHBoxLayout()
         history_row.setContentsMargins(0, 0, 0, 0)
         history_row.addStretch(1)
         history_btn = QPushButton('History')
         history_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        history_btn.setFixedHeight(32)
+        history_btn.setFixedHeight(sc(32))
         history_btn.setStyleSheet(
-            'QPushButton { padding: 4px 14px; border-radius: 10px; font-size: 10pt; }'
+            f'QPushButton {{ padding: {sc(4)}px {sc(14)}px; border-radius: {sc(10)}px; font-size: {scpt(10)}pt; }}'
         )
         history_btn.clicked.connect(self._open_history)
         history_row.addWidget(history_btn)
         self._container_layout.addLayout(history_row)
 
         self._lens = LensDisplay(window=self.window, show_button=False)
-        self._lens.setFixedHeight(200)
+        self._lens.setFixedHeight(sc(200))
         self._container_layout.addWidget(self._lens)
 
         # Row 2: Caution Score (left, narrow) + All Projections (right, wide)
@@ -1071,13 +1082,13 @@ class VectorLensPage(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred,
         )
         self._caution_card = _CautionCard()
-        self._caution_card.setMinimumHeight(210)
-        self._caution_card.setFixedWidth(340)
+        self._caution_card.setMinimumHeight(sc(210))
+        self._caution_card.setFixedWidth(sc(340))
 
         caution_projections_row = QWidget()
         caution_projections_layout = QHBoxLayout(caution_projections_row)
         caution_projections_layout.setContentsMargins(0, 0, 0, 0)
-        caution_projections_layout.setSpacing(16)
+        caution_projections_layout.setSpacing(sc(16))
         caution_projections_layout.addWidget(
             self._caution_card, 0, Qt.AlignmentFlag.AlignTop,
         )
@@ -1088,7 +1099,7 @@ class VectorLensPage(QWidget):
         graphs_row = QWidget()
         graphs_layout = QHBoxLayout(graphs_row)
         graphs_layout.setContentsMargins(0, 0, 0, 0)
-        graphs_layout.setSpacing(16)
+        graphs_layout.setSpacing(sc(16))
         self._graph_a = _GraphCard('Current Portfolio')
         self._graph_b = _GraphCard('With All Lens Projections')
         graphs_layout.addWidget(self._graph_a)
@@ -1097,13 +1108,13 @@ class VectorLensPage(QWidget):
 
         # Row 4: MC context card — full width, alone
         self._mc_context_card = _MCContextCard()
-        self._mc_context_card.setMinimumHeight(210)
+        self._mc_context_card.setMinimumHeight(sc(210))
         self._container_layout.addWidget(self._mc_context_card)
 
         pies_row = QWidget()
         pies_layout = QHBoxLayout(pies_row)
         pies_layout.setContentsMargins(0, 0, 0, 0)
-        pies_layout.setSpacing(16)
+        pies_layout.setSpacing(sc(16))
         self._pie_a = _PieCard('Current Allocation')
         self._pie_b = _PieCard('Projected Allocation')
         pies_layout.addWidget(self._pie_a)
