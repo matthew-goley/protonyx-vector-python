@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QFrame,
+    QGraphicsBlurEffect,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
@@ -30,6 +31,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QScrollArea,
     QSpinBox,
+    QStackedLayout,
     QVBoxLayout,
     QWidget,
 )
@@ -370,7 +372,30 @@ class SettingsPage(QWidget):
         self._style_note.setStyleSheet('font-size: 10pt;')
         self._style_note.setVisible(False)
         style_layout.addWidget(self._style_note)
-        layout.addWidget(style_card)
+
+        # Pro gate — blur + lock overlay on free accounts (same pattern as the
+        # dashboard Lens gate in pages/dashboard.py:apply_lens_gate).
+        self._style_card = style_card
+        style_wrapper = QWidget()
+        style_stack = QStackedLayout(style_wrapper)
+        style_stack.setStackingMode(QStackedLayout.StackingMode.StackAll)
+        style_stack.setContentsMargins(0, 0, 0, 0)
+        style_stack.addWidget(style_card)
+        self._style_overlay = QLabel()
+        self._style_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._style_overlay.setTextFormat(Qt.TextFormat.RichText)
+        self._style_overlay.setText(
+            '<div align="center" style="font-size:18pt;">\U0001F512</div>'
+            '<div align="center" style="font-size:13pt; font-weight:700; color:#ffffff;">'
+            'Get Vector Professional</div>'
+        )
+        self._style_overlay.setStyleSheet(
+            'QLabel { background-color: rgba(11, 16, 32, 140); border-radius: 16px; color: #ffffff; }'
+        )
+        self._style_overlay.hide()
+        style_stack.addWidget(self._style_overlay)
+        layout.addWidget(style_wrapper)
+        self.apply_risk_gate(self._is_gated())
 
         refresh = self._add_accordion(layout, 'Data & Refresh')
         self.refresh_combo = QComboBox(); self.refresh_combo.addItems(['1 min', '5 min', '15 min', 'Manual only'])
@@ -534,6 +559,34 @@ class SettingsPage(QWidget):
             item = QListWidgetItem(f"{position['ticker']} — {position['shares']:.4f}".rstrip('0').rstrip('.'))
             item.setData(Qt.ItemDataRole.UserRole, position['ticker'])
             self.remove_list.addItem(item)
+
+    def _is_gated(self) -> bool:
+        """Free accounts are gated. Same plan check as MainShell._is_gated (app.py)."""
+        user_data = getattr(self.window, 'user_data', None)
+        if not isinstance(user_data, dict):
+            return True
+        user = user_data.get('user', {})
+        if not isinstance(user, dict):
+            return True
+        return user.get('plan', 'free') != 'pro'
+
+    def apply_risk_gate(self, gated: bool) -> None:
+        """Blur the Investment Style card + show a 'Get Vector Professional'
+        overlay on free accounts (mirrors dashboard.apply_lens_gate)."""
+        card = getattr(self, '_style_card', None)
+        targets = list(card.findChildren(QWidget)) if card is not None else []
+        for child in targets:
+            if gated:
+                blur = QGraphicsBlurEffect(child)
+                blur.setBlurRadius(50)
+                child.setGraphicsEffect(blur)
+            else:
+                child.setGraphicsEffect(None)
+        if gated:
+            self._style_overlay.show()
+            self._style_overlay.raise_()
+        else:
+            self._style_overlay.hide()
 
     def _select_risk_tier(self, tier_key: str) -> None:
         self._current_risk_tier = tier_key

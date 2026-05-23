@@ -357,7 +357,7 @@ Seven accordion sections plus static sections:
 | Section | Type | Contents |
 |---|---|---|
 | General | Static card | Theme, currency, date format |
-| Investment Style | Static card | Risk tier selection (Conservative/Moderate/Aggressive) — immediate save on click |
+| Investment Style | Static card | Risk tier selection (Conservative/Moderate/Aggressive) — immediate save on click. **Pro-gated:** blurred + "Get Vector Professional" lock overlay on free accounts (see below). |
 | Data & Refresh | Accordion | Auto-refresh interval, clear cache, reset all data, **Export Positions to CSV** |
 | Portfolio Direction Thresholds | Accordion | Strong/steady/neutral/weak/depreciating slope cutoffs |
 | Volatility | Accordion | Lookback period, low/high vol cutoffs |
@@ -367,6 +367,8 @@ Seven accordion sections plus static sections:
 | About | Static card | Version, brand, credits |
 
 **Export Positions to CSV:** `SettingsPage._export_to_csv()` opens a `QFileDialog.getSaveFileName` and writes 11 columns: `ticker, name, sector, shares, entry_price, current_price, cost_basis, current_value, unrealized_pnl_dollar, unrealized_pnl_pct, added_at`.
+
+**Investment Style pro-gate:** `SettingsPage.apply_risk_gate(gated)` mirrors `DashboardPage.apply_lens_gate` exactly — the Investment Style card is wrapped in a `QStackedLayout` (`StackAll`); on free accounts it applies `QGraphicsBlurEffect(radius=50)` to the card's child widgets and shows a `StackAll` "🔒 Get Vector Professional" `QLabel` overlay on top (which also blocks clicks). The plan is read via `SettingsPage._is_gated()` (same `user_data['user']['plan'] != 'pro'` check as `MainShell._is_gated`, defaulting to gated if `user_data` is absent). Called once during `_build_ui`.
 
 **Edit a holding:** `SettingsPage.edit_selected_position()` reads the selected `remove_list` item, finds the matching position, and opens `EditPositionDialog` (asks "How many total shares of `<ticker>` do you own?", prefilled with the current count, live equity preview). On save it updates `position['shares']` and calls `refresh_data()`, which recomputes `equity = shares × current_price` for every position. Add and remove keep their existing handlers (`window.add_position_from_settings`, `remove_selected_position`).
 
