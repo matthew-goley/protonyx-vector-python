@@ -201,20 +201,57 @@ def _save_snapshot(result: dict[str, Any]) -> None:
 _SEVERITY_CAUTION_POINTS = {'none': 0, 'low': 8, 'moderate': 30, 'high': 60, 'critical': 88}
 
 
-def _severity_caution_floor(pool_results: dict[str, Any]) -> int:
-    """A risk floor derived from analyzer severities, so a genuinely dangerous
-    portfolio scores high even when its recommended trades are suppressed (e.g.
-    the Conservative tier blocks large-cap sells, which would otherwise leave the
-    trade-flow score artificially low)."""
-    pts = 0
-    for key in ('concentration', 'volatility', 'beta', 'performance', 'slope'):
+def _risk_floor(pool_results: dict[str, Any]) -> float:
+    """An exposure-weighted, continuous risk floor (0–99) derived from analyzer
+    severities, so a genuinely dangerous portfolio scores high even when its
+    recommended trades are suppressed (e.g. the Conservative tier blocks
+    large-cap sells, which would otherwise leave the trade-flow score artificially
+    low).
+
+    Unlike a flat max-of-severities, this weights each position's danger by how
+    much of the portfolio it represents — a 40%-vol satellite at 15% weight no
+    longer pins an otherwise-healthy book to "high", while a 78% leveraged-ETF
+    position still scores critical. The three components below are combined with
+    ``max`` so the dominant risk drives the score:
+
+    - ``pos_pts``    — exposure-weighted average danger across all positions.
+    - ``single_pts`` — the worst single position, damped by its weight.
+    - ``port_pts``   — portfolio-level risks that warrant caution on their own
+      (sector over-concentration; aggregate volatility / beta once *elevated* —
+      a ~1.0 beta or low aggregate vol is normal market exposure, not caution).
+    """
+    P = _SEVERITY_CAUTION_POINTS
+    summary = pool_results.get('_positions_summary', {}) or {}
+    weights = summary.get('ticker_weights', {}) or {}
+
+    def _tsev(key: str, t: str) -> str:
+        return (
+            (pool_results.get(key, {}) or {})
+            .get('ticker_results', {})
+            .get(t, {})
+            .get('severity', 'none')
+        )
+
+    pos_pts = 0.0
+    single_pts = 0.0
+    for t, w in weights.items():
+        broad = max(P.get(_tsev(k, t), 0)
+                    for k in ('volatility', 'concentration', 'performance', 'slope'))
+        pos_pts += w * broad
+        single = max(P.get(_tsev(k, t), 0)
+                     for k in ('volatility', 'concentration', 'performance'))
+        single_pts = max(single_pts, single * min(1.0, w / 0.45))
+
+    port_pts = P.get(
+        (pool_results.get('concentration', {}) or {})
+        .get('portfolio_result', {}).get('severity', 'none'), 0,
+    )
+    for key in ('volatility', 'beta'):
         sev = (pool_results.get(key, {}) or {}).get('portfolio_result', {}).get('severity', 'none')
-        pts = max(pts, _SEVERITY_CAUTION_POINTS.get(sev, 0))
-    # Worst single-ticker concentration / volatility also count.
-    for key in ('concentration', 'volatility'):
-        for r in (pool_results.get(key, {}) or {}).get('ticker_results', {}).values():
-            pts = max(pts, _SEVERITY_CAUTION_POINTS.get(r.get('severity', 'none'), 0))
-    return pts
+        if sev in ('high', 'critical'):
+            port_pts = max(port_pts, P.get(sev, 0))
+
+    return max(pos_pts, single_pts, float(port_pts))
 
 
 def _compute_caution_score(
@@ -222,8 +259,8 @@ def _compute_caution_score(
     pool_results: dict[str, Any] | None = None,
 ) -> int:
     """Caution score 1–99: the greater of a trade-flow score (sells full weight,
-    buys 30%, holds ignored) and a severity floor from the analyzers, so tiers
-    that suppress sells still surface genuine portfolio risk."""
+    buys 30%, holds ignored) and an exposure-weighted risk floor from the
+    analyzers, so tiers that suppress sells still surface genuine portfolio risk."""
     if total_equity <= 0:
         return 0
     weighted_total = 0.0
@@ -235,8 +272,8 @@ def _compute_caution_score(
         elif action in ('buy_new', 'buy_more'):
             weighted_total += dollars * 0.30
     score_pct = (weighted_total / total_equity) * 100
-    floor = _severity_caution_floor(pool_results or {})
-    return max(1, min(99, int(max(score_pct, floor))))
+    floor = _risk_floor(pool_results or {})
+    return max(1, min(99, int(round(max(score_pct, floor)))))
 
 
 def _apply_all_ctas(

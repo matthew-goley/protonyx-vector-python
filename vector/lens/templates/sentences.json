@@ -46,11 +46,11 @@
                 "With {up_count} tickers in positive territory out of {total}, the portfolio's annualized slope reads {slope:+.1f}%."
             ],
             "portfolio_mixed": [
-                "The portfolio is showing mixed signals — {up_count} positions trending up versus {down_count} declining, with a net slope of {slope:+.1f}%.",
-                "Direction is split: {up_count} holdings are rising while {down_count} are falling, netting out to a {slope:+.1f}% portfolio slope.",
+                "The portfolio is showing mixed signals — {up_count} advancing versus {down_count} declining, with a net slope of {slope:+.1f}%.",
+                "Direction is split: {up_count} advancing, {down_count} retreating — netting out to a {slope:+.1f}% portfolio slope.",
                 "No clear consensus across holdings — {up_count} up, {down_count} down, with the portfolio-level slope at {slope:+.1f}% annualized.",
-                "The portfolio is in a mixed state with {up_count} tickers appreciating and {down_count} depreciating (net slope: {slope:+.1f}%).",
-                "Some winners, some losers — {up_count} positions are rising and {down_count} are falling, blending to a {slope:+.1f}% annualized slope."
+                "The portfolio is in a mixed state with {up_count} advancing and {down_count} depreciating (net slope: {slope:+.1f}%).",
+                "Some winners, some losers — {up_count} advancing and {down_count} declining, blending to a {slope:+.1f}% annualized slope."
             ]
         }
     },

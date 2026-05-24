@@ -1,273 +1,175 @@
-# Lens Engine Diagnosis — 50-Portfolio Debug Run (2026-05-23)
+# Lens Engine Diagnosis — 50-Portfolio Debug Run (2026-05-24)
 
-Diagnosis only. No code has been changed. Each issue lists **evidence** (from `output.md` /
-terminal), **root cause** (file:line), and a **proposed minimal fix** for the next pass.
+This run was generated **after** the 2026-05-23 fixes. Those are confirmed working:
+`winner_drift` no longer fires on paper losers, `sector_underweight` reports the target
+sector's weight, index-dominated books are no longer told to "buy stocks to diversify",
+and the aggregate buy cap + severity-floor caution are in place.
 
-The earlier concentration-dilution fix is working — e.g. `18 Single-Stock Heavy` now reads
-"reduce NVDA's 59% concentration toward the 26% target" with material `$3,330` buys, not `$70`.
-The issues below are separate.
+The issues below are the ones still visible in this run. **All six were fixed in this pass**
+— each entry lists the evidence, root cause (`file` / function), and the change made.
 
 ---
 
 ## Severity summary
 
-| # | Issue | Severity | Fix size |
+| # | Issue | Severity | Status |
 |---|---|---|---|
-| 1 | Index funds excluded from sector tally → diversified index portfolios flagged as *concentrated* and told to buy single stocks | **High** | Small |
-| 2 | `winner_drift` fires on paper-**losing** positions ("price appreciation pushed…" on a -67% stock) | **High** | 1 line |
-| 3 | `sector_underweight` sentence prints the **heavy** sector's weight as the **target** sector's exposure ("Financials is underrepresented at 71%") | **High** | 1 line |
-| 4 | No global cap on aggregate buys — `high_beta` + 3×`reduce_concentration` + `sector_underweight` stack to 50–140% of portfolio | Medium | Small |
-| 5 | Tiers are **non-monotonic**: Conservative is *less* cautious than Moderate (suppresses sells); caution score under-reports real risk | Medium | Design decision |
-| 6 | `sell_scale` ordering makes **Moderate** the most aggressive seller (regular 0.50 > high 0.25 > low 0.10) | Medium | Data + decision |
-| 7 | Slope clamp at +150% → identical "+150.0%" in many briefs | Low | 1 const / wording |
-| 8 | ETF fundamentals 404 spam (VTI/VXUS/SCHD/VYM/TQQQ/SOXL) + wasted API calls | Low | Small guard |
-| 9 | Buy-only dilution can't fix extreme concentration when sells are suppressed (Conservative) | Low | Note / design |
+| 1 | Caution score collapses to ~5 buckets (`8/30/60/88`) and over-reports healthy books — "near-perfect" portfolios read **60/99** | **High** | **Fixed** |
+| 2 | Default `lens_signals` overrides clobber the per-tier thresholds → tiers barely differ and even **invert** (Conservative *more* aggressive than Aggressive) | **High** | **Fixed** (root cause of #1) |
+| 3 | Conservative "deposit into a fire": sells suppressed but dilution buys uncapped → **+$39k** deposit ask on a 78%-leveraged-ETF book | **High** | **Fixed** |
+| 4 | `winner_drift` HOLD emitted on a ticker that is **also** being SOLD (contradiction: `SELL FCEL` + `HOLD FCEL winner_drift`) | Medium | **Fixed** |
+| 5 | Sub-$200 buy CTAs (`+$10` KO, `+$30`, `+$110`) — noise, not advice | Low | **Fixed** |
+| 6 | Pluralization: "3 positions are rising and **1 are** falling", "**1 positions** trending up" | Low | **Fixed** |
 
-Issues 2 and 3 are one-liners. Issue 1 is the most user-visible (it makes "perfect" index
-portfolios look broken).
+Issue 2 is the keystone — it is the root cause of the caution-score inflation in #1 and the
+tier inversions. Fixing it first made the rest fall into place.
 
 ---
 
-## 1. Index funds are excluded from the sector tally → diversified portfolios look concentrated  **[High]**
+## 1. Caution score is quantized and over-reports healthy portfolios  **[High — Fixed]**
 
 **Evidence**
-- `01 Index Three-Fund` (VTI/VXUS/VOO/SCHD — about as diversified as a portfolio gets):
-  brief = *"A $670 deposit into AAPL (Technology) addresses the portfolio's 0% underexposure to
-  this sector"* with **3 high-severity `sector_underweight` BUYs** (AAPL/UNH/JPM).
-- `08 Lazy Two-Fund` (VOO/VXUS/SCHD): same — buy AAPL/UNH/JPM, "Technology underrepresented at 0%".
-- `06 Global Balanced` (VTI/VXUS/VYM/AAPL/JNJ): *"Financials… 53% underexposure"*, buy JPM/PG.
+- Across all 50 portfolios the caution score only ever took **5 values**: `8, 9, 30, 60, 88`.
+- `03 Core + Satellite` and `07 Balanced Growth & Value` — both labelled *NEAR-PERFECT* —
+  read **60/99** in every tier. A healthy core-and-satellite book is not "60% cautious".
+- A genuine `DISASTER` (`49 Leverage Lover`, 78% in a leveraged ETF) and a *MODERATE*
+  `12 Modest Winner` both topped out at the same `88`, so the score couldn't separate danger
+  levels.
 
-A fully index-diversified portfolio should read "healthy," not "buy individual stocks to fix
-diversification."
+**Root cause** — `lens_output.py :: _severity_caution_floor`
+- The floor was `max` of analyzer severities mapped through a coarse table
+  `{none:0, low:8, moderate:30, high:60, critical:88}`, and it counted the **worst single
+  ticker** at full weight. So one 41%-vol satellite at ~20% weight (`UNH` in #03, `LLY`/`CAT`
+  in #07) pinned the whole book to `high → 60`. The trade-flow score rarely exceeded the
+  floor, so caution was effectively a 4-value category.
 
-**Root cause**
-- `analyzers/concentration.py:77-79` accumulates `sector_weights` only for **non-index** positions
-  (`if not is_index:`). So an all-index portfolio has an empty sector map.
-- `analyzers/concentration.py:98-112`: `sector_count` counts only non-index sectors, then
-  `if heaviest_pct > 60 or sector_count <= 1: 'high'` / `elif … sector_count <= 2: 'moderate'`.
-  All-index → `sector_count == 0` → **`high` sector-concentration flag**. Index-heavy with ≤2 other
-  sectors (e.g. `06`) → `moderate`.
-- `cta_engine.py` priority 7 (`port_conc.get('flag')`) then fires and emits `sector_underweight`
-  BUYs into the "missing" real sectors.
-- `analyzers/index_fund.py:62-74` already computes `total_index_weight` at the portfolio level, but
-  **`cta_engine.py` never consults it** to suppress the sector-diversification CTAs.
+**Fix applied** — replaced `_severity_caution_floor` with **`_risk_floor`**, an
+exposure-weighted, continuous floor (`max` of three components):
+- `pos_pts` — weight-averaged per-position danger (a small volatile satellite contributes
+  little; a 78% position contributes almost everything).
+- `single_pts` — worst single position **damped by its weight** (`× min(1, w/0.45)`), so a
+  genuinely dangerous concentrated holding still scores critical while a minor satellite
+  cannot.
+- `port_pts` — sector over-concentration, plus aggregate volatility / beta **only once
+  elevated** (a ~1.0 beta or low aggregate vol is normal market exposure, not caution — this
+  also stopped all-index books reading `30` in the Conservative tier).
 
-The irony: the more thoroughly index-diversified the portfolio, the *more* concentrated the engine
-thinks it is, because the index weight vanishes from the sector tally.
-
-**Proposed minimal fix** (pick one)
-- In `cta_engine.py`, read `idx_res['portfolio_result']['details']['total_index_weight']`; if it's
-  high (≈ ≥ 50%), skip priority 7 and priority 9 `sector_underweight` CTAs (the index already
-  supplies broad sector exposure), and don't let priority 7 fire purely off `sector_count <= 1/2`.
-- *Or* in `concentration.py`, when `total_index_weight` is high, don't set the sector flag from the
-  `sector_count <= 1/2` rule (only flag on a genuine non-index heavy sector).
-
-Either is a few lines. The CTA-engine guard is the most contained.
+Result: caution now spans ~25 distinct values (`6 … 88`). `03 → 14/14/7`, `07 → 24/11/8`,
+`01 Index → 8/8/8`, while `49 → 88` and `12 → 86/59/29`.
 
 ---
 
-## 2. `winner_drift` fires on paper-LOSING positions  **[High, 1-line fix]**
+## 2. Default `lens_signals` overrides flatten (and invert) the risk tiers  **[High — Fixed]**
 
 **Evidence**
-- `28 Dividend Trap`: *"INTC is rising at +150.0% annualized … INTC dominates at 45% …
-  **HOLD INTC — winner_drift_informational**"* — INTC was entered at $45 and is a loser here.
-- `42 Speculative Inferno` (Conservative): the **same ticker FCEL** gets
-  `SELL FCEL high_volatility` **and** `HOLD FCEL winner_drift_informational` — contradictory.
-- `44 Beaten-Down Penny Disaster`: `HOLD FUBO winner_drift_informational` on a position down ~65%.
-- `36 Deep Losers Club`: `HOLD INTC winner_drift_informational` in an all-losers book.
-- Terminal: `[lens DEBUG] winner_drift FCEL: current_weight=0.422, entry_weight=0.188 …`,
-  `winner_drift FUBO: current_weight=0.344, entry_weight=0.135 …`.
+- Tiers were nearly identical on many portfolios, and on concentration they **inverted**:
+  `11 Mild Single-Stock Tilt` (AAPL ~34%) read Conservative **60 + $4,890 of buys** but
+  Moderate/Aggressive **"portfolio healthy", $0** — the *most* protective tier produced the
+  *largest* ask.
+- Normal-vol quality names (`UNH` 41%, `LLY` 38%, `CAT`, `AVGO` 42%) classified as **high
+  volatility** in *every* tier, generating sells and inflating caution.
 
-The `winner_drift` template literally says *"Price appreciation has pushed {ticker} from X% to Y%"*,
-so it **assumes** the position went up — but the detector never checks that.
+**Root cause** — `risk_profile.py :: load_risk_profile`
+- The shipped `DEFAULT_SETTINGS['lens_signals']` (vol high=35, concentration moderate=35,
+  steep_downtrend=-20, beta high=1.3, loss=-15) were applied **unconditionally** on top of
+  every tier, overwriting the carefully-tiered `DEFAULT_RISK_PROFILES` with a single
+  cross-tier value. Because every test (and every real user seeded from defaults) carries
+  those values, the risk-tier selection was largely inert — and the override even produced
+  **invalid orderings** (Conservative concentration `moderate`=35 **>** `high`=30, so a 34%
+  position skipped straight to `high`).
 
-**Root cause**
-- `analyzers/concentration.py:57` `drift_multiple = weight / entry_weight`, where `weight` is the
-  position's share of **current** value and `entry_weight` its share of **cost basis**.
-- `analyzers/concentration.py:70`:
-  `if not is_index and weight_pct > 30 and drift_multiple > 2.0:` → flags winner drift.
+**Fix applied** — overrides are now applied **only when the user has changed a value away
+from the shipped default** (`_changed()` helper compares against
+`DEFAULT_SETTINGS['lens_signals']`). Untouched settings defer to the tier, so
+Conservative/Moderate/Aggressive are once again meaningfully different and monotonic. `11`
+now reads `46 / 23 / 8` (correct ordering); `UNH`/`LLY`/`CAT` drop to `moderate` vol.
 
-In an all-loser basket, the position that fell *least* has the highest `current/cost` ratio, so its
-current weight exceeds its cost-basis weight → `drift_multiple > 2` → flagged a "winner" even though
-it's underwater. The signal conflates "this went up" with "the others went down more."
-
-**Proposed minimal fix**
-Add an actual-appreciation gate to the condition (the position must really be up from entry):
-
-```python
-if (not is_index and weight_pct > 30 and drift_multiple > 2.0
-        and current_value > cost_equity):
-```
-
-`current_value` and `cost_equity` are already computed a few lines above. One line, no signature
-changes. This also resolves the contradictory SELL+HOLD-drift pairs.
+> This honours the documented contract ("user overrides take precedence") while restoring the
+> tier system: a value left at the default is treated as "not overridden".
 
 ---
 
-## 3. `sector_underweight` sentence reports the wrong sector's weight  **[High, 1-line fix]**
+## 3. Conservative "deposit into a fire" — uncapped net-positive CTA delta  **[High — Fixed]**
 
 **Evidence**
-- `13 Healthcare Lean`: *"**Financials** exposure is thin at **59%**"* — Financials isn't at 59%;
-  59% is the **Healthcare** (heavy) weight. 59% is also not "thin."
-- `17 Tech Overweight`: *"**Financials** is underrepresented at **71%**"* — 71% is Technology's weight.
-- `39 Energy All-In`: *"address the **92%** underweight"* about Technology — 92% is Energy's weight.
-- (`08`'s "Technology underrepresented at 0%" reads OK only by accident, because the heavy weight is 0.)
+- `49 Leverage Lover` (Conservative): **Net CTA delta +$39,290** — the engine suppressed the
+  SOXL sell (78% of the book) and instead told the user to *deposit* $15k+$15k+$9k to dilute
+  it. Unactionable: you cannot dilute a 78% position by depositing 20% more.
+- `48 Everything Wrong` (Conservative): **+$16,700**. `41 PLUG 100%`: buys-only, no trim.
 
-**Root cause**
-- `cta_engine.py` priority 7 builds the CTA with `details['sector_weight'] = heavy_pct`
-  (the **heavy/source** sector's weight) while `details['target_sector']` is the underweight sector.
-- `sentence3.py:_build_ctx` maps `'sector': details['target_sector']` but
-  `'sector_weight': details.get('sector_weight', 0)` → so the template
-  (`templates/sentences.json:188-194`) renders the heavy sector's % as the target sector's exposure.
-- Priority 9 sets `sector_weight = sw_pct` (the thin sector's real weight), so priority-9 wording is
-  correct — only priority-7 CTAs are wrong.
+**Root cause** — `cta_engine.py`
+- `_conservative_sell_blocked` blocked the trim of *any* large-cap / unknown-cap position
+  regardless of how much of the book it was, and `_cap_total_buys` used a single 0.40 cap for
+  all tiers — so with sells suppressed, the (huge) dilution buys became the entire net delta.
 
-**Proposed minimal fix**
-In `cta_engine.py` priority 7, pass the **target** sector's current weight instead of the heavy one:
+**Fix applied**
+- `_conservative_sell_blocked` now has an exception: a position **> 50% of the book** is
+  always eligible to be trimmed (even a conservative investor should reduce a holding that is
+  more than half the portfolio).
+- `_cap_total_buys` is now **tier-aware** (`_MAX_TOTAL_BUY_FRACTION_BY_TIER` =
+  `high 0.35 / regular 0.30 / low 0.20`), so Conservative is asked to deposit the least.
 
-```python
-'sector_weight': round(sector_weights.get(sector, 0.0) * 100, 1),
-```
+`49` Conservative now **SELLS SOXL −$7,620** and the net delta drops to **+$12,040**;
+`41` Conservative now trims PLUG and diversifies out (net +$550).
 
-(`sector_weights` here is the `_positions_summary` map of fractions.) One line per the priority-7
-`ctas.append`. Now "Financials is underrepresented at X%" prints Financials' actual (small) weight.
+> *Deferred / design decision (not changed):* even with the trim, "buy to dilute" still
+> produces sizeable deposits for an extreme single-stock book, and a concentrated position
+> that is neither volatile nor declining (e.g. `45` BA at 79% but rising) still never gets a
+> trim CTA. A "trim extreme concentration > ~60% regardless of volatility" signal would close
+> this, but it changes the documented buy-to-dilute philosophy — flagged for a product call.
 
 ---
 
-## 4. No global cap on aggregate buy recommendations  **[Medium]**
+## 4. `winner_drift` HOLD on a ticker that is also being SOLD  **[Medium — Fixed]**
 
 **Evidence**
-- `48 Everything Wrong` (Conservative): **Net CTA delta $28,440** = `high_beta $4,180` +
-  `reduce_concentration $6,960 ×3` + `sector_underweight GE $3,380`.
-- `49 Leverage Lover`: Net delta **$42,590** of buys.
-- `20 Moderate Winner Drift`: Net delta **$15,120** (~73% of the book) in new buys.
+- `42 Speculative Inferno` (Conservative): the same ticker **FCEL** carried both
+  `SELL FCEL high_volatility (critical)` **and** `HOLD FCEL winner_drift_informational
+  (critical)` — a "runaway winner, hold" and a "too volatile, sell" on one position.
 
-Each priority is individually capped by `_cap_buy_amount` (25% per CTA, 50% per diversification
-group), but **nothing caps the sum across priorities**. `high_beta` (10% of equity) + three
-`reduce_concentration` buys (up to ~16.7% each = 50%) + `sector_underweight` stack to 60%+ — i.e. the
-brief asks the user to deposit well over half (sometimes more than all) of their portfolio at once.
+**Root cause** — `cta_engine.py` priority-3 loop appended a winner-drift CTA without checking
+whether the ticker had already been flagged for a steep-decline / high-volatility sell in
+priorities 1–2.
 
-**Root cause**
-- `cta_engine.py`: priorities 5/6/7/9 each append buys with only per-CTA/per-group caps; there is no
-  pass that bounds total buy dollars.
-
-**Proposed minimal fix**
-After `compute_ctas` builds the list (or in `_dedupe_ctas`), scale down all buy CTAs proportionally
-so their **sum ≤ a fraction of `total_equity`** (e.g. 30–40%). Small, localized post-pass; sells and
-holds untouched.
+**Fix applied** — priority 3 now `continue`s if the ticker already has a `sell` CTA. The risk
+sell takes precedence. (`_dedupe_ctas` allows a sell and a hold on the same ticker, so this
+had to be gated at generation time.) Verified: zero sell+winner_drift pairs across all 50.
 
 ---
 
-## 5. Tiers are non-monotonic; caution score under-reports real risk  **[Medium — design]**
+## 5. Sub-$200 buy CTAs are noise  **[Low — Fixed]**
 
-**Evidence**
-- `05 Eight-Sector Spread`: Conservative = *portfolio healthy*; Moderate = **3 steep-decline SELLs**
-  (MSFT/ABBV/MA); Aggressive = *portfolio healthy*. The middle tier is scarier than both ends.
-- `49 Leverage Lover` (78% in a leveraged ETF, SOXL): Conservative **caution 13/99**, Moderate 55.
-- `41 PLUG 100% loser`: Conservative caution 17 vs Moderate 67.
+**Evidence** — `26` `BUY UNH +$10`, `12` `BUY KO +$30`, `18`/`19` `BUY … +$110`.
 
-A Conservative investor should be the *most* protective, yet sees the *fewest* warnings and the
-*lowest* caution on genuinely dangerous books.
+**Root cause** — priority 7/9 `sector_underweight` dilution math yields tiny dollar amounts
+when a sector is only marginally thin, with no floor.
 
-**Root cause**
-- `cta_engine.py:131-151 _conservative_sell_blocked` blocks a sell if market cap > $5B (assumes
-  large-cap = safe), if severity isn't `critical`, or if weight < 5%. For `05`, MSFT/ABBV/MA are
-  large-cap → all sells suppressed → "healthy." Moderate has no such block and a looser slope
-  threshold than Aggressive, so it alone fires.
-- `lens_output.py:201-214 _compute_caution_score`: caution = (Σ sell$ + 0.30·Σ buy$) / total_equity.
-  It's a function of **recommended trade dollars only**, not portfolio risk. When Conservative
-  suppresses sells, the dollars (and thus caution) collapse — so the safest-styled investor is shown
-  the calmest score on the riskiest portfolio.
-
-**Proposed fix (needs a product decision, not a pure one-liner)**
-- Make Conservative at least as cautious as Moderate: relax the blanket large-cap sell block (e.g.
-  still flag/inform even if it trims a smaller fraction), or
-- Decouple caution from CTA dollars — derive it (at least partly) from analyzer **severities**
-  (concentration/volatility/beta/loss), so a 78%-leveraged-ETF book scores high regardless of whether
-  sells are suppressed. This is the more correct fix and is moderate-sized.
+**Fix applied** — `_drop_tiny_buys` removes any buy below `max($200, 1% of equity)` before the
+total-buy cap. Verified: no buy CTA under $200 remains.
 
 ---
 
-## 6. `sell_scale` ordering makes Moderate the most aggressive seller  **[Medium]**
+## 6. Pluralization with a count of 1  **[Low — Fixed]**
 
-**Evidence**
-- `34 Single Stock 60%` TSLA: Moderate `SELL TSLA -$4,260`, Aggressive `-$2,130`, Conservative `$0`.
-- `constants.py:195/203/211`: `high` (Aggressive) `sell_scale = 0.25`, `regular` (Moderate) `0.50`,
-  `low` (Conservative) `0.10`.
+**Evidence** — `26` "3 positions are rising and **1 are** falling"; `27` "**1 positions**
+trending up versus 3 declining".
 
-So Moderate trims the largest amounts and Conservative the smallest. If the intent is "aggressive
-investors hold through volatility; conservative investors trim risk," this is backwards — Conservative
-should have the *highest* sell_scale, not the lowest. (Also: `CLAUDE.md` documents 0.3/0.5/0.15;
-the code is 0.25/0.50/0.10 — minor doc drift to fix while here.)
+**Root cause** — the `portfolio_mixed` templates in `sentences.json` hard-coded a plural noun
+(`positions`/`holdings`/`tickers`) and verb (`are`) after a count placeholder.
 
-**Proposed fix**
-Re-decide the three `sell_scale` values to be monotonic with intent (a data change in
-`constants.py`), then reconcile `CLAUDE.md`. Confirm desired semantics first.
+**Fix applied** — reworded the four affected templates to count-agnostic gerunds
+("`{up_count}` advancing versus `{down_count}` declining", etc.) that read correctly for any
+count. Now: "1 advancing versus 3 declining".
 
 ---
 
-## 7. Slope clamp at +150% → repeated "+150.0%" in briefs  **[Low]**
+## Working as intended / not changed (for context)
 
-**Evidence**: `15`, `22` (AMD), `28` (INTC), `49` (SOXL) all read exactly *"+150.0% annualized"*.
-
-**Root cause**: `analyzers/slope.py:15 _SLOPE_CLAMP_MAX = 150.0`; genuine momentum names exceed it and
-pin to the cap, so the same number recurs.
-
-**Proposed fix**: raise the clamp, or when a value is clamped have the sentence say
-"more than +150%"/"triple-digit" rather than a precise "+150.0%". Cosmetic/credibility only.
-
----
-
-## 8. ETF fundamentals 404 spam + wasted API calls  **[Low]**
-
-**Evidence (terminal)**: `HTTP Error 404 … No fundamentals data found for symbol: VTI / VXUS / SCHD /
-VYM / TQQQ / SOXL`.
-
-**Root cause**: `analyzers/earnings.py:84` calls `store.get_earnings(t)` for **every** position,
-including index ETFs, which have no earnings/fundamentals → 404 (caught, but logged and counted as an
-API call). Same pattern likely for dividend/meta fetches on ETFs.
-
-**Proposed fix**: skip the earnings (and any fundamentals-only) fetch when `t in INDEX_ETFS`. Removes
-the log noise and trims API calls on every index-holding portfolio.
-
----
-
-## 9. Buy-only dilution can't fix extreme concentration when sells are suppressed  **[Low / design]**
-
-**Evidence**: `41 PLUG 100%` (Conservative): no PLUG sell (suppressed); buys $940×3 + $570 — modest
-deposits that cannot actually move a 100% position toward target. The advice is structurally unable to
-fix the problem in that tier.
-
-**Root cause**: Conservative suppresses sells (Issue 5) and priority 6/7 dilute by *buying only*; for a
-near-100% single position, buying alone needs multiples of the portfolio (then gets capped), so the
-projected allocation never reaches target.
-
-**Proposed fix**: tied to Issue 5 — when a single position is extreme (e.g. >60–70%), allow a trim CTA
-even in Conservative (informational or scaled), so the advice is achievable. Defer until Issue 5's
-direction is decided.
-
----
-
-## Working as intended / not bugs (for context)
-
-- **Concentration dilution** (the earlier fix) is correct: `18`, `22`, `45` produce materially-sized,
-  below-trigger dilution targets.
-- **Genuine sector concentration** detected correctly: `29 All Tech`, `25 Energy Heavy`, `39 Energy All-In`.
-- **Unrealized-loss holds** fire correctly on real paper losers (`10 PFE`, `36`, `31`, `44`).
-- **High-vol / high-beta sells** fire on speculative names (`33 Crypto Miners`, `22`, `42`).
-- **Some portfolios landed in a different grade band than the file's label** (e.g. `12 Modest Winner`
-  intended NVDA ~28% but live price put it at 44%, tripping drift+concentration). That's the expected
-  consequence of live prices driving weights — not an engine bug.
-
----
-
-## Suggested fix order for the next pass
-
-1. **#2 winner_drift gate** (1 line) — removes contradictory/incorrect signals.
-2. **#3 sector_weight variable** (1 line) — fixes nonsensical "underrepresented at 71%".
-3. **#1 index-fund sector suppression** (small) — stops "perfect" index portfolios from being told to buy stocks.
-4. **#4 global buy cap** (small) — keeps deposit asks realistic.
-5. **#8 skip ETF earnings fetch** (small) — removes 404 noise.
-6. **#5 / #6 / #9 tier + caution + sell_scale semantics** — group these; they need a product decision
-   on what Conservative/Moderate/Aggressive should *mean*, then a coordinated tweak.
-7. **#7 slope clamp wording** (cosmetic) — last.
+- **Tier behaviour is now monotonic** for concentration risk (Conservative ≥ Moderate ≥
+  Aggressive caution; e.g. `11 → 46/23/8`, `12 → 86/59/29`, `18 → 88/88/60`).
+- **`sell_scale` ordering** (`regular 0.50 > high 0.25 > low 0.10`) is unchanged — Moderate
+  still recommends the largest sell dollars. This is a deliberate-looking but debatable
+  semantic; left for a product decision rather than guessed at.
+- **`high_beta` buy** still appears on already-broken books (a low-beta name suggested to damp
+  portfolio beta). Dollars are bounded by the tier buy-cap; left as-is.
+- **Disasters correctly read 88** and healthy/index books read single digits.

@@ -20,11 +20,21 @@ _MIN_POSITION_VALUE_FOR_SELL = 1000
 # materially sized while still scaling with the user's chosen threshold.
 _CONCENTRATION_DILUTION_FACTOR = 0.75
 
-# Aggregate cap on all buy CTAs combined. Each buy priority is capped on its own,
-# but several (high beta + concentration dilution + sector underweight) can stack;
-# this keeps the *total* recommended new deposit to a sensible slice of the
-# portfolio so a brief never asks the user to invest more than this at once.
-_MAX_TOTAL_BUY_FRACTION = 0.40
+# Aggregate cap on all buy CTAs combined, by risk tier. Each buy priority is
+# capped on its own, but several (high beta + concentration dilution + sector
+# underweight) can stack; this keeps the *total* recommended new deposit to a
+# sensible slice of the portfolio so a brief never asks the user to invest more
+# than this at once. Conservative is capped tightest — a low-risk investor with
+# a broken book should not be told to deposit a huge sum (and, because their
+# sells are mostly suppressed, an uncapped buy total becomes the entire net
+# CTA delta — see the Leverage-Lover deposit-into-a-fire case).
+_MAX_TOTAL_BUY_FRACTION_BY_TIER = {'high': 0.35, 'regular': 0.30, 'low': 0.20}
+_MAX_TOTAL_BUY_FRACTION = 0.30  # fallback when tier is unknown
+
+# A buy CTA below this floor (the greater of an absolute $ and 1% of the book)
+# is dropped — sub-1% "deposit $30 into KO" suggestions are noise, not advice.
+_MIN_BUY_DOLLARS = 200.0
+_MIN_BUY_FRACTION = 0.01
 
 
 def _round10(v: float) -> float:
@@ -148,8 +158,16 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
 
         Blocks if stock is > $5B market cap (assumes large-cap when unknown),
         if severity isn't critical, or if position weight < 5%.
+
+        Exception: a position that dominates the book (> 50% weight) is always
+        eligible to be trimmed — even a conservative investor should reduce a
+        single holding that is more than half the portfolio. Without this, a
+        78%-in-one-leveraged-ETF book had its sell suppressed and was instead
+        told to *deposit* tens of thousands to dilute it (unactionable).
         """
         if risk_tier != 'low':
+            return False
+        if ticker_weight > 0.50:
             return False
         mc = _market_cap(ticker)
         # Missing data → assume large cap (safe default is to BLOCK the sell)
@@ -235,6 +253,12 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     for t, data in conc_res.get('ticker_results', {}).items():
         subs = data.get('details', {}).get('sub_signals', [])
         if 'winner_drift' in subs and data.get('flag'):
+            # A ticker already flagged for a steep-decline / high-volatility SELL
+            # cannot also be a "runaway winner that drifted up" — emitting both is
+            # contradictory (e.g. SELL FCEL + HOLD FCEL winner_drift). The risk
+            # sell takes precedence; skip the drift signal for that ticker.
+            if any(c.get('ticker') == t and c.get('action') == 'sell' for c in ctas):
+                continue
             entry_w = data['details'].get('entry_weight_pct', 25) / 100
             current_w = ticker_weights.get(t, 0)
             position_value = summary.get('ticker_current_values', {}).get(t, current_w * total_equity)
@@ -242,10 +266,10 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             # Cap rebalance at 35% of the position's current value
             max_rebalance = position_value * 0.35
             dollars = _round10(min(raw_rebalance, max_rebalance))
-            print(
-                f'[lens DEBUG] winner_drift {t}: current_weight={current_w:.3f}, '
-                f'entry_weight={entry_w:.3f}, position_value=${position_value:,.0f}, '
-                f'raw=${raw_rebalance:,.0f}, capped=${dollars:,.0f}'
+            _log.debug(
+                'winner_drift %s: current_weight=%.3f, entry_weight=%.3f, '
+                'position_value=$%.0f, raw=$%.0f, capped=$%.0f',
+                t, current_w, entry_w, position_value, raw_rebalance, dollars,
             )
             if risk_tier != 'low' and _sell_too_small(dollars, position_value):
                 continue
@@ -594,21 +618,38 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
 
     ctas = _dedupe_ctas(ctas)
 
-    # Keep the combined buy recommendation within a sensible slice of the portfolio.
-    ctas = _cap_total_buys(ctas, total_equity)
+    # Drop sub-threshold buy noise, then keep the combined buy recommendation
+    # within a sensible (tier-aware) slice of the portfolio.
+    ctas = _drop_tiny_buys(ctas, total_equity)
+    ctas = _cap_total_buys(ctas, total_equity, risk_tier)
 
     return ctas
 
 
-def _cap_total_buys(cta_list: list[dict], total_equity: float) -> list[dict]:
+def _drop_tiny_buys(cta_list: list[dict], total_equity: float) -> list[dict]:
+    """Remove buy CTAs whose dollar amount is below the noise floor (the greater
+    of ``_MIN_BUY_DOLLARS`` and ``_MIN_BUY_FRACTION`` of the book). Sells/holds
+    are untouched."""
+    floor = max(_MIN_BUY_DOLLARS, total_equity * _MIN_BUY_FRACTION) if total_equity > 0 else _MIN_BUY_DOLLARS
+    return [
+        c for c in cta_list
+        if not (c.get('action') in ('buy_new', 'buy_more')
+                and float(c.get('dollars', 0.0) or 0.0) < floor)
+    ]
+
+
+def _cap_total_buys(
+    cta_list: list[dict], total_equity: float, risk_tier: str = 'regular',
+) -> list[dict]:
     """Scale all buy CTAs down proportionally so their combined dollars stay within
-    ``_MAX_TOTAL_BUY_FRACTION`` of portfolio value. Sells and holds are untouched.
-    Buys that round to zero after scaling are dropped."""
+    the tier's fraction of portfolio value (``_MAX_TOTAL_BUY_FRACTION_BY_TIER``).
+    Sells and holds are untouched. Buys that round to zero after scaling are dropped."""
     if total_equity <= 0:
         return cta_list
     buys = [c for c in cta_list if c.get('action') in ('buy_new', 'buy_more')]
     total_buy = sum(float(c.get('dollars', 0.0) or 0.0) for c in buys)
-    cap = total_equity * _MAX_TOTAL_BUY_FRACTION
+    fraction = _MAX_TOTAL_BUY_FRACTION_BY_TIER.get(risk_tier, _MAX_TOTAL_BUY_FRACTION)
+    cap = total_equity * fraction
     if total_buy <= cap or total_buy <= 0:
         return cta_list
     scale = cap / total_buy
