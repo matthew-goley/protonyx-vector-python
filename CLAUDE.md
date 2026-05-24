@@ -236,6 +236,8 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 
 **Buy amount caps:** `_cap_buy_amount()` is applied to every buy-type priority (5, 6, 7, 9) so diversification deltas remain proportional to portfolio size.
 
+**Concentration dilution target (don't regress):** Priorities 6 (single-stock) and 7 (sector) compute "buy elsewhere to dilute" dollars by solving `v_total_new = over_value / target_weight`. The dilution `target_weight` must sit **below** the flag trigger, never equal to it — a holding sitting right at the trigger would otherwise need ≈$0 to "dilute" back to the same number (this produced the $70-on-a-$17k-portfolio bug). The target is `trigger × _CONCENTRATION_DILUTION_FACTOR` (0.75) in `cta_engine.py`; the single-stock trigger is `risk_profile['concentration']['moderate']` (defaults to the `stock_concentration_pct` lens-signal, 35), the sector trigger is `['sector_moderate']` (50). Do not set the target back to the raw trigger.
+
 **Sell gates:** Priority 8 (dead weight) is additionally gated by `_sell_too_small()` — tiny positions don't generate sell CTAs.
 
 **Sector awareness:** `_get_ticker_sector()` in `cta_engine.py` looks up a ticker's sector via `SECTOR_SUGGESTIONS`. Every buy CTA verifies the suggested ticker is NOT in the problem sector. `_underweight_sectors_sorted()` returns all sectors sorted lightest-first, with an `exclude_sectors` parameter to skip problem sectors. `_split_dollars_by_underweight()` allocates dollars proportionally to how underweight each target sector is.

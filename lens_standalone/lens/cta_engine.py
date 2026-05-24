@@ -13,6 +13,13 @@ _log = logging.getLogger(__name__)
 _MIN_SELL_DOLLARS = 500
 _MIN_POSITION_VALUE_FOR_SELL = 1000
 
+# A concentration threshold is the weight ABOVE which a holding/sector is flagged.
+# Diluting it back to that same threshold requires ~$0 for a position sitting right
+# at the trigger (target == current weight → near-zero buy). We instead dilute toward
+# a target that is this fraction of the trigger, so the recommended buy is always
+# materially sized while still scaling with the user's chosen threshold.
+_CONCENTRATION_DILUTION_FACTOR = 0.75
+
 
 def _round10(v: float) -> float:
     return round(v / 10) * 10
@@ -321,7 +328,11 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             if t in INDEX_ETFS or t in index_cta_tickers:
                 continue
             rp = pool_results.get('_risk_profile', {})
-            target_weight = rp.get('concentration', {}).get('moderate', 30) / 100
+            # Dilute toward a target safely BELOW the trigger threshold (see
+            # _CONCENTRATION_DILUTION_FACTOR) — diluting back to the trigger itself
+            # produces a ~$0 buy for a stock sitting right at it.
+            trigger_pct = rp.get('concentration', {}).get('moderate', 30)
+            target_weight = (trigger_pct * _CONCENTRATION_DILUTION_FACTOR) / 100
             v_stock = summary.get('ticker_current_values', {}).get(
                 t, ticker_weights.get(t, 0) * total_equity,
             )
@@ -391,9 +402,12 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
         heavy_sector = port_conc['details'].get('heaviest_sector', '')
         heavy_pct = port_conc['details'].get('heaviest_sector_weight', 0)
 
-        if heavy_pct > 50:
+        # Same trigger-vs-target collision as single-stock concentration: dilute
+        # toward a target BELOW the sector trigger, not back to the trigger itself.
+        sector_trigger = risk_profile.get('concentration', {}).get('sector_moderate', 50)
+        if heavy_pct > sector_trigger:
             sector_eq = (heavy_pct / 100) * total_equity
-            target = 0.50
+            target = (sector_trigger * _CONCENTRATION_DILUTION_FACTOR) / 100
             v_total_new = sector_eq / target
             total_dollars = _round10(v_total_new - total_equity)
         else:
