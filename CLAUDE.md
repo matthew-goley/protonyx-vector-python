@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Vector** is a PyQt6 desktop portfolio analytics app for stock investors. It tracks positions, fetches market data via Yahoo Finance (yfinance), and displays analytics (trend direction, volatility, sector allocation, Sharpe ratio, beta, dividends) in a customisable dark/light themed dashboard. Data is persisted locally in `%LOCALAPPDATA%/Protonyx/Vector/` (falls back to `~/Vector/data/`) as JSON files.
 
-Current version: **0.4.5**
+Current version: **0.4.6**
 
 ## Setup & Running
 
@@ -29,7 +29,7 @@ Use `build.bat` (release) or `build-debug.bat` (console-enabled for tracebacks).
 
 ```bash
 python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 ^
-  --output-filename="Vector-v0.4.5.exe" ^
+  --output-filename="Vector-v0.4.6.exe" ^
   --include-data-dir=assets=assets ^
   --include-data-dir=vector/lens/templates=vector/lens/templates ^
   --include-package=vector.lens --include-package=vector.lens.analyzers ^

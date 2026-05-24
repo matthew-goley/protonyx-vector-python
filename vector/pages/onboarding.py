@@ -41,10 +41,13 @@ def _PANEL_W() -> int:
 # ──────────────────────────────────────────────────────────────────────────────
 
 class PositionDialog(QDialog):
-    def __init__(self, store: DataStore, parent: QWidget | None = None) -> None:
+    def __init__(self, store: DataStore, parent: QWidget | None = None,
+                 existing_tickers: 'set[str] | None' = None) -> None:
         super().__init__(parent)
         self.store = store
         self.position_data: dict[str, Any] | None = None
+        # Tickers already held — submitting one of these is blocked inline.
+        self.existing_tickers = {t.upper() for t in (existing_tickers or set())}
         self.setModal(True)
         self.setWindowTitle('Add Position')
         self.setMinimumWidth(sc(380))
@@ -137,6 +140,11 @@ class PositionDialog(QDialog):
             return
         if shares <= 0:
             self.error_label.setText('Shares must be greater than zero.')
+            return
+        if ticker in self.existing_tickers:
+            self.error_label.setText(
+                f"{ticker} is already in your portfolio — use 'Edit Selected' to change its share count."
+            )
             return
         self.submit_button.start_loading('Validating...')
         self.error_label.setText('')

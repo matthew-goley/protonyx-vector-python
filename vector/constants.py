@@ -21,7 +21,7 @@ UI_MIN_POINT_SIZE: int = 7
 
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
-APP_VERSION = '0.4.5'
+APP_VERSION = '0.4.6'
 FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
 DATA_DIR = user_data_dir()
 POSITIONS_FILE = DATA_DIR / 'positions.json'

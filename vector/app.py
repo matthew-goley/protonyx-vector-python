@@ -674,7 +674,8 @@ class VectorMainWindow(QMainWindow):
         self._setup_auto_refresh()
 
     def add_position_from_settings(self) -> None:
-        dialog = PositionDialog(self.store, self)
+        existing = {p.get('ticker', '').upper() for p in self.positions}
+        dialog = PositionDialog(self.store, self, existing_tickers=existing)
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.position_data:
             self.positions.append(dialog.position_data)
             self.store.save_positions(self.positions)
@@ -819,7 +820,7 @@ def main(
     remaining_ms = max(0, 2000 - elapsed_ms)
 
     def _finish() -> None:
-        window.show()
+        window.showMaximized()
         splash.finish(window)
 
     QTimer.singleShot(remaining_ms, _finish)

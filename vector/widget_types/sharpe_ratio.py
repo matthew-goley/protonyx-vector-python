@@ -132,10 +132,10 @@ class SharpeRatioWidget(VectorWidget):
         # Interpretation tiers
         self._tiers: list[_TierRow] = []
         for tier, desc in [
-            ('> 2.0', 'Excellent — strong risk-adjusted return'),
-            ('1 – 2', 'Good — solid performance'),
-            ('0 – 1', 'Sub-optimal — low return for the risk'),
-            ('< 0',   'Poor — underperforming risk-free assets'),
+            ('> 2.0', 'Excellent'),
+            ('1 – 2', 'Good'),
+            ('0 – 1', 'Sub-optimal'),
+            ('< 0',   'Poor'),
         ]:
             row = _TierRow(tier, desc)
             self._tiers.append(row)
