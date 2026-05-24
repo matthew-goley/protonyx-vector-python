@@ -38,6 +38,7 @@ def analyze(
 
     ticker_results: dict[str, dict] = {}
     sector_weights: dict[str, float] = {}
+    index_current_value = 0.0
 
     for pos in positions:
         t = pos['ticker']
@@ -66,8 +67,12 @@ def analyze(
                 sub_signals.append('stock_concentration')
                 best_severity = stock_sev
 
-        # Sub-signal C: Winner drift (suppressed for index ETFs)
-        if not is_index and weight_pct > 30 and drift_multiple > 2.0:
+        # Sub-signal C: Winner drift (suppressed for index ETFs). Require the
+        # position to actually be UP from cost — otherwise a holding that merely
+        # fell less than its peers (current weight > cost-basis weight) gets
+        # mislabeled a "winner that drifted".
+        if (not is_index and weight_pct > 30 and drift_multiple > 2.0
+                and current_value > cost_equity):
             drift_sev = 'high' if drift_multiple > 2.5 else 'moderate'
             sub_signals.append('winner_drift')
             if _SEV_ORDER[drift_sev] > _SEV_ORDER[best_severity]:
@@ -77,6 +82,8 @@ def analyze(
         if not is_index:
             sector = pos.get('sector') or 'Unknown'
             sector_weights[sector] = sector_weights.get(sector, 0.0) + current_value
+        else:
+            index_current_value += current_value
 
         ticker_results[t] = {
             'value': weight_pct,
@@ -110,6 +117,17 @@ def analyze(
         sector_sev = 'low'
     else:
         sector_sev = 'none'
+
+    # Index funds supply broad, cross-sector diversification. When they dominate
+    # the book, the small non-index remainder is not a sector-concentration
+    # problem — downgrade so a fully index-diversified portfolio is not flagged
+    # (and told to "buy individual stocks to diversify").
+    index_weight_pct = (
+        index_current_value / total_current_value * 100
+        if total_current_value else 0.0
+    )
+    if index_weight_pct >= 50 and sector_sev in ('moderate', 'high'):
+        sector_sev = 'low'
 
     return {
         'ticker_results': ticker_results,

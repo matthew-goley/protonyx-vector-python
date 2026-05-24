@@ -116,7 +116,7 @@ def build_lens_output(
     # A "you should reduce risk" signal weighs much more than a "you have room
     # to grow" opportunity.
     total_equity = pool_results.get('_positions_summary', {}).get('total_equity', 1.0)
-    caution_score = _compute_caution_score(cta_list, total_equity)
+    caution_score = _compute_caution_score(cta_list, total_equity, pool_results)
     threat_level = caution_score / 100.0
 
     # Build projected positions with all CTAs applied
@@ -198,8 +198,32 @@ def _save_snapshot(result: dict[str, Any]) -> None:
         json.dump({'snapshots': snapshots}, f, indent=2)
 
 
-def _compute_caution_score(cta_list: list[dict[str, Any]], total_equity: float) -> int:
-    """Caution score 1–99. Sells full weight, buys 30%, holds ignored."""
+_SEVERITY_CAUTION_POINTS = {'none': 0, 'low': 8, 'moderate': 30, 'high': 60, 'critical': 88}
+
+
+def _severity_caution_floor(pool_results: dict[str, Any]) -> int:
+    """A risk floor derived from analyzer severities, so a genuinely dangerous
+    portfolio scores high even when its recommended trades are suppressed (e.g.
+    the Conservative tier blocks large-cap sells, which would otherwise leave the
+    trade-flow score artificially low)."""
+    pts = 0
+    for key in ('concentration', 'volatility', 'beta', 'performance', 'slope'):
+        sev = (pool_results.get(key, {}) or {}).get('portfolio_result', {}).get('severity', 'none')
+        pts = max(pts, _SEVERITY_CAUTION_POINTS.get(sev, 0))
+    # Worst single-ticker concentration / volatility also count.
+    for key in ('concentration', 'volatility'):
+        for r in (pool_results.get(key, {}) or {}).get('ticker_results', {}).values():
+            pts = max(pts, _SEVERITY_CAUTION_POINTS.get(r.get('severity', 'none'), 0))
+    return pts
+
+
+def _compute_caution_score(
+    cta_list: list[dict[str, Any]], total_equity: float,
+    pool_results: dict[str, Any] | None = None,
+) -> int:
+    """Caution score 1–99: the greater of a trade-flow score (sells full weight,
+    buys 30%, holds ignored) and a severity floor from the analyzers, so tiers
+    that suppress sells still surface genuine portfolio risk."""
     if total_equity <= 0:
         return 0
     weighted_total = 0.0
@@ -211,7 +235,8 @@ def _compute_caution_score(cta_list: list[dict[str, Any]], total_equity: float) 
         elif action in ('buy_new', 'buy_more'):
             weighted_total += dollars * 0.30
     score_pct = (weighted_total / total_equity) * 100
-    return max(1, min(99, int(score_pct)))
+    floor = _severity_caution_floor(pool_results or {})
+    return max(1, min(99, int(max(score_pct, floor))))
 
 
 def _apply_all_ctas(

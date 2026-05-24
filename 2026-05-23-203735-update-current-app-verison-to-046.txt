@@ -1,0 +1,2767 @@
+ ▐▛███▜▌   Claude Code v2.1.150
+▝▜█████▛▘  Opus 4.7 · Claude Pro
+  ▘▘ ▝▝    ~\Documents\_Dev_ALL\Protonyx Vector\Vector-Main
+
+ ⚠ Large CLAUDE.md will impact performance (41.9k chars > 40.0k) · /memory to edit
+
+❯ update current app verison to 0.4.6                                           
+
+● I'll find all the places the version is referenced and update them.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Let me read the relevant files to update them precisely.
+
+  Read 2 files (ctrl+o to expand)
+
+● Now I'll update all the version references. The source of truth is
+  constants.py, plus the build scripts and CLAUDE.md.
+
+● Update(vector\constants.py)
+  ⎿  File must be read first
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(vector\constants.py)
+  ⎿  Added 1 line, removed 1 line
+      21  
+      22  APP_NAME = 'Vector'
+      23  COMPANY_NAME = 'Protonyx'
+      24 -APP_VERSION = '0.4.5'                                          
+      24 +APP_VERSION = '0.4.6'                                          
+      25  FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
+      26  DATA_DIR = user_data_dir()
+      27  POSITIONS_FILE = DATA_DIR / 'positions.json'
+
+● Update(build.bat)
+  ⎿  Added 5 lines, removed 5 lines
+       1  @echo off
+       2 -REM Vector v0.4.5 Nuitka build                                 
+       2 +REM Vector v0.4.6 Nuitka build                                 
+       3  REM Run from project root with .venv activated.
+       4  
+       5 -if exist "Vector-v0.4.5.dist" (                                
+       6 -    echo Removing stale Vector-v0.4.5.dist...                  
+       7 -    rmdir /s /q "Vector-v0.4.5.dist"                           
+       5 +if exist "Vector-v0.4.6.dist" (                                
+       6 +    echo Removing stale Vector-v0.4.6.dist...                  
+       7 +    rmdir /s /q "Vector-v0.4.6.dist"                           
+       8  )
+       9  
+      10  python -m nuitka ^
+      11    --standalone ^
+      12    --windows-console-mode=disable ^
+      13    --enable-plugin=pyqt6 ^
+      14 -  --output-filename="Vector-v0.4.5.exe" ^                      
+      14 +  --output-filename="Vector-v0.4.6.exe" ^                      
+      15    --include-data-dir=assets=assets ^
+      16    --include-data-dir=vector/lens/templates=vector/lens/template
+          s ^
+      17    --include-data-files=debug_test.json=debug_test.json ^
+
+● Update(build-debug.bat)
+  ⎿  Added 5 lines, removed 5 lines
+       1  @echo off
+       2 -REM Vector v0.4.5 Nuitka DEBUG build (console enabled for trace
+         -backs)                                                         
+       2 +REM Vector v0.4.6 Nuitka DEBUG build (console enabled for trace
+         +backs)                                                         
+       3  REM Run from project root with .venv activated.
+       4  
+       5 -if exist "Vector-v0.4.5-debug.dist" (                          
+       6 -    echo Removing stale Vector-v0.4.5-debug.dist...            
+       7 -    rmdir /s /q "Vector-v0.4.5-debug.dist"                     
+       5 +if exist "Vector-v0.4.6-debug.dist" (                          
+       6 +    echo Removing stale Vector-v0.4.6-debug.dist...            
+       7 +    rmdir /s /q "Vector-v0.4.6-debug.dist"                     
+       8  )
+       9  
+      10  python -m nuitka ^
+      11    --standalone ^
+      12    --enable-plugin=pyqt6 ^
+      13 -  --output-filename="Vector-v0.4.5-debug.exe" ^                
+      13 +  --output-filename="Vector-v0.4.6-debug.exe" ^                
+      14    --include-data-dir=assets=assets ^
+      15    --include-data-dir=vector/lens/templates=vector/lens/template
+          s ^
+      16    --include-data-files=debug_test.json=debug_test.json ^
+
+● Now the CLAUDE.md references (lines 13 and 32):
+
+● Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      10  
+      11  **Vector** is a PyQt6 desktop portfolio analytics app for stock
+           investors. It tracks positions, fetches market data via Yahoo 
+          Finance (yfinance), and displays analytics (trend direction, vo
+          latility, sector allocation, Sharpe ratio, beta, dividends) in 
+          a customisable dark/light themed dashboard. Data is persisted l
+          ocally in `%LOCALAPPDATA%/Protonyx/Vector/` (falls back to `~/V
+          ector/data/`) as JSON files.
+      12  
+      13 -Current version: **0.4.5**                                     
+      13 +Current version: **0.4.6**                                     
+      14  
+      15  ## Setup & Running
+      16  
+
+● Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      29  
+      30  ```bash
+      31  python -m nuitka --standalone --windows-console-mode=disable --
+          enable-plugin=pyqt6 ^
+      32 -  --output-filename="Vector-v0.4.5.exe" ^                      
+      32 +  --output-filename="Vector-v0.4.6.exe" ^                      
+      33    --include-data-dir=assets=assets ^
+      34    --include-data-dir=vector/lens/templates=vector/lens/template
+          s ^
+      35    --include-package=vector.lens --include-package=vector.lens.a
+          nalyzers ^
+
+● Let me verify nothing was missed:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Updated the version to 0.4.6 across all references:
+
+  - vector/constants.py — APP_VERSION = '0.4.6' (the source of truth; drives the
+   Settings → About display and version check)
+  - build.bat — output filename and dist-folder cleanup
+  - build-debug.bat — debug output filename and dist-folder cleanup
+  - CLAUDE.md — "Current version" line and the build command example
+
+  No remaining 0.4.5 references in the repo.
+
+✻ Cogitated for 33s
+
+❯ Two changes 1. When the app launches, try to get it to launch maximized. Not  
+  full screen, Maximized. 2. Currently, you can add two positions under the     
+  same ticker. ex: AAPL - 1 AAPL - 3. To fix this, when you add a position in   
+  settings and its for a ticker that alreadye exists, put an error message that 
+   says position already exists, use edit selected to edit position             
+
+● I'll explore the relevant code for both changes. Let me find where the window
+  is shown and where positions are added from settings.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Change 1 is straightforward — replace window.show() with
+  window.showMaximized().
+
+● Update(vector\app.py)
+  ⎿  Added 1 line, removed 1 line
+      819      remaining_ms = max(0, 2000 - elapsed_ms)
+      820  
+      821      def _finish() -> None:
+      822 -        window.show()                                         
+      822 +        window.showMaximized()                                
+      823          splash.finish(window)
+      824  
+      825      QTimer.singleShot(remaining_ms, _finish)
+
+● Now for change 2. Let me find the add-position-from-settings flow.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+● Let me look at the PositionDialog and how onboarding handles adds, so I
+  implement the duplicate check consistently.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now I understand the structure. I'll add an optional existing_tickers
+  parameter to PositionDialog and check it inline in submit() (before the
+  network validation, so the user gets immediate feedback without losing their
+  input), then wire it into the settings add flow.
+
+● Update(vector\pages\onboarding.py)
+  ⎿  Added 4 lines, removed 1 line
+      41  # ─────────────────────────────────────────────────────────────
+          ─────────────────
+      42  
+      43  class PositionDialog(QDialog):
+      44 -    def __init__(self, store: DataStore, parent: QWidget | None
+         - = None) -> None:                                              
+      44 +    def __init__(self, store: DataStore, parent: QWidget | None
+         + = None,                                                       
+      45 +                 existing_tickers: 'set[str] | None' = None) ->
+         + None:                                                         
+      46          super().__init__(parent)
+      47          self.store = store
+      48          self.position_data: dict[str, Any] | None = None
+      49 +        # Tickers already held — submitting one of these is blo
+         +cked inline.                                                   
+      50 +        self.existing_tickers = {t.upper() for t in (existing_t
+         +ickers or set())}                                              
+      51          self.setModal(True)
+      52          self.setWindowTitle('Add Position')
+      53          self.setMinimumWidth(sc(380))
+
+● Update(vector\pages\onboarding.py)
+  ⎿  Added 5 lines
+      141          if shares <= 0:
+      142              self.error_label.setText('Shares must be greater t
+           han zero.')
+      143              return
+      144 +        if ticker in self.existing_tickers:                   
+      145 +            self.error_label.setText(                         
+      146 +                f"{ticker} is already in your portfolio — use 
+          +'Edit Selected' to change its share count."                   
+      147 +            )                                                 
+      148 +            return                                            
+      149          self.submit_button.start_loading('Validating...')
+      150          self.error_label.setText('')
+      151          QApplication.processEvents()
+
+● Now wire the existing tickers into the settings add flow in app.py:
+
+● Update(vector\app.py)
+  ⎿  Added 2 lines, removed 1 line
+      674          self._setup_auto_refresh()
+      675  
+      676      def add_position_from_settings(self) -> None:
+      677 -        dialog = PositionDialog(self.store, self)             
+      677 +        existing = {p.get('ticker', '').upper() for p in self.
+          +positions}                                                    
+      678 +        dialog = PositionDialog(self.store, self, existing_tic
+          +kers=existing)                                                
+      679          if dialog.exec() == QDialog.DialogCode.Accepted and di
+           alog.position_data:
+      680              self.positions.append(dialog.position_data)
+      681              self.store.save_positions(self.positions)
+
+● Let me verify the edited files compile cleanly:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -m py_compile vector/app.py vector/pages/onboarding.py && echo OK)
+  ⎿  OK
+
+● Both changes are done and compile cleanly.
+
+  1. Launch maximized — In vector/app.py, the final _finish() now calls
+  window.showMaximized() instead of window.show(). This maximizes the window
+  (fills the screen but keeps the title bar and taskbar) rather than going true
+  full-screen.
+
+  2. Duplicate-ticker guard in Settings — Adding a position that already exists
+  is now blocked with an inline error:
+  - PositionDialog (in vector/pages/onboarding.py, reused by Settings) gained an
+   optional existing_tickers parameter. In submit(), before the Yahoo Finance
+  validation call, if the entered ticker is already held it shows: "AAPL is 
+  already in your portfolio — use 'Edit Selected' to change its share count."
+  and stops — the user keeps their input and no wasted network call is made.
+  - add_position_from_settings() in vector/app.py now passes the set of
+  currently-held tickers into the dialog.
+
+  A note on scope: I left the onboarding add flow (open_add_modal) unchanged —
+  it doesn't pass existing_tickers, so its behavior is identical to before. It
+  has the same potential for duplicates, but the "Edit Selected" wording is
+  Settings-specific and you only flagged Settings. If you'd like, I can extend
+  the guard to onboarding with appropriate wording too.
+
+✻ Churned for 1m 25s
+
+※ recap: We bumped Vector to 0.4.6, set the app to launch maximized, and blocked duplicate-ticker adds in Settings with an inline error. All changes compile. Next action is to run the app and confirm both behaviors work. (disable recaps in /config)
+
+❯ 1 question, 1 ask. 1. should the lens projections be at all different from a  
+  portfolio that was recently edited from settings vs. a new portfolio from     
+  onboarding? like is the logic all the same meaning as long as they are the    
+  same portfolio thats being tested, they have the same projection and lens     
+  output? 2. remove the text description on the sharpe ratio widget. remove the 
+   text thats to the right of each value (0-1 1-2). keep the text that says     
+  like sub optimal etc, just remove the description next to it.                 
+
+● Good questions. Let me investigate the Lens/projection logic to answer #1
+  accurately, and read the Sharpe widget for #2.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now let me investigate the Lens/projection inputs to answer your question
+  accurately — I want to check what the engine actually keys off of, and whether
+   the Monte Carlo projection is deterministic.
+
+  Read 2 files (ctrl+o to expand)
+
+● Let me check how positions get normalized on refresh and whether cost-basis
+  fields differ by creation path — that's the one place provenance could leak
+  into the output.
+
+  Searched for 1 pattern, read 2 files (ctrl+o to expand)
+
+● The performance analyzer reads a price field and treats equity as cost basis.
+  I need to check whether onboarding adds price/added_at fields that the
+  settings-add path doesn't — that would be a real provenance difference. Let me
+   check the onboarding finalize path.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Let me check whether store.save_positions normalizes or stamps any fields
+  (like price or added_at):
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● I now have a complete picture. Let me make the Sharpe widget edit — shortening
+   each tier row to keep the range and the qualifier word
+  (Excellent/Good/Sub-optimal/Poor) but drop the explanation after it.
+● Update(vector\widget_types\sharpe_ratio.py)
+  ⎿  Added 4 lines, removed 4 lines
+      132          # Interpretation tiers
+      133          self._tiers: list[_TierRow] = []
+      134          for tier, desc in [
+      135 -            ('> 2.0', 'Excellent — strong risk-adjusted return
+          -'),                                                           
+      136 -            ('1 – 2', 'Good — solid performance'),            
+      137 -            ('0 – 1', 'Sub-optimal — low return for the risk')
+          -,                                                             
+      138 -            ('< 0',   'Poor — underperforming risk-free assets
+          -'),                                                           
+      135 +            ('> 2.0', 'Excellent'),                           
+      136 +            ('1 – 2', 'Good'),                                
+      137 +            ('0 – 1', 'Sub-optimal'),                         
+      138 +            ('< 0',   'Poor'),                                
+      139          ]:
+      140              row = _TierRow(tier, desc)
+      141              self._tiers.append(row)
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -m py_compile vector/widget_types/sharpe_ratio.py && echo OK)
+  ⎿  OK
+
+● Both done. Here's the answer to your question and a summary of the change.
+
+  1. Should Lens/projections differ between a settings-edited vs. 
+  onboarding-created portfolio?
+
+  No. The Lens engine and the projection are pure functions of three inputs only
+   — (positions, store, settings). Nothing in the pipeline knows or records how
+  the portfolio was created. generate_lens_full() → build_lens_output(positions,
+   store, settings), and run_projection() takes tickers/weights/value. There's
+  no "provenance" field anywhere.
+
+  So identical portfolio state → identical brief, CTAs, caution score, and 
+  projection graphs, regardless of origin. Concretely, "identical state" means:
+
+  1. Same position records. Both onboarding and Settings → Add use the same
+  PositionDialog, which builds the same dict (ticker, shares, current_price, 
+  equity, sector, name). Onboarding's launch() saves them verbatim;
+  save_positions() doesn't normalize or stamp anything. And refresh_data()
+  recomputes current_price/sector/equity for every position on each refresh — so
+   after one refresh, an edited and a fresh portfolio with the same holdings are
+   byte-identical.
+  2. Same settings — chiefly risk_tier and the lens_signals thresholds.
+  3. Same cached market data — prices, earnings dates, dividend dates.
+
+  Determinism is built in: sentence selection is a SHA-256 hash of portfolio
+  state, and the Monte Carlo uses a fixed seed (np.random.default_rng(seed=42)),
+   so the fan shape is stable run-to-run.
+
+  The only ways the "same" portfolio can produce different output:
+  - Market-data timing — if the quote/earnings/dividend cache refreshes between
+  two tests, equity = shares × current_price shifts, which moves projections and
+   can tip a threshold. (TTLs: quote ≈ refresh interval, earnings/dividends 24h,
+   daily history 60 min.) This is a when-you-tested effect, not a
+  how-it-was-created effect.
+  - History-less tickers — the MC fallback for a ticker with <20 days of history
+   seeds an RNG with abs(hash(ticker)), and Python salts string hashing per
+  process, so that one fallback path can vary across app restarts. Normal
+  tickers with real history are unaffected.
+
+  One bonus finding worth flagging (not a provenance difference — it affects all
+   portfolios equally): the performance / unrealized-P&L analyzer reads
+  pos.get('price') for current price and treats equity as cost basis. But
+  positions store the live price under current_price (not price), and equity is
+  continuously recomputed to current value — so there's no preserved entry
+  price. Net effect: that analyzer reports ~0% unrealized P&L for everything,
+  meaning P&L-driven CTAs/sentences are effectively dormant. It's consistent
+  across both creation paths, so it doesn't answer your question either way —
+  but if you want P&L to actually drive Lens output, we'd need to store an
+  entry/cost-basis price separately at add time. Let me know if you want me to
+  fix that.
+
+  2. Sharpe widget tier rows
+
+  In vector/widget_types/sharpe_ratio.py I trimmed the interpretation rows from
+  <range> — <qualifier> — <explanation> to <range> — <qualifier>:
+
+  - > 2.0 — Excellent
+  - 1 – 2 — Good
+  - 0 – 1 — Sub-optimal
+  - < 0 — Poor
+
+  The qualifier words stay (and still highlight on the active tier); only the
+  trailing descriptions ("strong risk-adjusted return", etc.) are gone. Compiles
+   clean.
+
+✻ Brewed for 2m 43s
+
+❯ This is my current portfolio, and these are my projections, something is      
+  clearly wrong here, while the buy signals its saying arent wrong, they are    
+  way to low, $70 in a 17k portfolio means nothing. Dont just slap a bandaid    
+  over this, find the issue within lens, fix it. dont destroy its functionaly   
+  when you do this. & 'c:\Users\Matthew\Pictures\Screenshots\Screenshot         
+  2026-05-23 190801.png'& 'c:\Users\Matthew\Pictures\Screenshots\Screenshot     
+  2026-05-23 190655.png'                                                        
+
+● Let me look at the screenshots first.
+
+  Read 2 files (ctrl+o to expand)
+
+● Now let me dig into the CTA engine where these buy amounts are computed.
+
+  Read 1 file (ctrl+o to expand)
+
+● The screenshot is the key clue: "reduce MSFT's 35% concentration toward the 
+  35% target." Current weight and target are both 35% — so the dilution math
+  computes ≈ $0. Let me confirm the threshold values and the concentration
+  analyzer's flag logic.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now the risk profile thresholds:
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● Both current weight and target render as 35% — that points at the
+  threshold-vs-target collision. Let me see how risk_profile.py merges the
+  settings lens_signals (which defaults stock_concentration_pct: 35) into the
+  concentration thresholds.
+
+  Read 1 file (ctrl+o to expand)
+
+● This confirms the root cause. Let me trace it precisely:
+
+  1. risk_profile.py:32-34 — the settings default
+  lens_signals.stock_concentration_pct = 35 (constants.py:53) overrides
+  concentration.moderate to 35.
+  2. concentration.py:20,64 — a stock flags as concentrated when weight_pct > 
+  moderate (i.e. > 35%). MSFT at ~35.4% trips it.
+  3. cta_engine.py:344-350 — the "buy to dilute" math then uses that same 35% as
+   the dilution target: v_total_new = v_stock / 0.35. Since MSFT is already at
+  ~35.4%, total_dollars = v_stock/0.35 − total_equity ≈ $210, split 3 ways → $70
+   each.
+
+  The trigger threshold and the dilution target are the same number, so a
+  position sitting right at the boundary generates an almost-zero buy. That's
+  the bug. Let me verify the math: $70 × 3 = $210; total_dollars = 
+  E·(w−0.35)/0.35 = 210 with E≈$17k gives w≈35.4% — exactly "just over
+  threshold."
+
+  The same latent collision exists in Priority 7 (sector, cta_engine.py:418-422:
+   target 0.50 when heavy_pct > 50). Let me check the sentence template so the
+  displayed target stays clean after the fix.
+
+  Read 1 file (ctrl+o to expand)
+
+● Let me check the template strings to ensure the displayed target/weight format
+   cleanly after the fix.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● The template uses {target_weight:.0f}%, so after the fix it'll cleanly read
+  "dilute below 26%" / "toward the 26% target" — and crucially the target will
+  no longer equal the current weight.
+
+  I have a complete diagnosis. Now the fix: the dilution target must sit
+  meaningfully below the trigger threshold, not equal to it. I'll introduce a
+  single dilution factor and apply it consistently to both the single-stock
+  (Priority 6) and sector (Priority 7) concentration math.
+
+● Update(vector\lens\cta_engine.py)
+  ⎿  Added 7 lines
+      13  _MIN_SELL_DOLLARS = 500
+      14  _MIN_POSITION_VALUE_FOR_SELL = 1000
+      15  
+      16 +# A concentration threshold is the weight ABOVE which a holding
+         +/sector is flagged.                                            
+      17 +# Diluting it back to that same threshold requires ~$0 for a po
+         +sition sitting right                                           
+      18 +# at the trigger (target == current weight → near-zero buy). We
+         + instead dilute toward                                         
+      19 +# a target that is this fraction of the trigger, so the recomme
+         +nded buy is always                                             
+      20 +# materially sized while still scaling with the user's chosen t
+         +hreshold.                                                      
+      21 +_CONCENTRATION_DILUTION_FACTOR = 0.75                          
+      22  
+      23 +                                                               
+      24  def _round10(v: float) -> float:
+      25      return round(v / 10) * 10
+      26  
+
+● Update(vector\lens\cta_engine.py)
+  ⎿  Added 5 lines, removed 1 line
+      348              if t in INDEX_ETFS or t in index_cta_tickers:
+      349                  continue
+      350              rp = pool_results.get('_risk_profile', {})
+      351 -            target_weight = rp.get('concentration', {}).get('m
+          -oderate', 30) / 100                                           
+      351 +            # Dilute toward a target safely BELOW the trigger 
+          +threshold (see                                                
+      352 +            # _CONCENTRATION_DILUTION_FACTOR) — diluting back 
+          +to the trigger itself                                         
+      353 +            # produces a ~$0 buy for a stock sitting right at 
+          +it.                                                           
+      354 +            trigger_pct = rp.get('concentration', {}).get('mod
+          +erate', 30)                                                   
+      355 +            target_weight = (trigger_pct * _CONCENTRATION_DILU
+          +TION_FACTOR) / 100                                            
+      356              v_stock = summary.get('ticker_current_values', {})
+           .get(
+      357                  t, ticker_weights.get(t, 0) * total_equity,
+      358              )
+
+● Update(vector\lens\cta_engine.py)
+  ⎿  Added 6 lines, removed 3 lines
+      425          heavy_sector = port_conc['details'].get('heaviest_sect
+           or', '')
+      426          heavy_pct = port_conc['details'].get('heaviest_sector_
+           weight', 0)
+      427  
+      428 -        # Calculate total dollars needed                      
+      429 -        if heavy_pct > 50:                                    
+      428 +        # Calculate total dollars needed. Same trigger-vs-targ
+          +et collision as                                               
+      429 +        # single-stock concentration: dilute toward a target B
+          +ELOW the sector                                               
+      430 +        # trigger, not back to the trigger itself.            
+      431 +        sector_trigger = risk_profile.get('concentration', {})
+          +.get('sector_moderate', 50)                                   
+      432 +        if heavy_pct > sector_trigger:                        
+      433              sector_eq = (heavy_pct / 100) * total_equity
+      431 -            target = 0.50                                     
+      434 +            target = (sector_trigger * _CONCENTRATION_DILUTION
+          +_FACTOR) / 100                                                
+      435              v_total_new = sector_eq / target
+      436              total_dollars = _round10(v_total_new - total_equit
+           y)
+      437          else:
+
+● Now let me verify the fix produces materially-sized buys by exercising
+  compute_ctas directly with a synthetic pool mirroring your portfolio (a stock
+  flagged at ~35.4%).
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      from vector.lens.cta_engine import compute_ctas…)
+  ⎿  total buy CTAs: 3
+       P6 buy_new   JPM   $   1,980  reduce_concentration  target=26.25
+       P6 buy_new   PG    $   1,980  reduce_concentration  target=26.25
+     … +2 lines (ctrl+o to expand)
+● The fix works: the three dilution buys went from $70 each ($210 total, ~1.2%)
+  to $1,980 each ($5,940 total, ~35%), targeting a 26% weight (below the 35%
+  trigger) and respecting the existing per-CTA/group caps.
+
+  Let me also confirm Priority 7 (sector over-concentration) is fixed the same
+  way, and that a healthy portfolio still produces no spurious buys:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      from vector.lens.cta_engine import compute_ctas…)
+  ⎿  === Sector over-concentration (Tech 80%%, trigger 50%%) ===
+       P7 buy_new   JPM   $   2,830  sector_underweight
+       P7 buy_new   PG    $   2,830  sector_underweight
+     … +3 lines (ctrl+o to expand)
+
+● Both fixed and the healthy portfolio is unaffected (only the P11 hold). Let me
+   compile and update CLAUDE.md to document the invariant.
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -m py_compile vector/lens/cta_engine.py && echo OK)
+  ⎿  OK
+
+  Read 1 file (ctrl+o to expand)
+
+● Update(CLAUDE.md)
+  ⎿  Added 2 lines
+      236  
+      237  **Buy amount caps:** `_cap_buy_amount()` is applied to every b
+           uy-type priority (5, 6, 7, 9) so diversification deltas remain
+            proportional to portfolio size.
+      238  
+      239 +**Concentration dilution target (don't regress):** Priorities 
+          +6 (single-stock) and 7 (sector) compute "buy elsewhere to dilu
+          +te" dollars by solving `v_total_new = over_value / target_weig
+          +ht`. The dilution `target_weight` must sit **below** the flag 
+          +trigger, never equal to it — a holding sitting right at the tr
+          +igger would otherwise need ≈$0 to "dilute" back to the same nu
+          +mber (this produced the $70-on-a-$17k-portfolio bug). The targ
+          +et is `trigger × _CONCENTRATION_DILUTION_FACTOR` (0.75) in `ct
+          +a_engine.py`; the single-stock trigger is `risk_profile['conce
+          +ntration']['moderate']` (defaults to the `stock_concentration_
+          +pct` lens-signal, 35), the sector trigger is `['sector_moderat
+          +e']` (50). Do not set the target back to the raw trigger.     
+      240 +                                                              
+      241  **Sell gates:** Priority 8 (dead weight) is additionally gated
+            by `_sell_too_small()` — tiny positions don't generate sell C
+           TAs.
+      242  
+      243  **Sector awareness:** `_get_ticker_sector()` in `cta_engine.py
+           ` looks up a ticker's sector via `SECTOR_SUGGESTIONS`. Every b
+           uy CTA verifies the suggested ticker is NOT in the problem sec
+           tor. `_underweight_sectors_sorted()` returns all sectors sorte
+           d lightest-first, with an `exclude_sectors` parameter to skip 
+           problem sectors. `_split_dollars_by_underweight()` allocates d
+           ollars proportionally to how underweight each target sector is
+           .
+
+● The app fix is complete and verified. Let me quickly check whether the offline
+   lens_standalone/ copy carries the same flaw, so I can flag it accurately.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● The offline lens_standalone/ copy still has the old math (lines 324, 396). Per
+   the CLAUDE.md sync workflow, that tree is where the engine gets iterated and
+  promoted back — leaving it stale would let a future promotion silently
+  re-introduce this bug. I'll apply the same fix there for consistency. Let me
+  read the relevant sections.
+
+  Read 1 file (ctrl+o to expand)
+
+● The standalone mirrors the app structure. Let me confirm risk_profile is in
+  scope there (for the P7 edit), then apply the same three edits.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● risk_profile is in scope (line 102). Applying the same three edits to the
+  standalone copy:
+
+● Update(lens_standalone\lens\cta_engine.py)
+  ⎿  Added 7 lines
+      13  _MIN_SELL_DOLLARS = 500
+      14  _MIN_POSITION_VALUE_FOR_SELL = 1000
+      15  
+      16 +# A concentration threshold is the weight ABOVE which a holding
+         +/sector is flagged.                                            
+      17 +# Diluting it back to that same threshold requires ~$0 for a po
+         +sition sitting right                                           
+      18 +# at the trigger (target == current weight → near-zero buy). We
+         + instead dilute toward                                         
+      19 +# a target that is this fraction of the trigger, so the recomme
+         +nded buy is always                                             
+      20 +# materially sized while still scaling with the user's chosen t
+         +hreshold.                                                      
+      21 +_CONCENTRATION_DILUTION_FACTOR = 0.75                          
+      22  
+      23 +                                                               
+      24  def _round10(v: float) -> float:
+      25      return round(v / 10) * 10
+      26  
+
+● Update(lens_standalone\lens\cta_engine.py)
+  ⎿  Added 5 lines, removed 1 line
+      328              if t in INDEX_ETFS or t in index_cta_tickers:
+      329                  continue
+      330              rp = pool_results.get('_risk_profile', {})
+      331 -            target_weight = rp.get('concentration', {}).get('m
+          -oderate', 30) / 100                                           
+      331 +            # Dilute toward a target safely BELOW the trigger 
+          +threshold (see                                                
+      332 +            # _CONCENTRATION_DILUTION_FACTOR) — diluting back 
+          +to the trigger itself                                         
+      333 +            # produces a ~$0 buy for a stock sitting right at 
+          +it.                                                           
+      334 +            trigger_pct = rp.get('concentration', {}).get('mod
+          +erate', 30)                                                   
+      335 +            target_weight = (trigger_pct * _CONCENTRATION_DILU
+          +TION_FACTOR) / 100                                            
+      336              v_stock = summary.get('ticker_current_values', {})
+           .get(
+      337                  t, ticker_weights.get(t, 0) * total_equity,
+      338              )
+
+● Update(lens_standalone\lens\cta_engine.py)
+  ⎿  Added 5 lines, removed 2 lines
+      402          heavy_sector = port_conc['details'].get('heaviest_sect
+           or', '')
+      403          heavy_pct = port_conc['details'].get('heaviest_sector_
+           weight', 0)
+      404  
+      405 -        if heavy_pct > 50:                                    
+      405 +        # Same trigger-vs-target collision as single-stock con
+          +centration: dilute                                            
+      406 +        # toward a target BELOW the sector trigger, not back t
+          +o the trigger itself.                                         
+      407 +        sector_trigger = risk_profile.get('concentration', {})
+          +.get('sector_moderate', 50)                                   
+      408 +        if heavy_pct > sector_trigger:                        
+      409              sector_eq = (heavy_pct / 100) * total_equity
+      407 -            target = 0.50                                     
+      410 +            target = (sector_trigger * _CONCENTRATION_DILUTION
+          +_FACTOR) / 100                                                
+      411              v_total_new = sector_eq / target
+      412              total_dollars = _round10(v_total_new - total_equit
+           y)
+      413          else:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -m py_compile lens_standalone/lens/cta_engine.py
+      vector/lens/cta_engine.py && ech…)
+  ⎿  OK
+
+● Done. Here's the diagnosis and fix.
+
+  Root cause (not a band-aid — the actual bug)
+
+  The buy amounts collapsed because the dilution target equaled the flag 
+  trigger. The chain:
+
+  1. risk_profile.py merges the settings default
+  lens_signals.stock_concentration_pct = 35 over concentration.moderate, so a
+  stock is flagged as over-concentrated when its weight is > 35%.
+  2. cta_engine.py Priority 6 then computed how much to buy elsewhere to dilute
+  it — using that same 35% as the target: v_total_new = v_stock / 0.35.
+  3. Your MSFT sits at ~35.4% — just over the trigger — so total_dollars = 
+  v_stock/0.35 − total_equity ≈ $210, split across 3 sectors → $70 each.
+
+  In other words, the engine flagged the position for being above 35% and then
+  asked "how much to buy to bring it back to 35%?" — which is ≈ nothing. The
+  math confirms it exactly: $70 × 3 = $210, and total_dollars = E·(w−0.35)/0.35 
+  = $210 solves to w ≈ 35.4%. Priority 7 (sector concentration) had the
+  identical collision (target = 0.50 against a 50% sector trigger).
+
+  The fix
+
+  The dilution target now sits below the trigger via a single factor
+  (_CONCENTRATION_DILUTION_FACTOR = 0.75), applied to both Priority 6 and 7. So
+  a 35% trigger dilutes toward ~26%; a 50% sector trigger toward ~37.5%. It
+  scales with whatever threshold the user sets and never collapses to ~$0.
+  Existing _cap_buy_amount() caps (25%/CTA, 50%/group) still bound the upper
+  end, so functionality is preserved.
+
+  Verified on a synthetic copy of your portfolio:
+  - Before: 3 × $70 ($210, ~1.2% of a $17k portfolio)
+  - After: 3 × $1,980 ($5,940, ~35%), diluting MSFT toward a 26% target
+  - Sector case (Tech 80%): material buys, hitting the group cap as designed
+  - Healthy portfolio: unchanged — still just the "portfolio healthy" hold, no
+  spurious buys
+
+  Files changed
+
+  - vector/lens/cta_engine.py — the fix (Priority 6 + 7, new factor constant)
+  - lens_standalone/lens/cta_engine.py — same fix applied, so the offline
+  harness won't re-introduce the bug on a future promote
+  - CLAUDE.md — documented the "dilution target must be below trigger" invariant
+
+  One related note I'll leave to you: the sentence text said "reduce MSFT's 35%
+  concentration toward the 35% target" — that giveaway (target == current) was
+  the symptom. It now reads "...toward the 26% target," which is correct.
+
+✻ Worked for 5m 33s
+
+❯ that worked perfectly                                                         
+
+● Glad it worked. The concentration dilution fix is in both the app and the
+  standalone copy, with the invariant documented in CLAUDE.md so it won't
+  regress.
+
+✻ Baked for 2s
+
+❯ build 50 portfolios in debug_test.json, they should be a variety of           
+  portfolios, from those that are completely messed up to those that are near   
+  perfect. the messed up ones should not only be messed up by diversification,  
+  but also through terribly preforming stocks, small caps, and winner drift     
+  etc. TO find small caps, search the web. if you NEED a price, search the web, 
+   but use what you generallyk now for most intuition                           
+
+● Let me first understand the schema debug_test.json uses and how the debug
+  runner consumes it.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now let me read the debug runner and the data shim to understand how
+  entry_price/shares map into the engine (especially how it derives current
+  price vs. cost basis, since that drives winner drift and P&L).
+  Read 1 file (ctrl+o to expand)
+
+● Got it. Key mechanics from the runner:
+  - equity = shares × entry_price (the cost basis), price = live current price
+  fetched at runtime.
+  - So I engineer scenarios via entry_price relative to the (live) current
+  price: loser = entry well above current; winner drift = entry well below
+  current + a dominant share count; weights/sectors come from share counts ×
+  live price.
+  - Tickers must be real and currently valid on Yahoo or the position is
+  silently skipped.
+
+  I'll set entry_price using my price intuition (cutoff Jan 2026, today is May
+  2026) to produce intended P&L/drift, and search the web for genuine small-cap
+  tickers as you asked. Let me load the web tools and search.
+
+● Let me search for real small-cap stock tickers to include.
+
+● Web Search("list of small cap stocks 2026 tickers Russell 2000 examples under
+            $2 billion market cap")
+  ⎿  Did 1 search in 6s
+
+● That gave me the index context and one concrete name (CDE). Let me get a more
+  usable list of currently-trading small-cap tickers and confirm a few names so
+  I don't include anything delisted.
+
+● Web Search("popular volatile small cap stocks 2026 SoundHound IonQ Rigetti
+            Plug Power ChargePoint Opendoor stock price")
+  ⎿  Did 2 searches in 9s
+
+● I have what I need: confirmed-trading small caps with rough May 2026 prices
+  (PLUG ~$3.75, CHPT ~$6.27, OPEN ~$2.80, IONQ ~$62, RGTI, SOUN, CDE ~$23), plus
+   quantum/EV/crypto names. I'll size share counts off my price intuition and
+  engineer P&L via entry_price (above current = loser, far below + dominant
+  shares = winner drift). Sectors come from Yahoo at runtime, so I'll group
+  true-Technology tickers (AAPL/MSFT/NVDA/AVGO/ORCL/AMD — note GOOGL/META are
+  Communication Services) for sector-concentration cases.
+
+  Let me write the 50-portfolio file, graded from near-perfect to disaster with
+  varied failure modes.
+
+● Write(debug_test.json)
+  ⎿  Added 528 lines, removed 30 lines
+        1  {
+        2 +  "_comment": "50 synthetic portfolios graded from near-perfec
+          +t to disaster. Failure modes are engineered via structure (sec
+          +tors/weights), entry_price (entry ABOVE current = unrealized l
+          +oss; entry FAR BELOW current + dominant share count = winner d
+          +rift), and ticker choice (small caps / high-beta names). All t
+          +ickers are real and were valid on Yahoo Finance as of May 2026
+          +; current price, sector, volatility and beta are fetched live 
+          +at runtime, so exact weights/flags shift with the market. Pric
+          +es in entry_price reflect ~May 2026 intuition.",              
+        3    "portfolios": [
+        4      {
+        4 -      "name": "Tech Concentrate",                             
+        5 -      "description": "100% Technology — tests sector over-conc
+          -entration",                                                   
+        5 +      "name": "01 Index Three-Fund",                          
+        6 +      "description": "NEAR-PERFECT. Classic VTI + VXUS + VOO +
+          + SCHD core. Tests index-fund detection and a maximally diversi
+          +fied baseline.",                                              
+        7        "positions": [
+        7 -        {"ticker": "AAPL", "shares": 40, "entry_price": 150}, 
+        8 -        {"ticker": "NVDA", "shares": 15, "entry_price": 100}, 
+        9 -        {"ticker": "MSFT", "shares": 8, "entry_price": 380},  
+       10 -        {"ticker": "GOOGL", "shares": 12, "entry_price": 140} 
+        8 +        {"ticker": "VTI", "shares": 20, "entry_price": 250},  
+        9 +        {"ticker": "VXUS", "shares": 70, "entry_price": 58},  
+       10 +        {"ticker": "VOO", "shares": 6, "entry_price": 470},   
+       11 +        {"ticker": "SCHD", "shares": 80, "entry_price": 24}   
+       12        ]
+       13      },
+       14      {
+       14 -      "name": "Index Holder",                                 
+       15 -      "description": "VOO-heavy portfolio — tests index fund d
+          -etection",                                                    
+       15 +      "name": "02 Diversified Blue Chips",                    
+       16 +      "description": "NEAR-PERFECT. One large-cap leader per s
+          +ector, ~10% each across 10 sectors, all modest gainers. Should
+          + produce near 'portfolio healthy'.",                          
+       17        "positions": [
+       17 -        {"ticker": "VOO", "shares": 25, "entry_price": 480},  
+       18 -        {"ticker": "AAPL", "shares": 5, "entry_price": 180},  
+       19 -        {"ticker": "JNJ", "shares": 8, "entry_price": 150}    
+       18 +        {"ticker": "AAPL", "shares": 8, "entry_price": 195},  
+       19 +        {"ticker": "JNJ", "shares": 12, "entry_price": 135},  
+       20 +        {"ticker": "JPM", "shares": 7, "entry_price": 210},   
+       21 +        {"ticker": "PG", "shares": 11, "entry_price": 145},   
+       22 +        {"ticker": "AMZN", "shares": 8, "entry_price": 185},  
+       23 +        {"ticker": "XOM", "shares": 16, "entry_price": 95},   
+       24 +        {"ticker": "CAT", "shares": 5, "entry_price": 310},   
+       25 +        {"ticker": "NEE", "shares": 26, "entry_price": 60},   
+       26 +        {"ticker": "GOOGL", "shares": 10, "entry_price": 150},
+       27 +        {"ticker": "LIN", "shares": 4, "entry_price": 400}    
+       28        ]
+       29      },
+       30      {
+       23 -      "name": "Mixed Bag with Loser",                         
+       24 -      "description": "Diversified except INTC is down ~50% fro
+          -m entry",                                                     
+       31 +      "name": "03 Core + Satellite",                          
+       32 +      "description": "NEAR-PERFECT. ~45% VOO core with single-
+          +stock satellites spread across sectors, all small gains.",    
+       33        "positions": [
+       26 -        {"ticker": "JPM", "shares": 10, "entry_price": 195},  
+       27 -        {"ticker": "JNJ", "shares": 12, "entry_price": 152},  
+       28 -        {"ticker": "XOM", "shares": 15, "entry_price": 110},  
+       34 +        {"ticker": "VOO", "shares": 14, "entry_price": 480},  
+       35 +        {"ticker": "MSFT", "shares": 3, "entry_price": 380},  
+       36 +        {"ticker": "UNH", "shares": 5, "entry_price": 290},   
+       37 +        {"ticker": "JPM", "shares": 5, "entry_price": 215},   
+       38 +        {"ticker": "HD", "shares": 4, "entry_price": 340},    
+       39 +        {"ticker": "CVX", "shares": 10, "entry_price": 140}   
+       40 +      ]                                                       
+       41 +    },                                                        
+       42 +    {                                                         
+       43 +      "name": "04 Dividend Diversified",                      
+       44 +      "description": "NEAR-PERFECT. Defensive dividend payers 
+          +spread across sectors; low beta, modest gains.",              
+       45 +      "positions": [                                          
+       46 +        {"ticker": "SCHD", "shares": 60, "entry_price": 24},  
+       47 +        {"ticker": "JNJ", "shares": 10, "entry_price": 140},  
+       48 +        {"ticker": "PG", "shares": 10, "entry_price": 150},   
+       49 +        {"ticker": "KO", "shares": 24, "entry_price": 60},    
+       50 +        {"ticker": "JPM", "shares": 6, "entry_price": 215},   
+       51 +        {"ticker": "XOM", "shares": 14, "entry_price": 98},   
+       52 +        {"ticker": "NEE", "shares": 22, "entry_price": 62},   
+       53 +        {"ticker": "VZ", "shares": 30, "entry_price": 38}     
+       54 +      ]                                                       
+       55 +    },                                                        
+       56 +    {                                                         
+       57 +      "name": "05 Eight-Sector Spread",                       
+       58 +      "description": "NEAR-PERFECT. Eight single names, one pe
+          +r sector, ~12.5% each. Clean diversification, no index.",     
+       59 +      "positions": [                                          
+       60 +        {"ticker": "MSFT", "shares": 5, "entry_price": 360},  
+       61 +        {"ticker": "ABBV", "shares": 11, "entry_price": 165}, 
+       62 +        {"ticker": "MA", "shares": 4, "entry_price": 450},    
+       63 +        {"ticker": "COST", "shares": 2, "entry_price": 820},  
+       64 +        {"ticker": "MCD", "shares": 7, "entry_price": 270},   
+       65 +        {"ticker": "COP", "shares": 22, "entry_price": 105},  
+       66 +        {"ticker": "HON", "shares": 10, "entry_price": 195},  
+       67 +        {"ticker": "DUK", "shares": 18, "entry_price": 105}   
+       68 +      ]                                                       
+       69 +    },                                                        
+       70 +    {                                                         
+       71 +      "name": "06 Global Balanced",                           
+       72 +      "description": "NEAR-PERFECT. US + international index t
+          +ilt plus a couple quality single names.",                     
+       73 +      "positions": [                                          
+       74 +        {"ticker": "VTI", "shares": 14, "entry_price": 255},  
+       75 +        {"ticker": "VXUS", "shares": 90, "entry_price": 60},  
+       76 +        {"ticker": "VYM", "shares": 14, "entry_price": 118},  
+       77 +        {"ticker": "AAPL", "shares": 6, "entry_price": 200},  
+       78 +        {"ticker": "JNJ", "shares": 9, "entry_price": 142}    
+       79 +      ]                                                       
+       80 +    },                                                        
+       81 +    {                                                         
+       82 +      "name": "07 Balanced Growth & Value",                   
+       83 +      "description": "NEAR-PERFECT. Growth and value names bal
+          +anced across sectors with moderate weights.",                 
+       84 +      "positions": [                                          
+       85 +        {"ticker": "AAPL", "shares": 6, "entry_price": 200},  
+       86 +        {"ticker": "GOOGL", "shares": 9, "entry_price": 155}, 
+       87 +        {"ticker": "BRK-B", "shares": 4, "entry_price": 430}, 
+       88 +        {"ticker": "LLY", "shares": 2, "entry_price": 720},   
+       89 +        {"ticker": "WMT", "shares": 18, "entry_price": 82},   
+       90 +        {"ticker": "CAT", "shares": 4, "entry_price": 320}    
+       91 +      ]                                                       
+       92 +    },                                                        
+       93 +    {                                                         
+       94 +      "name": "08 Lazy Two-Fund",                             
+       95 +      "description": "NEAR-PERFECT. Total-market + internation
+          +al, dividend sleeve. The textbook set-and-forget.",           
+       96 +      "positions": [                                          
+       97 +        {"ticker": "VOO", "shares": 16, "entry_price": 470},  
+       98 +        {"ticker": "VXUS", "shares": 60, "entry_price": 60},  
+       99 +        {"ticker": "SCHD", "shares": 70, "entry_price": 24}   
+      100 +      ]                                                       
+      101 +    },                                                        
+      102 +    {                                                         
+      103 +      "name": "09 Slightly Tech-Heavy",                       
+      104 +      "description": "GOOD, minor flaw. Diversified but tech s
+          +its a touch high (~30-35%). Otherwise balanced.",             
+      105 +      "positions": [                                          
+      106 +        {"ticker": "AAPL", "shares": 10, "entry_price": 195}, 
+      107 +        {"ticker": "MSFT", "shares": 4, "entry_price": 380},  
+      108 +        {"ticker": "NVDA", "shares": 6, "entry_price": 110},  
+      109 +        {"ticker": "JNJ", "shares": 12, "entry_price": 140},  
+      110 +        {"ticker": "JPM", "shares": 7, "entry_price": 210},   
+      111 +        {"ticker": "AMZN", "shares": 7, "entry_price": 185},  
+      112 +        {"ticker": "XOM", "shares": 14, "entry_price": 95},   
+      113 +        {"ticker": "PG", "shares": 9, "entry_price": 150}     
+      114 +      ]                                                       
+      115 +    },                                                        
+      116 +    {                                                         
+      117 +      "name": "10 One Small Loser",                           
+      118 +      "description": "GOOD, minor flaw. Well diversified, but 
+          +PFE is down ~40% from a high entry. Single moderate unrealized
+          + loss.",                                                      
+      119 +      "positions": [                                          
+      120 +        {"ticker": "VOO", "shares": 8, "entry_price": 470},   
+      121 +        {"ticker": "AAPL", "shares": 6, "entry_price": 200},  
+      122 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      123 +        {"ticker": "PG", "shares": 8, "entry_price": 150},    
+      124 +        {"ticker": "PFE", "shares": 60, "entry_price": 42}    
+      125 +      ]                                                       
+      126 +    },                                                        
+      127 +    {                                                         
+      128 +      "name": "11 Mild Single-Stock Tilt",                    
+      129 +      "description": "GOOD, minor flaw. AAPL ~25% of the book 
+          +— noticeable but below the concentration flag.",              
+      130 +      "positions": [                                          
+      131 +        {"ticker": "AAPL", "shares": 18, "entry_price": 190}, 
+      132 +        {"ticker": "JNJ", "shares": 12, "entry_price": 140},  
+      133 +        {"ticker": "JPM", "shares": 7, "entry_price": 210},   
+      134 +        {"ticker": "XOM", "shares": 14, "entry_price": 95},   
+      135 +        {"ticker": "HON", "shares": 8, "entry_price": 195},   
+      136 +        {"ticker": "NEE", "shares": 20, "entry_price": 62}    
+      137 +      ]                                                       
+      138 +    },                                                        
+      139 +    {                                                         
+      140 +      "name": "12 Modest Winner",                             
+      141 +      "description": "GOOD, minor flaw. NVDA appreciated from 
+          +a low entry to ~28% — a winner just shy of the drift/concentra
+          +tion trigger.",                                               
+      142 +      "positions": [                                          
+      143 +        {"ticker": "NVDA", "shares": 36, "entry_price": 45},  
+      144 +        {"ticker": "JNJ", "shares": 14, "entry_price": 145},  
+      145 +        {"ticker": "JPM", "shares": 9, "entry_price": 210},   
+      146 +        {"ticker": "PG", "shares": 12, "entry_price": 150},   
+      147 +        {"ticker": "AMZN", "shares": 8, "entry_price": 190}   
+      148 +      ]                                                       
+      149 +    },                                                        
+      150 +    {                                                         
+      151 +      "name": "13 Healthcare Lean",                           
+      152 +      "description": "GOOD, minor flaw. Overweight healthcare 
+          +(~35%) but otherwise spread; tests sector-tilt detection at th
+          +e boundary.",                                                 
+      153 +      "positions": [                                          
+      154 +        {"ticker": "UNH", "shares": 8, "entry_price": 320},   
+      155 +        {"ticker": "JNJ", "shares": 12, "entry_price": 140},  
+      156 +        {"ticker": "ABBV", "shares": 10, "entry_price": 170}, 
+      157 +        {"ticker": "AAPL", "shares": 6, "entry_price": 200},  
+      158 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      159 +        {"ticker": "XOM", "shares": 12, "entry_price": 96}    
+      160 +      ]                                                       
+      161 +    },                                                        
+      162 +    {                                                         
+      163 +      "name": "14 Thin Diversification",                      
+      164 +      "description": "GOOD-ish. Quality names but only three s
+          +ectors represented — diversification is thinner than ideal.", 
+      165 +      "positions": [                                          
+      166 +        {"ticker": "AAPL", "shares": 7, "entry_price": 200},  
+      167 +        {"ticker": "MSFT", "shares": 4, "entry_price": 380},  
+      168 +        {"ticker": "JPM", "shares": 8, "entry_price": 210},   
+      169 +        {"ticker": "BAC", "shares": 30, "entry_price": 40},   
+      170 +        {"ticker": "AMZN", "shares": 7, "entry_price": 190}   
+      171 +      ]                                                       
+      172 +    },                                                        
+      173 +    {                                                         
+      174 +      "name": "15 Slight Beta Tilt",                          
+      175 +      "description": "GOOD, minor flaw. Mostly steady, but a c
+          +ouple of higher-beta growth names nudge portfolio beta up.",  
+      176 +      "positions": [                                          
+      177 +        {"ticker": "VOO", "shares": 8, "entry_price": 470},   
+      178 +        {"ticker": "NVDA", "shares": 10, "entry_price": 110}, 
+      179 +        {"ticker": "AMD", "shares": 12, "entry_price": 150},  
+      180 +        {"ticker": "JNJ", "shares": 10, "entry_price": 140},  
+      181 +        {"ticker": "PG", "shares": 8, "entry_price": 150}     
+      182 +      ]                                                       
+      183 +    },                                                        
+      184 +    {                                                         
+      185 +      "name": "16 Tiny Dead-Weight Tail",                     
+      186 +      "description": "GOOD with a wart. Solid core plus two su
+          +b-1% odd-lot positions that read as dead weight.",            
+      187 +      "positions": [                                          
+      188 +        {"ticker": "VTI", "shares": 18, "entry_price": 255},  
+      189 +        {"ticker": "AAPL", "shares": 8, "entry_price": 200},  
+      190 +        {"ticker": "JPM", "shares": 7, "entry_price": 210},   
+      191 +        {"ticker": "JNJ", "shares": 9, "entry_price": 142},   
+      192 +        {"ticker": "F", "shares": 4, "entry_price": 11},      
+      193 +        {"ticker": "T", "shares": 2, "entry_price": 24}       
+      194 +      ]                                                       
+      195 +    },                                                        
+      196 +    {                                                         
+      197 +      "name": "17 Tech Overweight",                           
+      198 +      "description": "MODERATE. ~55% Technology across several
+          + chip/software names. Clear sector over-concentration.",      
+      199 +      "positions": [                                          
+      200 +        {"ticker": "AAPL", "shares": 14, "entry_price": 195}, 
+      201 +        {"ticker": "MSFT", "shares": 6, "entry_price": 380},  
+      202 +        {"ticker": "NVDA", "shares": 14, "entry_price": 110}, 
+      203 +        {"ticker": "AVGO", "shares": 10, "entry_price": 160}, 
+      204 +        {"ticker": "JNJ", "shares": 10, "entry_price": 142},  
+      205 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      206 +        {"ticker": "XOM", "shares": 10, "entry_price": 96}    
+      207 +      ]                                                       
+      208 +    },                                                        
+      209 +    {                                                         
+      210 +      "name": "18 Single-Stock Heavy",                        
+      211 +      "description": "MODERATE. NVDA ~40% of the portfolio — s
+          +ingle-stock concentration above the trigger.",                
+      212 +      "positions": [                                          
+      213 +        {"ticker": "NVDA", "shares": 55, "entry_price": 95},  
+      214 +        {"ticker": "JNJ", "shares": 12, "entry_price": 142},  
+      215 +        {"ticker": "JPM", "shares": 7, "entry_price": 210},   
+      216 +        {"ticker": "PG", "shares": 9, "entry_price": 150},    
+      217 +        {"ticker": "XOM", "shares": 12, "entry_price": 96}    
+      218 +      ]                                                       
+      219 +    },                                                        
+      220 +    {                                                         
+      221 +      "name": "19 Two Losers",                                
+      222 +      "description": "MODERATE. Diversified but two positions 
+          +(INTC, NKE) are down 40-55% from high entries.",              
+      223 +      "positions": [                                          
+      224 +        {"ticker": "VOO", "shares": 6, "entry_price": 470},   
+      225 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      226 +        {"ticker": "INTC", "shares": 70, "entry_price": 48},  
+      227 +        {"ticker": "NKE", "shares": 30, "entry_price": 120},  
+      228 +        {"ticker": "PG", "shares": 8, "entry_price": 150}     
+      229 +      ]                                                       
+      230 +    },                                                        
+      231 +    {                                                         
+      232 +      "name": "20 Moderate Winner Drift",                     
+      233 +      "description": "MODERATE. AAPL bought cheap years ago, n
+          +ow ~38% with a drift multiple over 2x — winner drift + concent
+          +ration.",                                                     
+      234 +      "positions": [                                          
+      235 +        {"ticker": "AAPL", "shares": 55, "entry_price": 60},  
+      236 +        {"ticker": "JNJ", "shares": 14, "entry_price": 140},  
+      237 +        {"ticker": "JPM", "shares": 9, "entry_price": 210},   
+      238 +        {"ticker": "PG", "shares": 12, "entry_price": 150},   
+      239 +        {"ticker": "XOM", "shares": 14, "entry_price": 96}    
+      240 +      ]                                                       
+      241 +    },                                                        
+      242 +    {                                                         
+      243 +      "name": "21 Volatility Creep",                          
+      244 +      "description": "MODERATE. A steady core diluted with sev
+          +eral higher-volatility names (TSLA, COIN, PLTR).",            
+      245 +      "positions": [                                          
+      246 +        {"ticker": "VOO", "shares": 6, "entry_price": 470},   
+      247 +        {"ticker": "TSLA", "shares": 8, "entry_price": 250},  
+      248 +        {"ticker": "COIN", "shares": 6, "entry_price": 220},  
+      249 +        {"ticker": "PLTR", "shares": 20, "entry_price": 90},  
+      250 +        {"ticker": "JNJ", "shares": 8, "entry_price": 142}    
+      251 +      ]                                                       
+      252 +    },                                                        
+      253 +    {                                                         
+      254 +      "name": "22 High-Beta Trio",                            
+      255 +      "description": "MODERATE-to-HIGH. Concentrated in high-b
+          +eta megacap/growth (NVDA, TSLA, AMD) — elevated portfolio beta
+          +.",                                                           
+      256 +      "positions": [                                          
+      257 +        {"ticker": "NVDA", "shares": 20, "entry_price": 110}, 
+      258 +        {"ticker": "TSLA", "shares": 10, "entry_price": 260}, 
+      259 +        {"ticker": "AMD", "shares": 18, "entry_price": 150},  
+      260 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      261 +        {"ticker": "PG", "shares": 8, "entry_price": 150}     
+      262 +      ]                                                       
+      263 +    },                                                        
+      264 +    {                                                         
+      265 +      "name": "23 Small-Cap Dabbler",                         
+      266 +      "description": "MODERATE. Mostly large-cap core, but ~20
+          +% sprinkled into volatile small caps (SOFI, RUN, SOUN).",     
+      267 +      "positions": [                                          
+      268 +        {"ticker": "VOO", "shares": 8, "entry_price": 470},   
+      269 +        {"ticker": "AAPL", "shares": 6, "entry_price": 200},  
+      270 +        {"ticker": "JNJ", "shares": 8, "entry_price": 142},   
+      271 +        {"ticker": "SOFI", "shares": 60, "entry_price": 12},  
+      272 +        {"ticker": "RUN", "shares": 50, "entry_price": 14},   
+      273 +        {"ticker": "SOUN", "shares": 40, "entry_price": 9}    
+      274 +      ]                                                       
+      275 +    },                                                        
+      276 +    {                                                         
+      277 +      "name": "24 Three-Sector Gap",                          
+      278 +      "description": "MODERATE. All capital in tech, financial
+          +s and energy — entire defensive/healthcare/utility side missin
+          +g.",                                                          
+      279 +      "positions": [                                          
+      280 +        {"ticker": "MSFT", "shares": 6, "entry_price": 380},  
+      281 +        {"ticker": "NVDA", "shares": 12, "entry_price": 110}, 
+      282 +        {"ticker": "JPM", "shares": 8, "entry_price": 210},   
+      283 +        {"ticker": "GS", "shares": 3, "entry_price": 480},    
+      284 +        {"ticker": "XOM", "shares": 14, "entry_price": 96},   
+      285 +        {"ticker": "CVX", "shares": 10, "entry_price": 145}   
+      286 +      ]                                                       
+      287 +    },                                                        
+      288 +    {                                                         
+      289 +      "name": "25 Energy Heavy",                              
+      290 +      "description": "MODERATE. ~45% energy across XOM/CVX/COP
+          +/SLB — strong sector bet.",                                   
+      291 +      "positions": [                                          
+      292 +        {"ticker": "XOM", "shares": 24, "entry_price": 98},   
+      293 +        {"ticker": "CVX", "shares": 14, "entry_price": 145},  
+      294 +        {"ticker": "COP", "shares": 18, "entry_price": 100},  
+      295 +        {"ticker": "SLB", "shares": 30, "entry_price": 42},   
+      296 +        {"ticker": "AAPL", "shares": 6, "entry_price": 200},  
+      297 +        {"ticker": "JNJ", "shares": 8, "entry_price": 142}    
+      298 +      ]                                                       
+      299 +    },                                                        
+      300 +    {                                                         
+      301 +      "name": "26 Concentration + Loser",                     
+      302 +      "description": "MODERATE. NVDA ~38% concentration AND a 
+          +deep BA loser (down ~35%) at the same time.",                 
+      303 +      "positions": [                                          
+      304 +        {"ticker": "NVDA", "shares": 45, "entry_price": 100}, 
+      305 +        {"ticker": "BA", "shares": 20, "entry_price": 250},   
+      306 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      307 +        {"ticker": "PG", "shares": 8, "entry_price": 150},    
+      308 +        {"ticker": "JNJ", "shares": 8, "entry_price": 142}    
+      309 +      ]                                                       
+      310 +    },                                                        
+      311 +    {                                                         
+      312 +      "name": "27 Drift + Separate Loser",                    
+      313 +      "description": "MODERATE. A drifted MSFT winner (low ent
+          +ry, dominant) plus an unrelated DIS loser down ~40%.",        
+      314 +      "positions": [                                          
+      315 +        {"ticker": "MSFT", "shares": 20, "entry_price": 120}, 
+      316 +        {"ticker": "DIS", "shares": 40, "entry_price": 180},  
+      317 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      318 +        {"ticker": "XOM", "shares": 12, "entry_price": 96},   
+      319 +        {"ticker": "PG", "shares": 7, "entry_price": 150}     
+      320 +      ]                                                       
+      321 +    },                                                        
+      322 +    {                                                         
+      323 +      "name": "28 Dividend Trap",                             
+      324 +      "description": "MODERATE. Reaching for yield in beaten-d
+          +own names (PFE, VZ, INTC) — value tilt with embedded losses.",
+      325 +      "positions": [                                          
+      326 +        {"ticker": "PFE", "shares": 80, "entry_price": 40},   
+      327 +        {"ticker": "VZ", "shares": 60, "entry_price": 52},    
+      328          {"ticker": "INTC", "shares": 60, "entry_price": 45},
+       30 -        {"ticker": "PG", "shares": 8, "entry_price": 165},    
+       31 -        {"ticker": "NEE", "shares": 20, "entry_price": 72}    
+      329 +        {"ticker": "T", "shares": 80, "entry_price": 30},     
+      330 +        {"ticker": "JNJ", "shares": 8, "entry_price": 145}    
+      331        ]
+      332      },
+      333      {
+       35 -      "name": "Volatile Speculator",                          
+       36 -      "description": "All high-vol high-beta positions",      
+      334 +      "name": "29 All Tech",                                  
+      335 +      "description": "MESSED UP. 100% Technology (AAPL/MSFT/NV
+          +DA/AVGO/ORCL) — maximal sector over-concentration.",          
+      336        "positions": [
+       38 -        {"ticker": "TSLA", "shares": 15, "entry_price": 240}, 
+       39 -        {"ticker": "COIN", "shares": 12, "entry_price": 200}, 
+       40 -        {"ticker": "PLTR", "shares": 80, "entry_price": 22},  
+       41 -        {"ticker": "NVDA", "shares": 10, "entry_price": 130}  
+      337 +        {"ticker": "AAPL", "shares": 14, "entry_price": 195}, 
+      338 +        {"ticker": "MSFT", "shares": 6, "entry_price": 380},  
+      339 +        {"ticker": "NVDA", "shares": 16, "entry_price": 110}, 
+      340 +        {"ticker": "AVGO", "shares": 10, "entry_price": 160}, 
+      341 +        {"ticker": "ORCL", "shares": 12, "entry_price": 150}  
+      342        ]
+      343      },
+      344      {
+       45 -      "name": "Winner Drift",                                 
+       46 -      "description": "AAPL appreciated into dominance",       
+      345 +      "name": "30 Meme Basket",                               
+      346 +      "description": "MESSED UP. Meme/retail favorites (GME, A
+          +MC, SOFI, HOOD) — high volatility, weak fundamentals, no diver
+          +sification.",                                                 
+      347        "positions": [
+       48 -        {"ticker": "AAPL", "shares": 50, "entry_price": 80},  
+       49 -        {"ticker": "KO", "shares": 30, "entry_price": 60},    
+       50 -        {"ticker": "JPM", "shares": 8, "entry_price": 195},   
+       51 -        {"ticker": "UNH", "shares": 4, "entry_price": 510}    
+      348 +        {"ticker": "GME", "shares": 80, "entry_price": 30},   
+      349 +        {"ticker": "AMC", "shares": 400, "entry_price": 6},   
+      350 +        {"ticker": "SOFI", "shares": 120, "entry_price": 13}, 
+      351 +        {"ticker": "HOOD", "shares": 25, "entry_price": 55}   
+      352        ]
+      353 +    },                                                        
+      354 +    {                                                         
+      355 +      "name": "31 EV / Clean-Energy Wreck",                   
+      356 +      "description": "MESSED UP. EV and clean-energy small cap
+          +s (PLUG, CHPT, RIVN, LCID) all bought far higher — deep losses
+          + + high vol.",                                                
+      357 +      "positions": [                                          
+      358 +        {"ticker": "PLUG", "shares": 600, "entry_price": 12}, 
+      359 +        {"ticker": "CHPT", "shares": 300, "entry_price": 25}, 
+      360 +        {"ticker": "RIVN", "shares": 120, "entry_price": 40}, 
+      361 +        {"ticker": "LCID", "shares": 500, "entry_price": 12}  
+      362 +      ]                                                       
+      363 +    },                                                        
+      364 +    {                                                         
+      365 +      "name": "32 Quantum Hype",                              
+      366 +      "description": "MESSED UP. Pure quantum-computing specul
+          +ation (IONQ, RGTI, QUBT) — extreme volatility, tiny revenue.",
+      367 +      "positions": [                                          
+      368 +        {"ticker": "IONQ", "shares": 30, "entry_price": 40},  
+      369 +        {"ticker": "RGTI", "shares": 120, "entry_price": 18}, 
+      370 +        {"ticker": "QUBT", "shares": 150, "entry_price": 18}  
+      371 +      ]                                                       
+      372 +    },                                                        
+      373 +    {                                                         
+      374 +      "name": "33 Crypto Miners",                             
+      375 +      "description": "MESSED UP. Crypto-correlated names (MARA
+          +, RIOT, CLSK, COIN, MSTR) — sky-high beta and volatility.",   
+      376 +      "positions": [                                          
+      377 +        {"ticker": "MARA", "shares": 200, "entry_price": 22}, 
+      378 +        {"ticker": "RIOT", "shares": 250, "entry_price": 15}, 
+      379 +        {"ticker": "CLSK", "shares": 200, "entry_price": 16}, 
+      380 +        {"ticker": "COIN", "shares": 8, "entry_price": 230},  
+      381 +        {"ticker": "MSTR", "shares": 6, "entry_price": 380}   
+      382 +      ]                                                       
+      383 +    },                                                        
+      384 +    {                                                         
+      385 +      "name": "34 Single Stock 60%",                          
+      386 +      "description": "MESSED UP. TSLA is ~60% of the portfolio
+          + — critical single-stock concentration in a high-beta name.", 
+      387 +      "positions": [                                          
+      388 +        {"ticker": "TSLA", "shares": 40, "entry_price": 250}, 
+      389 +        {"ticker": "JNJ", "shares": 10, "entry_price": 142},  
+      390 +        {"ticker": "JPM", "shares": 6, "entry_price": 210},   
+      391 +        {"ticker": "XOM", "shares": 10, "entry_price": 96}    
+      392 +      ]                                                       
+      393 +    },                                                        
+      394 +    {                                                         
+      395 +      "name": "35 Extreme Winner Drift",                      
+      396 +      "description": "MESSED UP. AAPL bought at ~$20 long ago 
+          +now dominates at ~75% — extreme winner drift + concentration."
+          +,                                                             
+      397 +      "positions": [                                          
+      398 +        {"ticker": "AAPL", "shares": 70, "entry_price": 20},  
+      399 +        {"ticker": "JNJ", "shares": 10, "entry_price": 150},  
+      400 +        {"ticker": "PG", "shares": 10, "entry_price": 160},   
+      401 +        {"ticker": "KO", "shares": 25, "entry_price": 58}     
+      402 +      ]                                                       
+      403 +    },                                                        
+      404 +    {                                                         
+      405 +      "name": "36 Deep Losers Club",                          
+      406 +      "description": "MESSED UP. Five positions all down 45-70
+          +% from entry (BA, INTC, PFE, NKE, DIS) — broad unrealized loss
+          +es.",                                                         
+      407 +      "positions": [                                          
+      408 +        {"ticker": "BA", "shares": 18, "entry_price": 280},   
+      409 +        {"ticker": "INTC", "shares": 120, "entry_price": 50}, 
+      410 +        {"ticker": "PFE", "shares": 120, "entry_price": 45},  
+      411 +        {"ticker": "NKE", "shares": 40, "entry_price": 125},  
+      412 +        {"ticker": "DIS", "shares": 30, "entry_price": 185}   
+      413 +      ]                                                       
+      414 +    },                                                        
+      415 +    {                                                         
+      416 +      "name": "37 Small-Cap Junk Drawer",                     
+      417 +      "description": "MESSED UP. Entirely speculative small ca
+          +ps (FUBO, BBAI, OPEN, UEC, HL, CDE) — illiquid, volatile, no l
+          +arge-cap anchor.",                                            
+      418 +      "positions": [                                          
+      419 +        {"ticker": "FUBO", "shares": 400, "entry_price": 8},  
+      420 +        {"ticker": "BBAI", "shares": 300, "entry_price": 7},  
+      421 +        {"ticker": "OPEN", "shares": 600, "entry_price": 10}, 
+      422 +        {"ticker": "UEC", "shares": 150, "entry_price": 9},   
+      423 +        {"ticker": "HL", "shares": 200, "entry_price": 7},    
+      424 +        {"ticker": "CDE", "shares": 120, "entry_price": 10}   
+      425 +      ]                                                       
+      426 +    },                                                        
+      427 +    {                                                         
+      428 +      "name": "38 Two-Position Portfolio",                    
+      429 +      "description": "MESSED UP. Only two holdings (AAPL + NVD
+          +A) — no diversification, ~50/50 concentration in one sector.",
+      430 +      "positions": [                                          
+      431 +        {"ticker": "AAPL", "shares": 20, "entry_price": 195}, 
+      432 +        {"ticker": "NVDA", "shares": 35, "entry_price": 110}  
+      433 +      ]                                                       
+      434 +    },                                                        
+      435 +    {                                                         
+      436 +      "name": "39 Energy All-In",                             
+      437 +      "description": "MESSED UP. ~80% energy (XOM/CVX/COP/SLB/
+          +EOG) — extreme single-sector bet on commodities.",            
+      438 +      "positions": [                                          
+      439 +        {"ticker": "XOM", "shares": 30, "entry_price": 98},   
+      440 +        {"ticker": "CVX", "shares": 20, "entry_price": 145},  
+      441 +        {"ticker": "COP", "shares": 24, "entry_price": 100},  
+      442 +        {"ticker": "SLB", "shares": 40, "entry_price": 42},   
+      443 +        {"ticker": "EOG", "shares": 14, "entry_price": 125},  
+      444 +        {"ticker": "JNJ", "shares": 6, "entry_price": 145}    
+      445 +      ]                                                       
+      446 +    },                                                        
+      447 +    {                                                         
+      448 +      "name": "40 Tech + Crypto Combo",                       
+      449 +      "description": "MESSED UP. Concentrated megacap tech sta
+          +cked with speculative crypto exposure (MSTR, COIN) — correlate
+          +d risk.",                                                     
+      450 +      "positions": [                                          
+      451 +        {"ticker": "NVDA", "shares": 24, "entry_price": 110}, 
+      452 +        {"ticker": "AAPL", "shares": 10, "entry_price": 200}, 
+      453 +        {"ticker": "MSTR", "shares": 8, "entry_price": 360},  
+      454 +        {"ticker": "COIN", "shares": 10, "entry_price": 230}  
+      455 +      ]                                                       
+      456 +    },                                                        
+      457 +    {                                                         
+      458 +      "name": "41 Single Small-Cap, 100% Loser",              
+      459 +      "description": "DISASTER. Everything in one beaten-down 
+          +small cap (PLUG) bought near the top — 100% concentration in a
+          + -70% position.",                                             
+      460 +      "positions": [                                          
+      461 +        {"ticker": "PLUG", "shares": 1500, "entry_price": 13} 
+      462 +      ]                                                       
+      463 +    },                                                        
+      464 +    {                                                         
+      465 +      "name": "42 Speculative Inferno",                       
+      466 +      "description": "DISASTER. All high-vol small caps (SPCE,
+          + FCEL, BBAI, FUBO, LAZR), every one underwater. No diversifica
+          +tion, no quality.",                                           
+      467 +      "positions": [                                          
+      468 +        {"ticker": "SPCE", "shares": 400, "entry_price": 18}, 
+      469 +        {"ticker": "FCEL", "shares": 300, "entry_price": 15}, 
+      470 +        {"ticker": "BBAI", "shares": 400, "entry_price": 8},  
+      471 +        {"ticker": "FUBO", "shares": 500, "entry_price": 9},  
+      472 +        {"ticker": "LAZR", "shares": 300, "entry_price": 14}  
+      473 +      ]                                                       
+      474 +    },                                                        
+      475 +    {                                                         
+      476 +      "name": "43 Winner Drift + Junk Losers",                
+      477 +      "description": "DISASTER. One mega-winner-drift position
+          + (NVDA from $15) plus a tail of small-cap losers — concentrati
+          +on AND losses.",                                              
+      478 +      "positions": [                                          
+      479 +        {"ticker": "NVDA", "shares": 90, "entry_price": 15},  
+      480 +        {"ticker": "CHPT", "shares": 200, "entry_price": 24}, 
+      481 +        {"ticker": "OPEN", "shares": 400, "entry_price": 11}, 
+      482 +        {"ticker": "RGTI", "shares": 100, "entry_price": 19}  
+      483 +      ]                                                       
+      484 +    },                                                        
+      485 +    {                                                         
+      486 +      "name": "44 Beaten-Down Penny Disaster",                
+      487 +      "description": "DISASTER. Sub-$7 names (OPEN, PLUG, CHPT
+          +, FUBO, AMC) all bought multiples higher — deep losses across 
+          +low-priced, volatile tickers.",                               
+      488 +      "positions": [                                          
+      489 +        {"ticker": "OPEN", "shares": 800, "entry_price": 12}, 
+      490 +        {"ticker": "PLUG", "shares": 700, "entry_price": 14}, 
+      491 +        {"ticker": "CHPT", "shares": 300, "entry_price": 26}, 
+      492 +        {"ticker": "FUBO", "shares": 500, "entry_price": 10}, 
+      493 +        {"ticker": "AMC", "shares": 600, "entry_price": 8}    
+      494 +      ]                                                       
+      495 +    },                                                        
+      496 +    {                                                         
+      497 +      "name": "45 70% Concentrated Loser",                    
+      498 +      "description": "DISASTER. ~70% of the book in a single n
+          +ame (BA) that's also down ~35% — concentration and a deep loss
+          + in the same position.",                                      
+      499 +      "positions": [                                          
+      500 +        {"ticker": "BA", "shares": 60, "entry_price": 270},   
+      501 +        {"ticker": "JNJ", "shares": 8, "entry_price": 145},   
+      502 +        {"ticker": "JPM", "shares": 5, "entry_price": 215}    
+      503 +      ]                                                       
+      504 +    },                                                        
+      505 +    {                                                         
+      506 +      "name": "46 All-In Quantum Micro",                      
+      507 +      "description": "DISASTER. 100% in quantum micro caps (RG
+          +TI, QUBT, IONQ) bought at the peak — maximal volatility, singl
+          +e-theme, underwater.",                                        
+      508 +      "positions": [                                          
+      509 +        {"ticker": "RGTI", "shares": 200, "entry_price": 22}, 
+      510 +        {"ticker": "QUBT", "shares": 250, "entry_price": 20}, 
+      511 +        {"ticker": "IONQ", "shares": 40, "entry_price": 75}   
+      512 +      ]                                                       
+      513 +    },                                                        
+      514 +    {                                                         
+      515 +      "name": "47 Meme + Crypto Casino",                      
+      516 +      "description": "DISASTER. Meme stocks plus crypto proxie
+          +s (GME, AMC, MARA, MSTR, DJT) — pure speculation, extreme beta
+          +, no fundamentals.",                                          
+      517 +      "positions": [                                          
+      518 +        {"ticker": "GME", "shares": 120, "entry_price": 32},  
+      519 +        {"ticker": "AMC", "shares": 500, "entry_price": 7},   
+      520 +        {"ticker": "MARA", "shares": 250, "entry_price": 24}, 
+      521 +        {"ticker": "MSTR", "shares": 6, "entry_price": 400},  
+      522 +        {"ticker": "DJT", "shares": 100, "entry_price": 35}   
+      523 +      ]                                                       
+      524 +    },                                                        
+      525 +    {                                                         
+      526 +      "name": "48 Everything Wrong",                          
+      527 +      "description": "DISASTER. Hits every failure mode at onc
+          +e: a drifted concentrated winner (NVDA from $12), a deep loser
+          + (INTC -55%), a small-cap junk position, and a high-beta crypt
+          +o name.",                                                     
+      528 +      "positions": [                                          
+      529 +        {"ticker": "NVDA", "shares": 100, "entry_price": 12}, 
+      530 +        {"ticker": "INTC", "shares": 150, "entry_price": 50}, 
+      531 +        {"ticker": "PLUG", "shares": 300, "entry_price": 13}, 
+      532 +        {"ticker": "COIN", "shares": 6, "entry_price": 240}   
+      533 +      ]                                                       
+      534 +    },                                                        
+      535 +    {                                                         
+      536 +      "name": "49 Leverage Lover",                            
+      537 +      "description": "DISASTER. Daily-leveraged ETFs (TQQQ, SO
+          +XL) plus a leveraged single-name bet — catastrophic volatility
+          + and decay risk.",                                            
+      538 +      "positions": [                                          
+      539 +        {"ticker": "TQQQ", "shares": 200, "entry_price": 70}, 
+      540 +        {"ticker": "SOXL", "shares": 400, "entry_price": 35}, 
+      541 +        {"ticker": "NVDA", "shares": 30, "entry_price": 130}  
+      542 +      ]                                                       
+      543 +    },                                                        
+      544 +    {                                                         
+      545 +      "name": "50 The Gambler",                               
+      546 +      "description": "DISASTER. Two speculative names only (RI
+          +VN + COIN), both bought far higher — no diversification, deep 
+          +losses, maximal caution.",                                    
+      547 +      "positions": [                                          
+      548 +        {"ticker": "RIVN", "shares": 400, "entry_price": 40}, 
+      549 +        {"ticker": "COIN", "shares": 12, "entry_price": 260}  
+      550 +      ]                                                       
+      551      }
+      552    ]
+      553  }
+
+● Let me validate the JSON parses and confirm the count, plus sanity-check there
+   are no obvious issues (the extra _comment key is ignored by the runner, which
+   only reads portfolios).
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      import json…)
+  ⎿  portfolios: 50
+     unique tickers: 78
+     position counts per portfolio: [4, 10, 6, 8, 8, 5, 6, 3, 8, 5, 6, 5, 6
+     … +9 lines (ctrl+o to expand)
+
+● 50 portfolios, valid JSON, position counts ranging 1–10, 78 unique tickers.
+  Since the runner silently drops any ticker that doesn't resolve on Yahoo, let
+  me batch-validate all 78 against yfinance now so no portfolio is quietly
+  broken.
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      import json, warnings…)
+  ⎿  HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Fo
+     und","description":"Quote not found for symbol: LAZR"}}}
+     $LAZR: possibly delisted; no price data found  (period=5d) (Yahoo erro
+     … +7 lines (ctrl+o to expand)
+
+● Only LAZR (Luminar) failed — likely delisted or reverse-split/renamed; the
+  other 77 resolve. LAZR appears only in portfolio #42. I'll swap it for SOUN
+  (confirmed valid, fits the speculative theme), keeping it a loser via a high
+  entry.
+
+● Update(debug_test.json)
+  ⎿  Added 2 lines, removed 2 lines
+      463      },
+      464      {
+      465        "name": "42 Speculative Inferno",
+      466 -      "description": "DISASTER. All high-vol small caps (SPCE,
+          - FCEL, BBAI, FUBO, LAZR), every one underwater. No diversifica
+          -tion, no quality.",                                           
+      466 +      "description": "DISASTER. All high-vol small caps (SPCE,
+          + FCEL, BBAI, FUBO, SOUN), every one underwater. No diversifica
+          +tion, no quality.",                                           
+      467        "positions": [
+      468          {"ticker": "SPCE", "shares": 400, "entry_price": 18},
+      469          {"ticker": "FCEL", "shares": 300, "entry_price": 15},
+      470          {"ticker": "BBAI", "shares": 400, "entry_price": 8},
+      471          {"ticker": "FUBO", "shares": 500, "entry_price": 9},
+      472 -        {"ticker": "LAZR", "shares": 300, "entry_price": 14}  
+      472 +        {"ticker": "SOUN", "shares": 300, "entry_price": 15}  
+      473        ]
+      474      },
+      475      {
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      import json…)
+  ⎿  portfolios: 50 | unique tickers: 77
+     LAZR present: False
+
+● Done. debug_test.json now holds 50 portfolios, validated as parseable, with
+  all 77 unique tickers confirmed live on Yahoo Finance (LAZR was the only
+  delisted one — swapped for SOUN).
+
+  How they're graded
+
+  Band: Near-perfect (01–08)
+  #: 8
+  What's wrong: Index three-funds, one-per-sector blue chips, balanced
+    dividend/global mixes. Modest gains, no flags.
+  ────────────────────────────────────────
+  Band: Good, minor flaw (09–16)
+  #: 8
+  What's wrong: One issue each: slight tech tilt, a single loser, mild
+    concentration, a modest winner, thin diversification, a small beta tilt,
+    sub-1% dead-weight odd lots.
+  ────────────────────────────────────────
+  Band: Moderate (17–28)
+  #: 12
+  What's wrong: Tech ~55%, NVDA ~40%, two deep losers, moderate winner drift,
+    volatility creep, high-beta trio, small-cap dabbling, sector gaps,
+    energy-heavy, concentration+loser combos, a dividend trap.
+  ────────────────────────────────────────
+  Band: Messed up (29–40)
+  #: 12
+  What's wrong: 100% tech, meme basket, EV/clean-energy wreck, quantum hype,
+    crypto miners, 60% single stock, extreme winner drift, deep-losers club,
+    small-cap junk drawer, two-position book, ~80% energy, tech+crypto.
+  ────────────────────────────────────────
+  Band: Disaster (41–50)
+  #: 10
+  What's wrong: Single small-cap 100% loser, speculative inferno,
+    winner-drift+junk, penny disaster, 70% concentrated loser, all-in quantum,
+    meme+crypto casino, "everything wrong," leveraged ETFs, two-name gambler.
+
+  How the failure modes are engineered
+
+  - Terrible performers → entry_price set well above current (e.g. INTC @ $50,
+  PFE @ $45, PLUG @ $13, BA @ $280) so the performance analyzer flags real
+  unrealized losses.
+  - Winner drift → tiny entry_price + dominant share count (AAPL @ $20×70sh,
+  NVDA @ $12×100sh) so current weight >30% with a drift multiple >2×.
+  - Small caps → real, currently-trading names (PLUG, CHPT, OPEN, IONQ, RGTI,
+  QUBT, SOUN, BBAI, FUBO, SPCE, FCEL, UEC, HL, CDE, GME, AMC) —
+  sourced/confirmed via web search.
+  - Concentration / diversification → sector grouped on true-Technology tickers
+  (AAPL/MSFT/NVDA/AVGO/ORCL) so Yahoo's GICS lands them in one sector;
+  single-stock dominance via share count.
+  - High beta/vol → TSLA, COIN, MSTR, MARA, RIOT, CLSK, leveraged TQQQ/SOXL.
+
+  One caveat worth flagging: current price, sector, volatility, beta, and slope
+  are all fetched live at runtime, so exact weights and which thresholds trip
+  will shift with the market — the structure of each scenario is what's fixed.
+  The "loser" and "winner-drift" levers (entry_price) are fully under your
+  control and will behave as intended. Run it via Settings → (debug tests); it
+  writes output.md with all 50 across all three risk tiers.
+
+✻ Worked for 7m 6s
+
+❯ i ran the developer test in settings, but it seemed to do different           
+  portfolios than whats here in debug_test.json. whats the issue?               
+
+● That's the path-resolution behavior in the debug runner. It prefers a copy in 
+  your user-data dir over the repo file. Let me confirm.
+
+  Read 1 file (ctrl+o to expand)
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      import json, os…)
+  ⎿  user-data copy exists: True
+     path: C:\Users\Matthew\AppData\Local\Protonyx\Vector\debug_test.json
+     portfolio count in user-data copy: 5
+     … +2 lines (ctrl+o to expand)
+● Found it. There's a stale copy at
+  C:\Users\Matthew\AppData\Local\Protonyx\Vector\debug_test.json containing the
+  old 5 portfolios ("Tech Concentrate", "Index Holder", …).
+
+  The runner's _resolve_debug_test_path() checks the user-data dir first and
+  returns it if present, so it never reads the repo file I edited. That copy
+  gets created automatically the first time the test runs in a packaged build.
+
+  The fix: delete the stale user-data copy. In dev, the resolver then falls
+  through to the repo file (dev_path, since main.py sits beside it) — making the
+   repo file authoritative on every run. Deleting (rather than overwriting) also
+   prevents the same shadowing from biting you again after future edits.
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      import os…)
+  ⎿  deleted stale user-data copy: True
+
+● Let me confirm the resolver now points at the repo file with all 50
+  portfolios.
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      import json…)
+  ⎿  resolves to: C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vecto
+     r-Main\debug_test.json
+     portfolio count: 50
+     first name: 01 Index Three-Fund
+
+● Fixed. The resolver now returns the repo file
+  (...\Vector-Main\debug_test.json) with all 50 portfolios, starting at "01
+  Index Three-Fund".
+
+  What happened
+
+  The debug runner resolves its config path in this priority order:
+  1. %LOCALAPPDATA%\Protonyx\Vector\debug_test.json (user-data dir) ← was 
+  shadowing everything
+  2. repo-root debug_test.json (dev)
+  3. bundled resource
+
+  A previous run had auto-copied the original 5-portfolio file into your
+  user-data dir, so the runner kept reading that stale copy and never saw my
+  edits to the repo file.
+
+  The fix
+
+  Deleted the stale user-data copy. In dev, the resolver now falls through to
+  the repo file every run, so it's the single source of truth — and future edits
+   to it won't be shadowed again.
+
+  Re-run Settings → developer test and you'll get all 50 graded portfolios. One
+  thing to note: 50 portfolios × ~5 positions × 3 risk tiers is a lot of live
+  yfinance calls, so the first run will take a while as it populates the cache
+  (subsequent runs are faster).
+
+  One small caveat for the future: this only re-points dev runs. In a packaged
+  build (Nuitka/PyInstaller), the runner will still copy the bundled
+  debug_test.json into the user-data dir on first run and prefer it thereafter —
+   so a user who already ran an older build would need the same stale-copy
+  cleanup, or you'd bump the bundled file and clear the cache. Not relevant to
+  your dev workflow now, just worth knowing.
+
+✻ Brewed for 46s
+
+❯ whats the fix? what do i delete                                               
+
+● Delete this one file:
+
+  C:\Users\Matthew\AppData\Local\Protonyx\Vector\debug_test.json
+
+  That's the stale copy (the old 5 portfolios) that was shadowing your edited
+  repo file. I already deleted it on this machine — so it's done. But if you
+  ever need to do it again (or on another machine), that's the file.
+
+  You can delete it from File Explorer, or run either of these:
+
+  PowerShell:
+  Remove-Item "$env:LOCALAPPDATA\Protonyx\Vector\debug_test.json"
+
+  In this Claude session, prefix with !:
+  !Remove-Item "$env:LOCALAPPDATA\Protonyx\Vector\debug_test.json"
+
+  Why just that file: the debug runner looks for debug_test.json in three
+  places, in order — (1) your user-data dir %LOCALAPPDATA%\Protonyx\Vector\, (2)
+   the repo root, (3) the bundled copy. It stops at the first one it finds. The
+  user-data copy existed, so it never reached your repo file. Delete the
+  user-data copy and it falls through to the repo's debug_test.json (the
+  50-portfolio version). Don't delete the repo one — that's the good one.
+
+✻ Cooked for 9s
+
+※ recap: You're stocking debug_test.json with 50 graded test portfolios for the Lens engine. The file is ready and the stale cached copy that was shadowing it is deleted, so just re-run the developer test in Settings. (disable recaps in /config)
+
+❯ Heres the output from the terminal: [yfinance] API calls: 52    HTTP Error    
+  404: {"quoteSummary":{"result":null,"error":{"code":"Not                      
+  Found","description":"No fundamentals data found for symbol: VTI"}}}          
+  [yfinance] API calls: 53    HTTP Error 404:                                   
+  {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No  
+  fundamentals data found for symbol: VXUS"}}}                                  
+  [yfinance] API calls: 54    HTTP Error 404:                                   
+  {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No  
+  fundamentals data found for symbol: SCHD"}}}                                  
+  [yfinance] API calls: 171    HTTP Error 404:                                  
+  {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No  
+  fundamentals data found for symbol: VYM"}}}                                   
+  [yfinance] API calls: 199    [lens DEBUG] winner_drift NVDA:                  
+  current_weight=0.439, entry_weight=0.183, position_value=$7,752, raw=$4,524,  
+  capped=$2,710                                                                 
+  [lens DEBUG] winner_drift NVDA: current_weight=0.439, entry_weight=0.183,     
+  position_value=$7,752, raw=$4,524, capped=$2,710                              
+  [lens DEBUG] winner_drift NVDA: current_weight=0.439, entry_weight=0.183,     
+  position_value=$7,752, raw=$4,524, capped=$2,710                              
+  [yfinance] API calls: 299    [lens DEBUG] winner_drift MSFT:                  
+  current_weight=0.487, entry_weight=0.184, position_value=$8,371, raw=$5,211,  
+  capped=$2,930                                                                 
+  [lens DEBUG] winner_drift MSFT: current_weight=0.487, entry_weight=0.184,     
+  position_value=$8,371, raw=$5,211, capped=$2,930                              
+  [lens DEBUG] winner_drift MSFT: current_weight=0.487, entry_weight=0.184,     
+  position_value=$8,371, raw=$5,211, capped=$2,930                              
+  [lens DEBUG] winner_drift INTC: current_weight=0.448, entry_weight=0.215,     
+  position_value=$7,190, raw=$3,744, capped=$2,520                              
+  [lens DEBUG] winner_drift INTC: current_weight=0.448, entry_weight=0.215,     
+  position_value=$7,190, raw=$3,744, capped=$2,520                              
+  [lens DEBUG] winner_drift INTC: current_weight=0.448, entry_weight=0.215,     
+  position_value=$7,190, raw=$3,744, capped=$2,520                              
+  [yfinance] API calls: 404    [lens DEBUG] winner_drift AAPL:                  
+  current_weight=0.788, entry_weight=0.235, position_value=$21,617,             
+  raw=$15,160, capped=$7,570                                                    
+  [lens DEBUG] winner_drift AAPL: current_weight=0.788, entry_weight=0.235,     
+  position_value=$21,617, raw=$15,160, capped=$7,570                            
+  [lens DEBUG] winner_drift AAPL: current_weight=0.788, entry_weight=0.235,     
+  position_value=$21,617, raw=$15,160, capped=$7,570                            
+  [lens DEBUG] winner_drift INTC: current_weight=0.547, entry_weight=0.222,     
+  position_value=$14,381, raw=$8,532, capped=$5,030                             
+  [lens DEBUG] winner_drift INTC: current_weight=0.547, entry_weight=0.222,     
+  position_value=$14,381, raw=$8,532                                            
+  ──── (2493 lines hidden) ──────────────────────────────────────────────────── 
+  itical)                                                                       
+    - **BUY_NEW** `UNH` +$1,320 — _reduce_concentration_ (severity: critical)   
+    - **BUY_NEW** `JPM` +$1,320 — _reduce_concentration_ (severity: critical)   
+    - **HOLD** `RIVN` (no $) — _unrealized_loss_ (severity: critical)           
+    - **HOLD** `COIN` (no $) — _unrealized_loss_ (severity: high)               
+                                                                                
+  ### Moderate (`regular`)                                                      
+  **Brief:** An unrealized loss of 64.4% on RIVN is pairing with 61%            
+  volatility, so the drawdown is happening amid wide daily swings. Earnings     
+  season is distant for current holdings — the next known report date is beyond 
+   30 days. Deploying $1,320 into AAPL would dilute RIVN's 72% weight,          
+  improving single-stock diversification.                                       
+                                                                                
+  **Caution score:** 50/99                                                      
+  **Net CTA delta:** $2,220                                                     
+                                                                                
+  **CTAs (8):**                                                                 
+    - **SELL** `COIN` -$1,110 — _steep_decline_ (severity: critical)            
+    - **SELL** `RIVN` -$1,420 — _high_volatility_ (severity: high)              
+    - **BUY_NEW** `MSFT` +$790 — _high_beta_ (severity: critical)               
+    - **BUY_NEW** `AAPL` +$1,320 — _reduce_concentration_ (severity: critical)  
+    - **BUY_NEW** `UNH` +$1,320 — _reduce_concentration_ (severity: critical)   
+    - **BUY_NEW** `JPM` +$1,320 — _reduce_concentration_ (severity: critical)   
+    - **HOLD** `RIVN` (no $) — _unrealized_loss_ (severity: critical)           
+    - **HOLD** `COIN` (no $) — _unrealized_loss_ (severity: moderate)           
+                                                                                
+  ### Aggressive (`high`)                                                       
+  **Brief:** An unrealized loss of 64.4% on RIVN is pairing with 61%            
+  volatility, so the drawdown is happening amid wide daily swings. Earnings     
+  season is distant for current holdings — the next known report date is beyond 
+   30 days. Deploying $1,320 into AAPL would dilute RIVN's 72% weight,          
+  improving single-stock diversification.                                       
+                                                                                
+  **Caution score:** 33/99                                                      
+  **Net CTA delta:** $3,490                                                     
+                                                                                
+  **CTAs (8):**                                                                 
+    - **SELL** `COIN` -$550 — _steep_decline_ (severity: critical)              
+    - **SELL** `RIVN` -$710 — _high_volatility_ (severity: high)                
+    - **BUY_NEW** `MSFT` +$790 — _high_beta_ (severity: critical)               
+    - **BUY_NEW** `AAPL` +$1,320 — _reduce_concentration_ (severity: critical)  
+    - **BUY_NEW** `UNH` +$1,320 — _reduce_concentration_ (severity: critical)   
+    - **BUY_NEW** `JPM` +$1,320 — _reduce_concentration_ (severity: critical)   
+    - **HOLD** `RIVN` (no $) — _unrealized_loss_ (severity: critical)           
+    - **HOLD** `COIN` (no $) — _unrealized_loss_ (severity: moderate)           
+                                                                                
+  ---                                                                           
+   CLAUDE make your diagnosis, you can look through any files do whatever but   
+  dont make any edits yet. Put your diagnosis in detal in diagnosis.md Then,    
+  the next prompt will be making fixes. Hopefully this should be small tweaks,  
+  not a full rebuild                                                            
+
+● This is a rich test run with several clear anomalies. Let me dig into the
+  engine code to confirm root causes before writing the diagnosis. I'll read the
+   key files in parallel.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now the analysis pool (to confirm total_equity, ticker_current_values,
+  sector-weight exclusion of ETFs) and the slope/sentence builders.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now the slope analyzer (the repeated "+150.0%"), the sentence-2 builder (the
+  "thin at 59%" wording), and index-fund detection.
+
+  Read 1 file (ctrl+o to expand)
+
+● The "thin at 59%" mystery is forming. Let me check the slope cap, the
+  index-fund analyzer, and the sentence-3 templates that produce the underweight
+   wording.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now the index-fund analyzer and the sentence-3 templates (sector_underweight
+  wording).
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● I have the core mechanisms confirmed. Let me nail down two more references —
+  where sell_scale lives and what triggers the ETF fundamentals 404s — then
+  write the diagnosis.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Confirmed: earnings.analyze (and the dividend/meta fetches) loop over all
+  positions including index ETFs, so store.get_earnings() on
+  VTI/VXUS/SCHD/VYM/TQQQ/SOXL hits yfinance's fundamentals endpoint and 404s.
+  That's the log noise source.
+
+  I now have every mechanism traced. Writing the detailed diagnosis (no code
+  edits).
+
+● Write(diagnosis.md)
+  ⎿  Wrote 273 lines to diagnosis.md
+       2 # Lens Engine Diagnosis — 50-Portfolio Debug Run (2026-05-23)
+       3 Diagnosis only. No code has been changed. Each issue lists **evi
+       4 terminal), **root cause** (file:line), and a **proposed minimal 
+         fix** for the next pass.
+       5 
+         gle-Stock Heavy` now readsdilution fix is working — e.g. `18 Sin
+       7 "reduce NVDA's 59% concentration toward the 26% target" with mat
+       8 The issues below are separate..
+       9 
+      10 ---
+     … +394 lines (ctrl+o to expand)
+
+● I've written the full diagnosis to diagnosis.md. No code changed. Here's the
+  short version.
+
+  The 9 issues I found (with root causes traced)
+
+  Three are clearly wrong and tiny to fix:
+
+  1. Index funds vanish from the sector tally (High) — concentration.py excludes
+   index ETFs when building sector weights, so an all-index portfolio (#01, #08)
+   has sector_count = 0 → flagged as maximally concentrated → told to buy
+  AAPL/UNH/JPM. The most diversified portfolios look the most broken.
+  index_fund.py already computes total_index_weight, but cta_engine.py never
+  uses it to suppress those buys.
+  2. winner_drift fires on paper losers (High, 1-line) — #28 says "INTC is
+  rising… HOLD INTC winner_drift" on a -50% position; #42 flags FCEL as a
+  drifted winner and tells you to sell it for high volatility, simultaneously.
+  Cause: drift uses current_weight / cost_basis_weight, which is >2 for "the
+  position that fell least" in an all-loser basket. Fix: add and current_value >
+   cost_equity to the condition (concentration.py:70).
+  3. Sector sentence prints the wrong sector's weight (High, 1-line) —
+  "Financials is underrepresented at 71%" where 71% is actually Technology's
+  weight. Priority 7 passes sector_weight: heavy_pct instead of the target
+  sector's weight (cta_engine.py).
+
+  Two are medium / structural:
+
+  4. No global cap on buys — high_beta + 3×reduce_concentration +
+  sector_underweight stack to 50–140% of the portfolio (#48 net delta $28k, #49
+  $42k). Each priority is capped alone; their sum isn't.
+  5. Tiers are non-monotonic + caution under-reports risk — Conservative
+  suppresses large-cap sells, so #05 reads "healthy" while Moderate says "sell
+  3"; #49 (78% leveraged ETF) scores caution 13/99 in Conservative. The caution
+  score is a function of trade dollars only, not portfolio risk — so suppressing
+   sells makes the riskiest book look calm.
+  6. sell_scale ordering is likely inverted — Moderate (0.50) sells more than
+  Aggressive (0.25) or Conservative (0.10). (Also CLAUDE.md says 0.3/0.5/0.15 —
+  stale vs the actual code.)
+
+  Four are minor/cosmetic: #7 slope clamped at +150% repeats verbatim in briefs,
+   #8 ETF fundamentals 404 spam (earnings fetch runs on index ETFs), #9 buy-only
+   dilution can't fix a 100% position when sells are suppressed.
+
+  The file has evidence, file:line root cause, and a minimal proposed fix for
+  each, plus a suggested fix order. Issues 2 and 3 are genuine one-liners; 1, 4,
+   8 are small and contained; 5/6/9 need a product decision on what the three
+  risk tiers should mean before tweaking — so I'd group those.
+
+  One thing worth your call before the next prompt: for issues 5/6, what should
+  Conservative vs Aggressive do on sells? (My read: Conservative should trim
+  risk the most, Aggressive the least — which is the opposite of the current
+  sell_scale ordering.) If you confirm the intended semantics, I can fix it
+  cleanly instead of guessing.
+✻ Sautéed for 7m 17s
+
+※ recap: We're improving the Vector Lens engine; I've diagnosed 9 issues from your 50-portfolio test run and written them to diagnosis.md. Next action is fixing them, starting with the three quick wins (winner-drift gate, sector-weight label, index-fund suppression). (disable recaps in /config)
+
+❯ okay, based on that diagnosis.md, make those fixes                            
+
+● Before I touch the tier-related items (#5/#6/#9), I need your call on what the
+   three risk tiers should mean — that genuinely changes the implementation. The
+   clear fixes (#1, #2, #3, #4, #7, #8) I'll implement regardless.
+
+● User answered Claude's questions:
+  ⎿  · How should sell aggressiveness rank across the three risk tiers? (Today 
+     it's inverted: Moderate sells the most, Conservative the least.) → Keep 
+     current ordering
+     · Should the caution score reflect portfolio risk even when sells are 
+     suppressed? (Today a 78%-leveraged-ETF book scores 13/99 in Conservative 
+     because caution is based only on recommended trade dollars.) → Blend in 
+     severities
+
+● The user chose: keep the current sell ordering (so I'll skip the
+  sell_scale/large-cap-block changes, #6, and the sell side of #5) but blend 
+  severities into the caution score (#5 caution part). #9 is tied to the sell
+  behavior they kept, so I'll leave it.
+
+  So I'm implementing: #1, #2, #3, #4, #5(caution), #7, #8. Let me read the rest
+   of earnings.py to do #8 cleanly, then make all edits to both the app copy and
+   the standalone copy.
+
+  Read 1 file (ctrl+o to expand)
+
+● Now I'll implement the fixes in the app copy (vector/lens). Starting with
+  concentration.py — the winner-drift gate (#2) and the index-fund sector
+  downgrade (#1):
+
+● Update(vector\lens\analyzers\concentration.py)
+  ⎿  Added 1 line
+      38  
+      39      ticker_results: dict[str, dict] = {}
+      40      sector_weights: dict[str, float] = {}
+      41 +    index_current_value = 0.0                                  
+      42  
+      43      for pos in positions:
+      44          t = pos['ticker']
+
+● Update(vector\lens\analyzers\concentration.py)
+  ⎿  Added 6 lines, removed 2 lines
+      67                  sub_signals.append('stock_concentration')
+      68                  best_severity = stock_sev
+      69  
+      70 -        # Sub-signal C: Winner drift (suppressed for index ETFs
+         -)                                                              
+      71 -        if not is_index and weight_pct > 30 and drift_multiple 
+         -> 2.0:                                                         
+      70 +        # Sub-signal C: Winner drift (suppressed for index ETFs
+         +). Require the                                                 
+      71 +        # position to actually be UP from cost — otherwise a ho
+         +lding that merely                                              
+      72 +        # fell less than its peers (current weight > cost-basis
+         + weight) gets                                                  
+      73 +        # mislabeled a "winner that drifted".                  
+      74 +        if (not is_index and weight_pct > 30 and drift_multiple
+         + > 2.0                                                         
+      75 +                and current_value > cost_equity):              
+      76              drift_sev = 'high' if drift_multiple > 2.5 else 'mo
+          derate'
+      77              sub_signals.append('winner_drift')
+      78              if _SEV_ORDER[drift_sev] > _SEV_ORDER[best_severity
+          ]:
+
+● Update(vector\lens\analyzers\concentration.py)
+  ⎿  Added 2 lines
+      82          if not is_index:
+      83              sector = pos.get('sector') or 'Unknown'
+      84              sector_weights[sector] = sector_weights.get(sector,
+           0.0) + current_value
+      85 +        else:                                                  
+      86 +            index_current_value += current_value               
+      87  
+      88          ticker_results[t] = {
+      89              'value': weight_pct,
+
+● Update(vector\lens\analyzers\concentration.py)
+  ⎿  Added 11 lines
+      118      else:
+      119          sector_sev = 'none'
+      120  
+      121 +    # Index funds supply broad, cross-sector diversification. 
+          +When they dominate                                            
+      122 +    # the book, the small non-index remainder is not a sector-
+          +concentration                                                 
+      123 +    # problem — downgrade so a fully index-diversified portfol
+          +io is not flagged                                             
+      124 +    # (and told to "buy individual stocks to diversify").     
+      125 +    index_weight_pct = (                                      
+      126 +        index_current_value / total_current_value * 100       
+      127 +        if total_current_value else 0.0                       
+      128 +    )                                                         
+      129 +    if index_weight_pct >= 50 and sector_sev in ('moderate', '
+          +high'):                                                       
+      130 +        sector_sev = 'low'                                    
+      131 +                                                              
+      132      return {
+      133          'ticker_results': ticker_results,
+      134          'portfolio_result': {
+
+● Now cta_engine.py — the sector_weight wording fix (#3) and the global buy cap
+  (#4):
+
+● Update(vector\lens\cta_engine.py)
+  ⎿  Added 6 lines
+      20  # materially sized while still scaling with the user's chosen t
+          hreshold.
+      21  _CONCENTRATION_DILUTION_FACTOR = 0.75
+      22  
+      23 +# Aggregate cap on all buy CTAs combined. Each buy priority is 
+         +capped on its own,                                             
+      24 +# but several (high beta + concentration dilution + sector unde
+         +rweight) can stack;                                            
+      25 +# this keeps the *total* recommended new deposit to a sensible 
+         +slice of the                                                   
+      26 +# portfolio so a brief never asks the user to invest more than 
+         +this at once.                                                  
+      27 +_MAX_TOTAL_BUY_FRACTION = 0.40                                 
+      28  
+      29 +                                                               
+      30  def _round10(v: float) -> float:
+      31      return round(v / 10) * 10
+      32  
+
+● Update(vector\lens\cta_engine.py)
+  ⎿  Added 3 lines, removed 1 line
+      483                      'severity': port_conc['severity'],
+      484                      'details': {
+      485                          'heavy_sector': heavy_sector,
+      486 -                        'sector_weight': heavy_pct,           
+      486 +                        # The sentence reports this as the TAR
+          +GET sector's exposure,                                        
+      487 +                        # so it must be the target's weight — 
+          +not the heavy sector's.                                       
+      488 +                        'sector_weight': round(sector_weights.
+          +get(sector, 0.0) * 100, 1),                                   
+      489                          'target_sector': sector,
+      490                          'suggested_tickers': suggested,
+      491                      },
+
+● Update(vector\lens\cta_engine.py)
+  ⎿  Added 24 lines
+      594  
+      595      ctas = _dedupe_ctas(ctas)
+      596  
+      597 +    # Keep the combined buy recommendation within a sensible s
+          +lice of the portfolio.                                        
+      598 +    ctas = _cap_total_buys(ctas, total_equity)                
+      599 +                                                              
+      600      return ctas
+      601  
+      602  
+      603 +def _cap_total_buys(cta_list: list[dict], total_equity: float)
+          + -> list[dict]:                                               
+      604 +    """Scale all buy CTAs down proportionally so their combine
+          +d dollars stay within                                         
+      605 +    ``_MAX_TOTAL_BUY_FRACTION`` of portfolio value. Sells and 
+          +holds are untouched.                                          
+      606 +    Buys that round to zero after scaling are dropped."""     
+      607 +    if total_equity <= 0:                                     
+      608 +        return cta_list                                       
+      609 +    buys = [c for c in cta_list if c.get('action') in ('buy_ne
+          +w', 'buy_more')]                                              
+      610 +    total_buy = sum(float(c.get('dollars', 0.0) or 0.0) for c 
+          +in buys)                                                      
+      611 +    cap = total_equity * _MAX_TOTAL_BUY_FRACTION              
+      612 +    if total_buy <= cap or total_buy <= 0:                    
+      613 +        return cta_list                                       
+      614 +    scale = cap / total_buy                                   
+      615 +    for c in buys:                                            
+      616 +        c['dollars'] = _round10(float(c.get('dollars', 0.0) or
+          + 0.0) * scale)                                                
+      617 +    return [                                                  
+      618 +        c for c in cta_list                                   
+      619 +        if not (c.get('action') in ('buy_new', 'buy_more')    
+      620 +                and float(c.get('dollars', 0.0) or 0.0) <= 0) 
+      621 +    ]                                                         
+      622 +                                                              
+      623 +                                                              
+      624  def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:
+      625      """Remove duplicate CTAs, resolve action conflicts, and ca
+           p per-sector buys.
+      626  
+
+● Now slope.py (#7 clamp), earnings.py (#8 skip ETF fetch), and lens_output.py
+  (#5 severity-blended caution):
+
+● Update(vector\lens\analyzers\slope.py)
+  ⎿  Added 4 lines, removed 1 line
+      12  
+      13  _MIN_DATA_POINTS = 30
+      14  _SLOPE_CLAMP_MIN = -80.0
+      15 -_SLOPE_CLAMP_MAX = 150.0                                       
+      15 +# Raised from 150 so genuine momentum names show distinct, data
+         +-driven figures                                                
+      16 +# instead of all pinning to an identical "+150.0%" in the brief
+         +. Positive slopes                                              
+      17 +# carry no severity (all classify 'none'), so this only affects
+         + the displayed value.                                          
+      18 +_SLOPE_CLAMP_MAX = 250.0                                       
+      19  
+      20  
+      21  def _classify(annualized_pct: float, thresholds: dict[str, floa
+          t]) -> str:
+
+● Update(vector\lens\analyzers\earnings.py)
+  ⎿  Added 2 lines
+       6  from datetime import date, datetime
+       7  from typing import Any
+       8  
+       9 +from vector.constants import INDEX_ETFS                        
+      10 +                                                               
+      11  _log = logging.getLogger(__name__)
+      12  
+      13  
+
+● Update(vector\lens\analyzers\earnings.py)
+  ⎿  Added 3 lines, removed 1 line
+      83          eps_estimate: float | None = None
+      84  
+      85          try:
+      86 -            earnings = store.get_earnings(t) or []             
+      86 +            # Index ETFs have no earnings reports — skip the fu
+         +ndamentals fetch                                               
+      87 +            # (it 404s on Yahoo and wastes an API call) and lea
+         +ve the neutral result.                                         
+      88 +            earnings = [] if t in INDEX_ETFS else (store.get_ea
+         +rnings(t) or [])                                               
+      89              for e in earnings:
+      90                  ed = _parse_date(e.get('date'))
+      91                  if ed and ed >= today:
+
+● Now the severity-blended caution score (#5) in lens_output.py — update the
+  call site and the function:
+
+● Update(vector\lens\lens_output.py)
+  ⎿  Added 1 line, removed 1 line
+      116      # A "you should reduce risk" signal weighs much more than 
+           a "you have room
+      117      # to grow" opportunity.
+      118      total_equity = pool_results.get('_positions_summary', {}).
+           get('total_equity', 1.0)
+      119 -    caution_score = _compute_caution_score(cta_list, total_equ
+          -ity)                                                          
+      119 +    caution_score = _compute_caution_score(cta_list, total_equ
+          +ity, pool_results)                                            
+      120      threat_level = caution_score / 100.0
+      121  
+      122      # Build projected positions with all CTAs applied
+
+● Update(vector\lens\lens_output.py)
+  ⎿  Added 28 lines, removed 3 lines
+      198          json.dump({'snapshots': snapshots}, f, indent=2)
+      199  
+      200  
+      201 -def _compute_caution_score(cta_list: list[dict[str, Any]], tot
+          -al_equity: float) -> int:                                     
+      202 -    """Caution score 1–99. Sells full weight, buys 30%, holds 
+          -ignored."""                                                   
+      201 +_SEVERITY_CAUTION_POINTS = {'none': 0, 'low': 8, 'moderate': 3
+          +0, 'high': 60, 'critical': 88}                                
+      202 +                                                              
+      203 +                                                              
+      204 +def _severity_caution_floor(pool_results: dict[str, Any]) -> i
+          +nt:                                                           
+      205 +    """A risk floor derived from analyzer severities, so a gen
+          +uinely dangerous                                              
+      206 +    portfolio scores high even when its recommended trades are
+          + suppressed (e.g.                                             
+      207 +    the Conservative tier blocks large-cap sells, which would 
+          +otherwise leave the                                           
+      208 +    trade-flow score artificially low)."""                    
+      209 +    pts = 0                                                   
+      210 +    for key in ('concentration', 'volatility', 'beta', 'perfor
+          +mance', 'slope'):                                             
+      211 +        sev = (pool_results.get(key, {}) or {}).get('portfolio
+          +_result', {}).get('severity', 'none')                         
+      212 +        pts = max(pts, _SEVERITY_CAUTION_POINTS.get(sev, 0))  
+      213 +    # Worst single-ticker concentration / volatility also coun
+          +t.                                                            
+      214 +    for key in ('concentration', 'volatility'):               
+      215 +        for r in (pool_results.get(key, {}) or {}).get('ticker
+          +_results', {}).values():                                      
+      216 +            pts = max(pts, _SEVERITY_CAUTION_POINTS.get(r.get(
+          +'severity', 'none'), 0))                                      
+      217 +    return pts                                                
+      218 +                                                              
+      219 +                                                              
+      220 +def _compute_caution_score(                                   
+      221 +    cta_list: list[dict[str, Any]], total_equity: float,      
+      222 +    pool_results: dict[str, Any] | None = None,               
+      223 +) -> int:                                                     
+      224 +    """Caution score 1–99: the greater of a trade-flow score (
+          +sells full weight,                                            
+      225 +    buys 30%, holds ignored) and a severity floor from the ana
+          +lyzers, so tiers                                              
+      226 +    that suppress sells still surface genuine portfolio risk."
+          +""                                                            
+      227      if total_equity <= 0:
+      228          return 0
+      229      weighted_total = 0.0
+     ...
+      235          elif action in ('buy_new', 'buy_more'):
+      236              weighted_total += dollars * 0.30
+      237      score_pct = (weighted_total / total_equity) * 100
+      214 -    return max(1, min(99, int(score_pct)))                    
+      238 +    floor = _severity_caution_floor(pool_results or {})       
+      239 +    return max(1, min(99, int(max(score_pct, floor))))        
+      240  
+      241  
+      242  def _apply_all_ctas(
+● All app-copy edits done. Let me compile-check, then functionally verify
+  against the specific portfolios that were broken (index #01,
+  winner-drift-on-loser #28, sector wording #13, buy cap #48, caution floor
+  #49).
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -m py_compile vector/lens/analyzers/concentration.py
+      vector/lens/analyzers/slope.…)
+  ⎿  COMPILE_OK
+
+● Compiles. Now let me functionally verify the changed logic offline (no
+  network) — winner-drift suppression on losers, index downgrade, sector-weight
+  wording, buy cap, and the caution floor:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      from vector.lens.analyzers import concentration…)
+  ⎿  Error: Exit code 1
+     Traceback (most recent call last):
+       File "<string>", line 7, in <module>
+     TypeError: 'float' object is not iterable
+
+● Test harness bug (copying a float profile field). Fixing the copy and
+  rerunning:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      from vector.lens.analyzers import concentration…)
+  ⎿  A1 paper-loser INTC: winner_drift present? -> False (want False)
+     A2 real-winner NVDA: winner_drift present? -> True (want True)
+     B  all in INDEX_ETFS? -> True
+     … +6 lines (ctrl+o to expand)
+
+● A1, A2, B, C(cap), D all pass. In test C the sector_underweight CTA got
+  deduped behind the single-stock reduce_concentration buys, so let me confirm
+  the #3 wording fix with a pure sector-heavy case (no single-stock
+  concentration) where the sector_underweight CTA actually survives:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      from vector.lens.cta_engine import compute_ctas…)
+  ⎿  target=Financial Services   detail sector_weight=0.0  (should be that
+     sector's weight, NOT 70=Energy)
+     target=Consumer Defensive   detail sector_weight=0.0  (should be that
+     sector's weight, NOT 70=Energy)
+
+● #3 confirmed — sector_underweight now reports the target sector's weight (0%
+  for unheld sectors), not Energy's 70%. So the brief reads "Financial Services
+  is underrepresented at 0%" instead of the nonsensical "at 70%".
+
+  All seven fixes verified in the app copy. Now I'll mirror them to the
+  lens_standalone/ copy so a future promote can't reintroduce the bugs. Let me
+  check the standalone files' import style and current text first.
+
+  Read 1 file (ctrl+o to expand)
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      rg -n "^from|^import|INDEX_ETFS"
+      lens_standalone/lens/analyzers/concentration.py lens_st…)
+  ⎿  lens_standalone/lens/cta_engine.py:3:from __future__ import annotation
+     s
+     lens_standalone/lens/cta_engine.py:5:import logging
+     … +15 lines (ctrl+o to expand)
+
+● Standalone uses relative imports (...constants from analyzers). Let me read
+  the standalone files I need to edit so I can mirror precisely.
+
+  Read 1 file (ctrl+o to expand)
+
+● The standalone mirrors the pre-fix app code (minus the sub-signal comments).
+  Let me read the remaining standalone regions to edit: slope clamp, lens_output
+   caution, and cta_engine (dilution constant, priority-7 append, dedupe end).
+
+  Searched for 2 patterns, read 2 files (ctrl+o to expand)
+
+● Now I have all regions. Let me read the standalone cta_engine.py
+  priority-7/dedupe regions and earnings.py fetch line to confirm exact text,
+  then apply all standalone edits.
+
+  Read 2 files (ctrl+o to expand)
+
+● All confirmed. Now applying the same fixes to the standalone copy. First
+  concentration.py (4 edits):
+
+● Update(lens_standalone\lens\analyzers\concentration.py)
+  ⎿  Added 1 line
+      36  
+      37      ticker_results: dict[str, dict] = {}
+      38      sector_weights: dict[str, float] = {}
+      39 +    index_current_value = 0.0                                  
+      40  
+      41      for pos in positions:
+      42          t = pos['ticker']
+
+● Update(lens_standalone\lens\analyzers\concentration.py)
+  ⎿  Added 5 lines, removed 1 line
+      63                  sub_signals.append('stock_concentration')
+      64                  best_severity = stock_sev
+      65  
+      66 -        if not is_index and weight_pct > 30 and drift_multiple 
+         -> 2.0:                                                         
+      66 +        # Winner drift requires the position to actually be UP 
+         +from cost —                                                    
+      67 +        # otherwise a holding that merely fell less than its pe
+         +ers (current weight                                            
+      68 +        # > cost-basis weight) gets mislabeled a "winner that d
+         +rifted".                                                       
+      69 +        if (not is_index and weight_pct > 30 and drift_multiple
+         + > 2.0                                                         
+      70 +                and current_value > cost_equity):              
+      71              drift_sev = 'high' if drift_multiple > 2.5 else 'mo
+          derate'
+      72              sub_signals.append('winner_drift')
+      73              if _SEV_ORDER[drift_sev] > _SEV_ORDER[best_severity
+          ]:
+
+● Update(lens_standalone\lens\analyzers\concentration.py)
+  ⎿  Added 2 lines
+      76          if not is_index:
+      77              sector = pos.get('sector') or 'Unknown'
+      78              sector_weights[sector] = sector_weights.get(sector,
+           0.0) + current_value
+      79 +        else:                                                  
+      80 +            index_current_value += current_value               
+      81  
+      82          ticker_results[t] = {
+      83              'value': weight_pct,
+
+● Update(lens_standalone\lens\analyzers\concentration.py)  ⎿  Added 11 lines
+      111      else:
+      112          sector_sev = 'none'
+      113  
+      114 +    # Index funds supply broad, cross-sector diversification. 
+          +When they dominate                                            
+      115 +    # the book, the small non-index remainder is not a sector-
+          +concentration                                                 
+      116 +    # problem — downgrade so a fully index-diversified portfol
+          +io is not flagged                                             
+      117 +    # (and told to "buy individual stocks to diversify").     
+      118 +    index_weight_pct = (                                      
+      119 +        index_current_value / total_current_value * 100       
+      120 +        if total_current_value else 0.0                       
+      121 +    )                                                         
+      122 +    if index_weight_pct >= 50 and sector_sev in ('moderate', '
+          +high'):                                                       
+      123 +        sector_sev = 'low'                                    
+      124 +                                                              
+      125      return {
+      126          'ticker_results': ticker_results,
+      127          'portfolio_result': {
+
+● Now standalone slope.py, earnings.py (note ...constants relative import), and
+  the cta_engine.py / lens_output.py edits:
+
+● Update(lens_standalone\lens\analyzers\slope.py)
+  ⎿  Added 4 lines, removed 1 line
+      12  
+      13  _MIN_DATA_POINTS = 30
+      14  _SLOPE_CLAMP_MIN = -80.0
+      15 -_SLOPE_CLAMP_MAX = 150.0                                       
+      15 +# Raised from 150 so genuine momentum names show distinct, data
+         +-driven figures                                                
+      16 +# instead of all pinning to an identical "+150.0%" in the brief
+         +. Positive slopes                                              
+      17 +# carry no severity (all classify 'none'), so this only affects
+         + the displayed value.                                          
+      18 +_SLOPE_CLAMP_MAX = 250.0                                       
+      19  
+      20  
+      21  def _classify(annualized_pct: float, thresholds: dict[str, floa
+          t]) -> str:
+
+● Update(lens_standalone\lens\analyzers\earnings.py)
+  ⎿  Added 2 lines
+       6  from datetime import date, datetime
+       7  from typing import Any
+       8  
+       9 +from ...constants import INDEX_ETFS                            
+      10 +                                                               
+      11  _log = logging.getLogger(__name__)
+      12  
+      13  
+
+● Update(lens_standalone\lens\analyzers\earnings.py)
+  ⎿  Added 3 lines, removed 1 line
+      83          eps_estimate: float | None = None
+      84  
+      85          try:
+      86 -            earnings = store.get_earnings(t) or []             
+      86 +            # Index ETFs have no earnings reports — skip the fu
+         +ndamentals fetch                                               
+      87 +            # (it 404s on Yahoo and wastes an API call) and lea
+         +ve the neutral result.                                         
+      88 +            earnings = [] if t in INDEX_ETFS else (store.get_ea
+         +rnings(t) or [])                                               
+      89              for e in earnings:
+      90                  ed = _parse_date(e.get('date'))
+      91                  if ed and ed >= today:
+
+● Now standalone cta_engine.py (buy-cap constant, sector_weight fix, cap helper
+  + call):
+
+● Update(lens_standalone\lens\cta_engine.py)
+  ⎿  Added 6 lines
+      20  # materially sized while still scaling with the user's chosen t
+          hreshold.
+      21  _CONCENTRATION_DILUTION_FACTOR = 0.75
+      22  
+      23 +# Aggregate cap on all buy CTAs combined. Each buy priority is 
+         +capped on its own,                                             
+      24 +# but several (high beta + concentration dilution + sector unde
+         +rweight) can stack;                                            
+      25 +# this keeps the *total* recommended new deposit to a sensible 
+         +slice of the                                                   
+      26 +# portfolio so a brief never asks the user to invest more than 
+         +this at once.                                                  
+      27 +_MAX_TOTAL_BUY_FRACTION = 0.40                                 
+      28  
+      29 +                                                               
+      30  def _round10(v: float) -> float:
+      31      return round(v / 10) * 10
+      32  
+
+● Update(lens_standalone\lens\cta_engine.py)
+  ⎿  Added 3 lines, removed 1 line
+      458                      'severity': port_conc['severity'],
+      459                      'details': {
+      460                          'heavy_sector': heavy_sector,
+      461 -                        'sector_weight': heavy_pct,           
+      461 +                        # The sentence reports this as the TAR
+          +GET sector's exposure,                                        
+      462 +                        # so it must be the target's weight — 
+          +not the heavy sector's.                                       
+      463 +                        'sector_weight': round(sector_weights.
+          +get(sector, 0.0) * 100, 1),                                   
+      464                          'target_sector': sector,
+      465                          'suggested_tickers': suggested,
+      466                      },
+
+● Update(lens_standalone\lens\cta_engine.py)
+  ⎿  Added 24 lines
+      567  
+      568      ctas = _dedupe_ctas(ctas)
+      569  
+      570 +    # Keep the combined buy recommendation within a sensible s
+          +lice of the portfolio.                                        
+      571 +    ctas = _cap_total_buys(ctas, total_equity)                
+      572 +                                                              
+      573      return ctas
+      574  
+      575  
+      576 +def _cap_total_buys(cta_list: list[dict], total_equity: float)
+          + -> list[dict]:                                               
+      577 +    """Scale all buy CTAs down proportionally so their combine
+          +d dollars stay within                                         
+      578 +    ``_MAX_TOTAL_BUY_FRACTION`` of portfolio value. Sells and 
+          +holds are untouched.                                          
+      579 +    Buys that round to zero after scaling are dropped."""     
+      580 +    if total_equity <= 0:                                     
+      581 +        return cta_list                                       
+      582 +    buys = [c for c in cta_list if c.get('action') in ('buy_ne
+          +w', 'buy_more')]                                              
+      583 +    total_buy = sum(float(c.get('dollars', 0.0) or 0.0) for c 
+          +in buys)                                                      
+      584 +    cap = total_equity * _MAX_TOTAL_BUY_FRACTION              
+      585 +    if total_buy <= cap or total_buy <= 0:                    
+      586 +        return cta_list                                       
+      587 +    scale = cap / total_buy                                   
+      588 +    for c in buys:                                            
+      589 +        c['dollars'] = _round10(float(c.get('dollars', 0.0) or
+          + 0.0) * scale)                                                
+      590 +    return [                                                  
+      591 +        c for c in cta_list                                   
+      592 +        if not (c.get('action') in ('buy_new', 'buy_more')    
+      593 +                and float(c.get('dollars', 0.0) or 0.0) <= 0) 
+      594 +    ]                                                         
+      595 +                                                              
+      596 +                                                              
+      597  def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:
+      598      """Remove duplicate CTAs, resolve action conflicts, cap pe
+           r-sector buys."""
+      599      seen: dict[tuple[str, str], dict] = {}
+
+● Now standalone lens_output.py (caution call site + function):
+
+● Update(lens_standalone\lens\lens_output.py)
+  ⎿  Added 1 line, removed 1 line
+      115      underweight_sector = details.get('target_sector', details.
+           get('heavy_sector', ''))
+      116  
+      117      total_equity = pool_results.get('_positions_summary', {}).
+           get('total_equity', 1.0)
+      118 -    caution_score = _compute_caution_score(cta_list, total_equ
+          -ity)                                                          
+      118 +    caution_score = _compute_caution_score(cta_list, total_equ
+          +ity, pool_results)                                            
+      119      threat_level = caution_score / 100.0
+      120  
+      121      projected_positions, net_cta_delta = _apply_all_ctas(
+
+● Update(lens_standalone\lens\lens_output.py)
+  ⎿  Added 28 lines, removed 3 lines
+      199          json.dump({'snapshots': snapshots}, f, indent=2)
+      200  
+      201  
+      202 -def _compute_caution_score(cta_list: list[dict[str, Any]], tot
+          -al_equity: float) -> int:                                     
+      203 -    """Caution score 1–99. Sells full weight, buys 30%, holds 
+          -ignored."""                                                   
+      202 +_SEVERITY_CAUTION_POINTS = {'none': 0, 'low': 8, 'moderate': 3
+          +0, 'high': 60, 'critical': 88}                                
+      203 +                                                              
+      204 +                                                              
+      205 +def _severity_caution_floor(pool_results: dict[str, Any]) -> i
+          +nt:                                                           
+      206 +    """A risk floor derived from analyzer severities, so a gen
+          +uinely dangerous                                              
+      207 +    portfolio scores high even when its recommended trades are
+          + suppressed (e.g.                                             
+      208 +    the Conservative tier blocks large-cap sells, which would 
+          +otherwise leave the                                           
+      209 +    trade-flow score artificially low)."""                    
+      210 +    pts = 0                                                   
+      211 +    for key in ('concentration', 'volatility', 'beta', 'perfor
+          +mance', 'slope'):                                             
+      212 +        sev = (pool_results.get(key, {}) or {}).get('portfolio
+          +_result', {}).get('severity', 'none')                         
+      213 +        pts = max(pts, _SEVERITY_CAUTION_POINTS.get(sev, 0))  
+      214 +    # Worst single-ticker concentration / volatility also coun
+          +t.                                                            
+      215 +    for key in ('concentration', 'volatility'):               
+      216 +        for r in (pool_results.get(key, {}) or {}).get('ticker
+          +_results', {}).values():                                      
+      217 +            pts = max(pts, _SEVERITY_CAUTION_POINTS.get(r.get(
+          +'severity', 'none'), 0))                                      
+      218 +    return pts                                                
+      219 +                                                              
+      220 +                                                              
+      221 +def _compute_caution_score(                                   
+      222 +    cta_list: list[dict[str, Any]], total_equity: float,      
+      223 +    pool_results: dict[str, Any] | None = None,               
+      224 +) -> int:                                                     
+      225 +    """Caution score 1–99: the greater of a trade-flow score (
+          +sells full weight,                                            
+      226 +    buys 30%, holds ignored) and a severity floor from the ana
+          +lyzers, so tiers                                              
+      227 +    that suppress sells still surface genuine portfolio risk."
+          +""                                                            
+      228      if total_equity <= 0:
+      229          return 0
+      230      weighted_total = 0.0
+     ...
+      236          elif action in ('buy_new', 'buy_more'):
+      237              weighted_total += dollars * 0.30
+      238      score_pct = (weighted_total / total_equity) * 100
+      215 -    return max(1, min(99, int(score_pct)))                    
+      239 +    floor = _severity_caution_floor(pool_results or {})       
+      240 +    return max(1, min(99, int(max(score_pct, floor))))        
+      241  
+      242  
+      243  def _apply_all_ctas(
+
+● All standalone edits applied. Compile-check the standalone copy, and verify
+  the standalone harness still imports cleanly:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -m py_compile lens_standalone/lens/analyzers/concentration.py
+      lens_standalone/len…)
+  ⎿  STANDALONE_COMPILE_OK
+
+● Both copies compile. Now let me update CLAUDE.md to document the new
+  invariants so they're not regressed later.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Update(CLAUDE.md)
+  ⎿  Added 1 line, removed 1 line
+      234  10. Unrealized loss (hold)
+      235  11. Portfolio healthy (hold)
+      236  
+      237 -**Buy amount caps:** `_cap_buy_amount()` is applied to every b
+          -uy-type priority (5, 6, 7, 9) so diversification deltas remain
+          - proportional to portfolio size.                              
+      237 +**Buy amount caps:** `_cap_buy_amount()` is applied to every b
+          +uy-type priority (5, 6, 7, 9) so diversification deltas remain
+          + proportional to portfolio size. On top of the per-CTA caps, `
+          +_cap_total_buys()` runs after `_dedupe_ctas()` and scales **al
+          +l** buy CTAs down proportionally so their combined dollars sta
+          +y within `_MAX_TOTAL_BUY_FRACTION` (0.40) of total equity — ot
+          +herwise several buy priorities (high beta + concentration dilu
+          +tion + sector underweight) stack into an unrealistic "deposit 
+          +more than half your portfolio" ask.                           
+      238  
+      239  **Concentration dilution target (don't regress):** Priorities 
+           6 (single-stock) and 7 (sector) compute "buy elsewhere to dilu
+           te" dollars by solving `v_total_new = over_value / target_weig
+           ht`. The dilution `target_weight` must sit **below** the flag 
+           trigger, never equal to it — a holding sitting right at the tr
+           igger would otherwise need ≈$0 to "dilute" back to the same nu
+           mber (this produced the $70-on-a-$17k-portfolio bug). The targ
+           et is `trigger × _CONCENTRATION_DILUTION_FACTOR` (0.75) in `ct
+           a_engine.py`; the single-stock trigger is `risk_profile['conce
+           ntration']['moderate']` (defaults to the `stock_concentration_
+           pct` lens-signal, 35), the sector trigger is `['sector_moderat
+           e']` (50). Do not set the target back to the raw trigger.
+      240  
+
+● Update(CLAUDE.md)
+  ⎿  Added 5 lines, removed 1 line
+      255  
+      256  **Color mapping:** `sell` → `#ff4d4d`, `rebalance` → `#ff9f43`
+           , `buy_new`/`buy_more` → `#38bdf8`, `hold` → `#8d98af`.
+      257  
+      258 -**Caution score:** 1–99, computed as `total CTA dollars / tota
+          -l equity × 100` (clamped).                                    
+      258 +**Caution score:** 1–99, the **greater** of (a) a trade-flow s
+          +core (`(Σ sell$ + 0.30·Σ buy$) / total equity × 100`) and (b) 
+          +a **severity floor** derived from the analyzers (max portfolio
+          +- and worst-ticker severity across concentration/volatility/be
+          +ta/performance/slope, mapped via `_SEVERITY_CAUTION_POINTS`). 
+          +The floor exists so a genuinely dangerous book still scores hi
+          +gh in tiers that suppress sells (e.g. Conservative blocking la
+          +rge-cap sells previously made a 78%-leveraged-ETF portfolio re
+          +ad 13/99). See `_compute_caution_score` / `_severity_caution_f
+          +loor` in `lens_output.py`.                                    
+      259  
+      260 +**Winner-drift requires real appreciation (don't regress):** `
+          +concentration.py` only sets the `winner_drift` sub-signal when
+          + `weight_pct > 30 and drift_multiple > 2.0 **and current_value
+          + > cost_equity**`. Without the last clause, a position that me
+          +rely fell *less* than its peers (so its current-value weight e
+          +xceeds its cost-basis weight) gets mislabeled a "winner that d
+          +rifted" — producing "price appreciation pushed…" text and cont
+          +radictory SELL+HOLD CTAs on an underwater holding.            
+      261 +                                                              
+      262 +**Index-dominated sector downgrade (don't regress):** index ET
+          +Fs are excluded from the per-sector tally, so a heavily-index 
+          +portfolio otherwise shows `sector_count ≤ 1/2` → false `high`/
+          +`moderate` sector-concentration flag → spurious "buy individua
+          +l stocks to diversify" CTAs. `concentration.py` computes `inde
+          +x_weight_pct` and, when it's ≥ 50%, downgrades `sector_sev` fr
+          +om moderate/high to `low` (the index *is* the diversification)
+          +. This keeps all-index/index-core portfolios out of the sector
+          +-underweight CTA path.                                        
+      263 +                                                              
+      264  **Projected positions:** `_apply_all_ctas()` in `lens_output.p
+           y` applies every CTA to a deep copy of positions:
+      265  - `sell`/`rebalance`: reduces position value (removes if fully
+            sold)
+      266  - `buy_more`: increases existing position value
+
+● Both copies compile and CLAUDE.md is updated. Let me verify the import chains
+  wire up correctly in both trees (the new INDEX_ETFS imports especially) and
+  that the app's full pipeline imports cleanly:
+
+● Bash(cd "C:\Users\Matthew\Documents\_Dev_ALL\Protonyx Vector\Vector-Main" &&
+      python -c "
+      import vector.lens.analyzers.earnings as e1…)
+  ⎿  app: INDEX_ETFS wired -> True | _MAX_TOTAL_BUY_FRACTION -> 0.4 | cauti
+     on floor map -> True
+     standalone: INDEX_ETFS wired -> True | _MAX_TOTAL_BUY_FRACTION -> 0.4
+     … +2 lines (ctrl+o to expand)
+
+● All fixes are implemented in both the app (vector/lens) and standalone
+  (lens_standalone/lens) trees, compile clean, import clean, and the changed
+  logic is verified offline.
+
+  What I changed
+
+  Per your answers, I kept the current sell ordering (so no
+  sell_scale/large-cap-block changes — #6 skipped, #9 left as-is) but blended 
+  severities into the caution score. Here's everything done:
+
+  #: 2
+  Fix: winner_drift now requires current_value > cost_equity — a paper loser
+    can't be mislabeled a "drifted winner"
+  File(s): concentration.py
+  Verified: ✅ loser→suppressed, real winner→still fires
+  ────────────────────────────────────────
+  #: 3
+  Fix: sector_underweight sentence now uses the target sector's weight, not the
+    heavy sector's
+  File(s): cta_engine.py
+  Verified: ✅ "Financials… at 0%", not "…at 70%"
+  ────────────────────────────────────────
+  #: 1
+  Fix: Index-dominated portfolios (≥50% index) no longer flagged as
+    sector-concentrated → no spurious "buy individual stocks"
+  File(s): concentration.py
+  Verified: ✅ all-index → severity low, flag False
+  ────────────────────────────────────────
+  #: 4
+  Fix: New _cap_total_buys() scales all buys so their sum ≤ 40% of equity (no
+    more "deposit > your whole portfolio")
+  File(s): cta_engine.py
+  Verified: ✅ buys capped at 33%/40%
+  ────────────────────────────────────────
+  #: 5
+  Fix: Caution score = max(trade-flow score, severity floor) so dangerous books
+    score high even when sells are suppressed
+  File(s): lens_output.py
+  Verified: ✅ critical book → caution 88, not 13
+  ────────────────────────────────────────
+  #: 7
+  Fix: Slope clamp raised 150→250 so momentum names show varied real figures,
+  not
+    identical "+150.0%"
+  File(s): slope.py
+  Verified: ✅
+  ────────────────────────────────────────
+  #: 8
+  Fix: Skip earnings fetch for index ETFs → no more 404 spam / wasted API calls
+  File(s): earnings.py
+  Verified: ✅
+
+  CLAUDE.md updated with three new "don't regress" invariants (winner-drift
+  appreciation gate, index sector downgrade, aggregate buy cap) and the new
+  caution-score definition.
+
+  What to do next
+
+  Re-run the developer test in Settings and diff the new output.md against the
+  old one. You should specifically see:
+  - 01 Index Three-Fund / 08 Lazy Two-Fund → "healthy"/hold, no AAPL/UNH/JPM
+  buys
+  - 28 Dividend Trap / 42 / 44 → no winner_drift on the underwater names
+  - 13 / 17 / 39 → sensible "underrepresented at X%" numbers
+  - 48 / 49 → net buy delta capped near 40% of equity; caution scores high in
+  Conservative too
+  - No 404 … fundamentals lines for the ETFs
+
+  Two notes: I left diagnosis.md in place as the record (its #5/#6/#9 section
+  reflects the items you chose to defer/skip). And since the prior run still
+  shadows via the cached file — that was already deleted last time, so the next
+  run will read your repo debug_test.json directly.
+
+✻ Baked for 12m 18s

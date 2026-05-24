@@ -234,7 +234,7 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 10. Unrealized loss (hold)
 11. Portfolio healthy (hold)
 
-**Buy amount caps:** `_cap_buy_amount()` is applied to every buy-type priority (5, 6, 7, 9) so diversification deltas remain proportional to portfolio size.
+**Buy amount caps:** `_cap_buy_amount()` is applied to every buy-type priority (5, 6, 7, 9) so diversification deltas remain proportional to portfolio size. On top of the per-CTA caps, `_cap_total_buys()` runs after `_dedupe_ctas()` and scales **all** buy CTAs down proportionally so their combined dollars stay within `_MAX_TOTAL_BUY_FRACTION` (0.40) of total equity — otherwise several buy priorities (high beta + concentration dilution + sector underweight) stack into an unrealistic "deposit more than half your portfolio" ask.
 
 **Concentration dilution target (don't regress):** Priorities 6 (single-stock) and 7 (sector) compute "buy elsewhere to dilute" dollars by solving `v_total_new = over_value / target_weight`. The dilution `target_weight` must sit **below** the flag trigger, never equal to it — a holding sitting right at the trigger would otherwise need ≈$0 to "dilute" back to the same number (this produced the $70-on-a-$17k-portfolio bug). The target is `trigger × _CONCENTRATION_DILUTION_FACTOR` (0.75) in `cta_engine.py`; the single-stock trigger is `risk_profile['concentration']['moderate']` (defaults to the `stock_concentration_pct` lens-signal, 35), the sector trigger is `['sector_moderate']` (50). Do not set the target back to the raw trigger.
 
@@ -255,7 +255,11 @@ The Lens engine is a modular, tree-structured system: **analyzers → analysis p
 
 **Color mapping:** `sell` → `#ff4d4d`, `rebalance` → `#ff9f43`, `buy_new`/`buy_more` → `#38bdf8`, `hold` → `#8d98af`.
 
-**Caution score:** 1–99, computed as `total CTA dollars / total equity × 100` (clamped).
+**Caution score:** 1–99, the **greater** of (a) a trade-flow score (`(Σ sell$ + 0.30·Σ buy$) / total equity × 100`) and (b) a **severity floor** derived from the analyzers (max portfolio- and worst-ticker severity across concentration/volatility/beta/performance/slope, mapped via `_SEVERITY_CAUTION_POINTS`). The floor exists so a genuinely dangerous book still scores high in tiers that suppress sells (e.g. Conservative blocking large-cap sells previously made a 78%-leveraged-ETF portfolio read 13/99). See `_compute_caution_score` / `_severity_caution_floor` in `lens_output.py`.
+
+**Winner-drift requires real appreciation (don't regress):** `concentration.py` only sets the `winner_drift` sub-signal when `weight_pct > 30 and drift_multiple > 2.0 **and current_value > cost_equity**`. Without the last clause, a position that merely fell *less* than its peers (so its current-value weight exceeds its cost-basis weight) gets mislabeled a "winner that drifted" — producing "price appreciation pushed…" text and contradictory SELL+HOLD CTAs on an underwater holding.
+
+**Index-dominated sector downgrade (don't regress):** index ETFs are excluded from the per-sector tally, so a heavily-index portfolio otherwise shows `sector_count ≤ 1/2` → false `high`/`moderate` sector-concentration flag → spurious "buy individual stocks to diversify" CTAs. `concentration.py` computes `index_weight_pct` and, when it's ≥ 50%, downgrades `sector_sev` from moderate/high to `low` (the index *is* the diversification). This keeps all-index/index-core portfolios out of the sector-underweight CTA path.
 
 **Projected positions:** `_apply_all_ctas()` in `lens_output.py` applies every CTA to a deep copy of positions:
 - `sell`/`rebalance`: reduces position value (removes if fully sold)

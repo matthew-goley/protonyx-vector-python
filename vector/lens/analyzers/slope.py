@@ -12,7 +12,10 @@ _log = logging.getLogger(__name__)
 
 _MIN_DATA_POINTS = 30
 _SLOPE_CLAMP_MIN = -80.0
-_SLOPE_CLAMP_MAX = 150.0
+# Raised from 150 so genuine momentum names show distinct, data-driven figures
+# instead of all pinning to an identical "+150.0%" in the brief. Positive slopes
+# carry no severity (all classify 'none'), so this only affects the displayed value.
+_SLOPE_CLAMP_MAX = 250.0
 
 
 def _classify(annualized_pct: float, thresholds: dict[str, float]) -> str:

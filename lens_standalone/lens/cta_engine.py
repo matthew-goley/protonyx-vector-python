@@ -20,6 +20,12 @@ _MIN_POSITION_VALUE_FOR_SELL = 1000
 # materially sized while still scaling with the user's chosen threshold.
 _CONCENTRATION_DILUTION_FACTOR = 0.75
 
+# Aggregate cap on all buy CTAs combined. Each buy priority is capped on its own,
+# but several (high beta + concentration dilution + sector underweight) can stack;
+# this keeps the *total* recommended new deposit to a sensible slice of the
+# portfolio so a brief never asks the user to invest more than this at once.
+_MAX_TOTAL_BUY_FRACTION = 0.40
+
 
 def _round10(v: float) -> float:
     return round(v / 10) * 10
@@ -452,7 +458,9 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                     'severity': port_conc['severity'],
                     'details': {
                         'heavy_sector': heavy_sector,
-                        'sector_weight': heavy_pct,
+                        # The sentence reports this as the TARGET sector's exposure,
+                        # so it must be the target's weight — not the heavy sector's.
+                        'sector_weight': round(sector_weights.get(sector, 0.0) * 100, 1),
                         'target_sector': sector,
                         'suggested_tickers': suggested,
                     },
@@ -559,7 +567,31 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
 
     ctas = _dedupe_ctas(ctas)
 
+    # Keep the combined buy recommendation within a sensible slice of the portfolio.
+    ctas = _cap_total_buys(ctas, total_equity)
+
     return ctas
+
+
+def _cap_total_buys(cta_list: list[dict], total_equity: float) -> list[dict]:
+    """Scale all buy CTAs down proportionally so their combined dollars stay within
+    ``_MAX_TOTAL_BUY_FRACTION`` of portfolio value. Sells and holds are untouched.
+    Buys that round to zero after scaling are dropped."""
+    if total_equity <= 0:
+        return cta_list
+    buys = [c for c in cta_list if c.get('action') in ('buy_new', 'buy_more')]
+    total_buy = sum(float(c.get('dollars', 0.0) or 0.0) for c in buys)
+    cap = total_equity * _MAX_TOTAL_BUY_FRACTION
+    if total_buy <= cap or total_buy <= 0:
+        return cta_list
+    scale = cap / total_buy
+    for c in buys:
+        c['dollars'] = _round10(float(c.get('dollars', 0.0) or 0.0) * scale)
+    return [
+        c for c in cta_list
+        if not (c.get('action') in ('buy_new', 'buy_more')
+                and float(c.get('dollars', 0.0) or 0.0) <= 0)
+    ]
 
 
 def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:

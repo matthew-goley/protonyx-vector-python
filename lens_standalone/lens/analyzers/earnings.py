@@ -6,6 +6,8 @@ import logging
 from datetime import date, datetime
 from typing import Any
 
+from ...constants import INDEX_ETFS
+
 _log = logging.getLogger(__name__)
 
 
@@ -81,7 +83,9 @@ def analyze(
         eps_estimate: float | None = None
 
         try:
-            earnings = store.get_earnings(t) or []
+            # Index ETFs have no earnings reports — skip the fundamentals fetch
+            # (it 404s on Yahoo and wastes an API call) and leave the neutral result.
+            earnings = [] if t in INDEX_ETFS else (store.get_earnings(t) or [])
             for e in earnings:
                 ed = _parse_date(e.get('date'))
                 if ed and ed >= today:

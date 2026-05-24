@@ -61,7 +61,8 @@
       "Bash(.venv/Scripts/python.exe *)",
       "Bash(findstr /R \"\\\\.py$ \\\\.json$ \\\\.bat$ \\\\.txt$\")",
       "Bash(findstr /V \"lens_standalone\")",
-      "Bash(QT_QPA_PLATFORM=offscreen python -c ' *)"
+      "Bash(QT_QPA_PLATFORM=offscreen python -c ' *)",
+      "WebSearch"
     ]
   }
 }

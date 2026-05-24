@@ -1,54 +1,552 @@
 {
+  "_comment": "50 synthetic portfolios graded from near-perfect to disaster. Failure modes are engineered via structure (sectors/weights), entry_price (entry ABOVE current = unrealized loss; entry FAR BELOW current + dominant share count = winner drift), and ticker choice (small caps / high-beta names). All tickers are real and were valid on Yahoo Finance as of May 2026; current price, sector, volatility and beta are fetched live at runtime, so exact weights/flags shift with the market. Prices in entry_price reflect ~May 2026 intuition.",
   "portfolios": [
     {
-      "name": "Tech Concentrate",
-      "description": "100% Technology — tests sector over-concentration",
+      "name": "01 Index Three-Fund",
+      "description": "NEAR-PERFECT. Classic VTI + VXUS + VOO + SCHD core. Tests index-fund detection and a maximally diversified baseline.",
       "positions": [
-        {"ticker": "AAPL", "shares": 40, "entry_price": 150},
-        {"ticker": "NVDA", "shares": 15, "entry_price": 100},
-        {"ticker": "MSFT", "shares": 8, "entry_price": 380},
-        {"ticker": "GOOGL", "shares": 12, "entry_price": 140}
+        {"ticker": "VTI", "shares": 20, "entry_price": 250},
+        {"ticker": "VXUS", "shares": 70, "entry_price": 58},
+        {"ticker": "VOO", "shares": 6, "entry_price": 470},
+        {"ticker": "SCHD", "shares": 80, "entry_price": 24}
       ]
     },
     {
-      "name": "Index Holder",
-      "description": "VOO-heavy portfolio — tests index fund detection",
+      "name": "02 Diversified Blue Chips",
+      "description": "NEAR-PERFECT. One large-cap leader per sector, ~10% each across 10 sectors, all modest gainers. Should produce near 'portfolio healthy'.",
       "positions": [
-        {"ticker": "VOO", "shares": 25, "entry_price": 480},
-        {"ticker": "AAPL", "shares": 5, "entry_price": 180},
-        {"ticker": "JNJ", "shares": 8, "entry_price": 150}
+        {"ticker": "AAPL", "shares": 8, "entry_price": 195},
+        {"ticker": "JNJ", "shares": 12, "entry_price": 135},
+        {"ticker": "JPM", "shares": 7, "entry_price": 210},
+        {"ticker": "PG", "shares": 11, "entry_price": 145},
+        {"ticker": "AMZN", "shares": 8, "entry_price": 185},
+        {"ticker": "XOM", "shares": 16, "entry_price": 95},
+        {"ticker": "CAT", "shares": 5, "entry_price": 310},
+        {"ticker": "NEE", "shares": 26, "entry_price": 60},
+        {"ticker": "GOOGL", "shares": 10, "entry_price": 150},
+        {"ticker": "LIN", "shares": 4, "entry_price": 400}
       ]
     },
     {
-      "name": "Mixed Bag with Loser",
-      "description": "Diversified except INTC is down ~50% from entry",
+      "name": "03 Core + Satellite",
+      "description": "NEAR-PERFECT. ~45% VOO core with single-stock satellites spread across sectors, all small gains.",
       "positions": [
-        {"ticker": "JPM", "shares": 10, "entry_price": 195},
-        {"ticker": "JNJ", "shares": 12, "entry_price": 152},
-        {"ticker": "XOM", "shares": 15, "entry_price": 110},
+        {"ticker": "VOO", "shares": 14, "entry_price": 480},
+        {"ticker": "MSFT", "shares": 3, "entry_price": 380},
+        {"ticker": "UNH", "shares": 5, "entry_price": 290},
+        {"ticker": "JPM", "shares": 5, "entry_price": 215},
+        {"ticker": "HD", "shares": 4, "entry_price": 340},
+        {"ticker": "CVX", "shares": 10, "entry_price": 140}
+      ]
+    },
+    {
+      "name": "04 Dividend Diversified",
+      "description": "NEAR-PERFECT. Defensive dividend payers spread across sectors; low beta, modest gains.",
+      "positions": [
+        {"ticker": "SCHD", "shares": 60, "entry_price": 24},
+        {"ticker": "JNJ", "shares": 10, "entry_price": 140},
+        {"ticker": "PG", "shares": 10, "entry_price": 150},
+        {"ticker": "KO", "shares": 24, "entry_price": 60},
+        {"ticker": "JPM", "shares": 6, "entry_price": 215},
+        {"ticker": "XOM", "shares": 14, "entry_price": 98},
+        {"ticker": "NEE", "shares": 22, "entry_price": 62},
+        {"ticker": "VZ", "shares": 30, "entry_price": 38}
+      ]
+    },
+    {
+      "name": "05 Eight-Sector Spread",
+      "description": "NEAR-PERFECT. Eight single names, one per sector, ~12.5% each. Clean diversification, no index.",
+      "positions": [
+        {"ticker": "MSFT", "shares": 5, "entry_price": 360},
+        {"ticker": "ABBV", "shares": 11, "entry_price": 165},
+        {"ticker": "MA", "shares": 4, "entry_price": 450},
+        {"ticker": "COST", "shares": 2, "entry_price": 820},
+        {"ticker": "MCD", "shares": 7, "entry_price": 270},
+        {"ticker": "COP", "shares": 22, "entry_price": 105},
+        {"ticker": "HON", "shares": 10, "entry_price": 195},
+        {"ticker": "DUK", "shares": 18, "entry_price": 105}
+      ]
+    },
+    {
+      "name": "06 Global Balanced",
+      "description": "NEAR-PERFECT. US + international index tilt plus a couple quality single names.",
+      "positions": [
+        {"ticker": "VTI", "shares": 14, "entry_price": 255},
+        {"ticker": "VXUS", "shares": 90, "entry_price": 60},
+        {"ticker": "VYM", "shares": 14, "entry_price": 118},
+        {"ticker": "AAPL", "shares": 6, "entry_price": 200},
+        {"ticker": "JNJ", "shares": 9, "entry_price": 142}
+      ]
+    },
+    {
+      "name": "07 Balanced Growth & Value",
+      "description": "NEAR-PERFECT. Growth and value names balanced across sectors with moderate weights.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 6, "entry_price": 200},
+        {"ticker": "GOOGL", "shares": 9, "entry_price": 155},
+        {"ticker": "BRK-B", "shares": 4, "entry_price": 430},
+        {"ticker": "LLY", "shares": 2, "entry_price": 720},
+        {"ticker": "WMT", "shares": 18, "entry_price": 82},
+        {"ticker": "CAT", "shares": 4, "entry_price": 320}
+      ]
+    },
+    {
+      "name": "08 Lazy Two-Fund",
+      "description": "NEAR-PERFECT. Total-market + international, dividend sleeve. The textbook set-and-forget.",
+      "positions": [
+        {"ticker": "VOO", "shares": 16, "entry_price": 470},
+        {"ticker": "VXUS", "shares": 60, "entry_price": 60},
+        {"ticker": "SCHD", "shares": 70, "entry_price": 24}
+      ]
+    },
+    {
+      "name": "09 Slightly Tech-Heavy",
+      "description": "GOOD, minor flaw. Diversified but tech sits a touch high (~30-35%). Otherwise balanced.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 10, "entry_price": 195},
+        {"ticker": "MSFT", "shares": 4, "entry_price": 380},
+        {"ticker": "NVDA", "shares": 6, "entry_price": 110},
+        {"ticker": "JNJ", "shares": 12, "entry_price": 140},
+        {"ticker": "JPM", "shares": 7, "entry_price": 210},
+        {"ticker": "AMZN", "shares": 7, "entry_price": 185},
+        {"ticker": "XOM", "shares": 14, "entry_price": 95},
+        {"ticker": "PG", "shares": 9, "entry_price": 150}
+      ]
+    },
+    {
+      "name": "10 One Small Loser",
+      "description": "GOOD, minor flaw. Well diversified, but PFE is down ~40% from a high entry. Single moderate unrealized loss.",
+      "positions": [
+        {"ticker": "VOO", "shares": 8, "entry_price": 470},
+        {"ticker": "AAPL", "shares": 6, "entry_price": 200},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "PG", "shares": 8, "entry_price": 150},
+        {"ticker": "PFE", "shares": 60, "entry_price": 42}
+      ]
+    },
+    {
+      "name": "11 Mild Single-Stock Tilt",
+      "description": "GOOD, minor flaw. AAPL ~25% of the book — noticeable but below the concentration flag.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 18, "entry_price": 190},
+        {"ticker": "JNJ", "shares": 12, "entry_price": 140},
+        {"ticker": "JPM", "shares": 7, "entry_price": 210},
+        {"ticker": "XOM", "shares": 14, "entry_price": 95},
+        {"ticker": "HON", "shares": 8, "entry_price": 195},
+        {"ticker": "NEE", "shares": 20, "entry_price": 62}
+      ]
+    },
+    {
+      "name": "12 Modest Winner",
+      "description": "GOOD, minor flaw. NVDA appreciated from a low entry to ~28% — a winner just shy of the drift/concentration trigger.",
+      "positions": [
+        {"ticker": "NVDA", "shares": 36, "entry_price": 45},
+        {"ticker": "JNJ", "shares": 14, "entry_price": 145},
+        {"ticker": "JPM", "shares": 9, "entry_price": 210},
+        {"ticker": "PG", "shares": 12, "entry_price": 150},
+        {"ticker": "AMZN", "shares": 8, "entry_price": 190}
+      ]
+    },
+    {
+      "name": "13 Healthcare Lean",
+      "description": "GOOD, minor flaw. Overweight healthcare (~35%) but otherwise spread; tests sector-tilt detection at the boundary.",
+      "positions": [
+        {"ticker": "UNH", "shares": 8, "entry_price": 320},
+        {"ticker": "JNJ", "shares": 12, "entry_price": 140},
+        {"ticker": "ABBV", "shares": 10, "entry_price": 170},
+        {"ticker": "AAPL", "shares": 6, "entry_price": 200},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "XOM", "shares": 12, "entry_price": 96}
+      ]
+    },
+    {
+      "name": "14 Thin Diversification",
+      "description": "GOOD-ish. Quality names but only three sectors represented — diversification is thinner than ideal.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 7, "entry_price": 200},
+        {"ticker": "MSFT", "shares": 4, "entry_price": 380},
+        {"ticker": "JPM", "shares": 8, "entry_price": 210},
+        {"ticker": "BAC", "shares": 30, "entry_price": 40},
+        {"ticker": "AMZN", "shares": 7, "entry_price": 190}
+      ]
+    },
+    {
+      "name": "15 Slight Beta Tilt",
+      "description": "GOOD, minor flaw. Mostly steady, but a couple of higher-beta growth names nudge portfolio beta up.",
+      "positions": [
+        {"ticker": "VOO", "shares": 8, "entry_price": 470},
+        {"ticker": "NVDA", "shares": 10, "entry_price": 110},
+        {"ticker": "AMD", "shares": 12, "entry_price": 150},
+        {"ticker": "JNJ", "shares": 10, "entry_price": 140},
+        {"ticker": "PG", "shares": 8, "entry_price": 150}
+      ]
+    },
+    {
+      "name": "16 Tiny Dead-Weight Tail",
+      "description": "GOOD with a wart. Solid core plus two sub-1% odd-lot positions that read as dead weight.",
+      "positions": [
+        {"ticker": "VTI", "shares": 18, "entry_price": 255},
+        {"ticker": "AAPL", "shares": 8, "entry_price": 200},
+        {"ticker": "JPM", "shares": 7, "entry_price": 210},
+        {"ticker": "JNJ", "shares": 9, "entry_price": 142},
+        {"ticker": "F", "shares": 4, "entry_price": 11},
+        {"ticker": "T", "shares": 2, "entry_price": 24}
+      ]
+    },
+    {
+      "name": "17 Tech Overweight",
+      "description": "MODERATE. ~55% Technology across several chip/software names. Clear sector over-concentration.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 14, "entry_price": 195},
+        {"ticker": "MSFT", "shares": 6, "entry_price": 380},
+        {"ticker": "NVDA", "shares": 14, "entry_price": 110},
+        {"ticker": "AVGO", "shares": 10, "entry_price": 160},
+        {"ticker": "JNJ", "shares": 10, "entry_price": 142},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "XOM", "shares": 10, "entry_price": 96}
+      ]
+    },
+    {
+      "name": "18 Single-Stock Heavy",
+      "description": "MODERATE. NVDA ~40% of the portfolio — single-stock concentration above the trigger.",
+      "positions": [
+        {"ticker": "NVDA", "shares": 55, "entry_price": 95},
+        {"ticker": "JNJ", "shares": 12, "entry_price": 142},
+        {"ticker": "JPM", "shares": 7, "entry_price": 210},
+        {"ticker": "PG", "shares": 9, "entry_price": 150},
+        {"ticker": "XOM", "shares": 12, "entry_price": 96}
+      ]
+    },
+    {
+      "name": "19 Two Losers",
+      "description": "MODERATE. Diversified but two positions (INTC, NKE) are down 40-55% from high entries.",
+      "positions": [
+        {"ticker": "VOO", "shares": 6, "entry_price": 470},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "INTC", "shares": 70, "entry_price": 48},
+        {"ticker": "NKE", "shares": 30, "entry_price": 120},
+        {"ticker": "PG", "shares": 8, "entry_price": 150}
+      ]
+    },
+    {
+      "name": "20 Moderate Winner Drift",
+      "description": "MODERATE. AAPL bought cheap years ago, now ~38% with a drift multiple over 2x — winner drift + concentration.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 55, "entry_price": 60},
+        {"ticker": "JNJ", "shares": 14, "entry_price": 140},
+        {"ticker": "JPM", "shares": 9, "entry_price": 210},
+        {"ticker": "PG", "shares": 12, "entry_price": 150},
+        {"ticker": "XOM", "shares": 14, "entry_price": 96}
+      ]
+    },
+    {
+      "name": "21 Volatility Creep",
+      "description": "MODERATE. A steady core diluted with several higher-volatility names (TSLA, COIN, PLTR).",
+      "positions": [
+        {"ticker": "VOO", "shares": 6, "entry_price": 470},
+        {"ticker": "TSLA", "shares": 8, "entry_price": 250},
+        {"ticker": "COIN", "shares": 6, "entry_price": 220},
+        {"ticker": "PLTR", "shares": 20, "entry_price": 90},
+        {"ticker": "JNJ", "shares": 8, "entry_price": 142}
+      ]
+    },
+    {
+      "name": "22 High-Beta Trio",
+      "description": "MODERATE-to-HIGH. Concentrated in high-beta megacap/growth (NVDA, TSLA, AMD) — elevated portfolio beta.",
+      "positions": [
+        {"ticker": "NVDA", "shares": 20, "entry_price": 110},
+        {"ticker": "TSLA", "shares": 10, "entry_price": 260},
+        {"ticker": "AMD", "shares": 18, "entry_price": 150},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "PG", "shares": 8, "entry_price": 150}
+      ]
+    },
+    {
+      "name": "23 Small-Cap Dabbler",
+      "description": "MODERATE. Mostly large-cap core, but ~20% sprinkled into volatile small caps (SOFI, RUN, SOUN).",
+      "positions": [
+        {"ticker": "VOO", "shares": 8, "entry_price": 470},
+        {"ticker": "AAPL", "shares": 6, "entry_price": 200},
+        {"ticker": "JNJ", "shares": 8, "entry_price": 142},
+        {"ticker": "SOFI", "shares": 60, "entry_price": 12},
+        {"ticker": "RUN", "shares": 50, "entry_price": 14},
+        {"ticker": "SOUN", "shares": 40, "entry_price": 9}
+      ]
+    },
+    {
+      "name": "24 Three-Sector Gap",
+      "description": "MODERATE. All capital in tech, financials and energy — entire defensive/healthcare/utility side missing.",
+      "positions": [
+        {"ticker": "MSFT", "shares": 6, "entry_price": 380},
+        {"ticker": "NVDA", "shares": 12, "entry_price": 110},
+        {"ticker": "JPM", "shares": 8, "entry_price": 210},
+        {"ticker": "GS", "shares": 3, "entry_price": 480},
+        {"ticker": "XOM", "shares": 14, "entry_price": 96},
+        {"ticker": "CVX", "shares": 10, "entry_price": 145}
+      ]
+    },
+    {
+      "name": "25 Energy Heavy",
+      "description": "MODERATE. ~45% energy across XOM/CVX/COP/SLB — strong sector bet.",
+      "positions": [
+        {"ticker": "XOM", "shares": 24, "entry_price": 98},
+        {"ticker": "CVX", "shares": 14, "entry_price": 145},
+        {"ticker": "COP", "shares": 18, "entry_price": 100},
+        {"ticker": "SLB", "shares": 30, "entry_price": 42},
+        {"ticker": "AAPL", "shares": 6, "entry_price": 200},
+        {"ticker": "JNJ", "shares": 8, "entry_price": 142}
+      ]
+    },
+    {
+      "name": "26 Concentration + Loser",
+      "description": "MODERATE. NVDA ~38% concentration AND a deep BA loser (down ~35%) at the same time.",
+      "positions": [
+        {"ticker": "NVDA", "shares": 45, "entry_price": 100},
+        {"ticker": "BA", "shares": 20, "entry_price": 250},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "PG", "shares": 8, "entry_price": 150},
+        {"ticker": "JNJ", "shares": 8, "entry_price": 142}
+      ]
+    },
+    {
+      "name": "27 Drift + Separate Loser",
+      "description": "MODERATE. A drifted MSFT winner (low entry, dominant) plus an unrelated DIS loser down ~40%.",
+      "positions": [
+        {"ticker": "MSFT", "shares": 20, "entry_price": 120},
+        {"ticker": "DIS", "shares": 40, "entry_price": 180},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "XOM", "shares": 12, "entry_price": 96},
+        {"ticker": "PG", "shares": 7, "entry_price": 150}
+      ]
+    },
+    {
+      "name": "28 Dividend Trap",
+      "description": "MODERATE. Reaching for yield in beaten-down names (PFE, VZ, INTC) — value tilt with embedded losses.",
+      "positions": [
+        {"ticker": "PFE", "shares": 80, "entry_price": 40},
+        {"ticker": "VZ", "shares": 60, "entry_price": 52},
         {"ticker": "INTC", "shares": 60, "entry_price": 45},
-        {"ticker": "PG", "shares": 8, "entry_price": 165},
-        {"ticker": "NEE", "shares": 20, "entry_price": 72}
+        {"ticker": "T", "shares": 80, "entry_price": 30},
+        {"ticker": "JNJ", "shares": 8, "entry_price": 145}
       ]
     },
     {
-      "name": "Volatile Speculator",
-      "description": "All high-vol high-beta positions",
+      "name": "29 All Tech",
+      "description": "MESSED UP. 100% Technology (AAPL/MSFT/NVDA/AVGO/ORCL) — maximal sector over-concentration.",
       "positions": [
-        {"ticker": "TSLA", "shares": 15, "entry_price": 240},
-        {"ticker": "COIN", "shares": 12, "entry_price": 200},
-        {"ticker": "PLTR", "shares": 80, "entry_price": 22},
-        {"ticker": "NVDA", "shares": 10, "entry_price": 130}
+        {"ticker": "AAPL", "shares": 14, "entry_price": 195},
+        {"ticker": "MSFT", "shares": 6, "entry_price": 380},
+        {"ticker": "NVDA", "shares": 16, "entry_price": 110},
+        {"ticker": "AVGO", "shares": 10, "entry_price": 160},
+        {"ticker": "ORCL", "shares": 12, "entry_price": 150}
       ]
     },
     {
-      "name": "Winner Drift",
-      "description": "AAPL appreciated into dominance",
+      "name": "30 Meme Basket",
+      "description": "MESSED UP. Meme/retail favorites (GME, AMC, SOFI, HOOD) — high volatility, weak fundamentals, no diversification.",
       "positions": [
-        {"ticker": "AAPL", "shares": 50, "entry_price": 80},
-        {"ticker": "KO", "shares": 30, "entry_price": 60},
-        {"ticker": "JPM", "shares": 8, "entry_price": 195},
-        {"ticker": "UNH", "shares": 4, "entry_price": 510}
+        {"ticker": "GME", "shares": 80, "entry_price": 30},
+        {"ticker": "AMC", "shares": 400, "entry_price": 6},
+        {"ticker": "SOFI", "shares": 120, "entry_price": 13},
+        {"ticker": "HOOD", "shares": 25, "entry_price": 55}
+      ]
+    },
+    {
+      "name": "31 EV / Clean-Energy Wreck",
+      "description": "MESSED UP. EV and clean-energy small caps (PLUG, CHPT, RIVN, LCID) all bought far higher — deep losses + high vol.",
+      "positions": [
+        {"ticker": "PLUG", "shares": 600, "entry_price": 12},
+        {"ticker": "CHPT", "shares": 300, "entry_price": 25},
+        {"ticker": "RIVN", "shares": 120, "entry_price": 40},
+        {"ticker": "LCID", "shares": 500, "entry_price": 12}
+      ]
+    },
+    {
+      "name": "32 Quantum Hype",
+      "description": "MESSED UP. Pure quantum-computing speculation (IONQ, RGTI, QUBT) — extreme volatility, tiny revenue.",
+      "positions": [
+        {"ticker": "IONQ", "shares": 30, "entry_price": 40},
+        {"ticker": "RGTI", "shares": 120, "entry_price": 18},
+        {"ticker": "QUBT", "shares": 150, "entry_price": 18}
+      ]
+    },
+    {
+      "name": "33 Crypto Miners",
+      "description": "MESSED UP. Crypto-correlated names (MARA, RIOT, CLSK, COIN, MSTR) — sky-high beta and volatility.",
+      "positions": [
+        {"ticker": "MARA", "shares": 200, "entry_price": 22},
+        {"ticker": "RIOT", "shares": 250, "entry_price": 15},
+        {"ticker": "CLSK", "shares": 200, "entry_price": 16},
+        {"ticker": "COIN", "shares": 8, "entry_price": 230},
+        {"ticker": "MSTR", "shares": 6, "entry_price": 380}
+      ]
+    },
+    {
+      "name": "34 Single Stock 60%",
+      "description": "MESSED UP. TSLA is ~60% of the portfolio — critical single-stock concentration in a high-beta name.",
+      "positions": [
+        {"ticker": "TSLA", "shares": 40, "entry_price": 250},
+        {"ticker": "JNJ", "shares": 10, "entry_price": 142},
+        {"ticker": "JPM", "shares": 6, "entry_price": 210},
+        {"ticker": "XOM", "shares": 10, "entry_price": 96}
+      ]
+    },
+    {
+      "name": "35 Extreme Winner Drift",
+      "description": "MESSED UP. AAPL bought at ~$20 long ago now dominates at ~75% — extreme winner drift + concentration.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 70, "entry_price": 20},
+        {"ticker": "JNJ", "shares": 10, "entry_price": 150},
+        {"ticker": "PG", "shares": 10, "entry_price": 160},
+        {"ticker": "KO", "shares": 25, "entry_price": 58}
+      ]
+    },
+    {
+      "name": "36 Deep Losers Club",
+      "description": "MESSED UP. Five positions all down 45-70% from entry (BA, INTC, PFE, NKE, DIS) — broad unrealized losses.",
+      "positions": [
+        {"ticker": "BA", "shares": 18, "entry_price": 280},
+        {"ticker": "INTC", "shares": 120, "entry_price": 50},
+        {"ticker": "PFE", "shares": 120, "entry_price": 45},
+        {"ticker": "NKE", "shares": 40, "entry_price": 125},
+        {"ticker": "DIS", "shares": 30, "entry_price": 185}
+      ]
+    },
+    {
+      "name": "37 Small-Cap Junk Drawer",
+      "description": "MESSED UP. Entirely speculative small caps (FUBO, BBAI, OPEN, UEC, HL, CDE) — illiquid, volatile, no large-cap anchor.",
+      "positions": [
+        {"ticker": "FUBO", "shares": 400, "entry_price": 8},
+        {"ticker": "BBAI", "shares": 300, "entry_price": 7},
+        {"ticker": "OPEN", "shares": 600, "entry_price": 10},
+        {"ticker": "UEC", "shares": 150, "entry_price": 9},
+        {"ticker": "HL", "shares": 200, "entry_price": 7},
+        {"ticker": "CDE", "shares": 120, "entry_price": 10}
+      ]
+    },
+    {
+      "name": "38 Two-Position Portfolio",
+      "description": "MESSED UP. Only two holdings (AAPL + NVDA) — no diversification, ~50/50 concentration in one sector.",
+      "positions": [
+        {"ticker": "AAPL", "shares": 20, "entry_price": 195},
+        {"ticker": "NVDA", "shares": 35, "entry_price": 110}
+      ]
+    },
+    {
+      "name": "39 Energy All-In",
+      "description": "MESSED UP. ~80% energy (XOM/CVX/COP/SLB/EOG) — extreme single-sector bet on commodities.",
+      "positions": [
+        {"ticker": "XOM", "shares": 30, "entry_price": 98},
+        {"ticker": "CVX", "shares": 20, "entry_price": 145},
+        {"ticker": "COP", "shares": 24, "entry_price": 100},
+        {"ticker": "SLB", "shares": 40, "entry_price": 42},
+        {"ticker": "EOG", "shares": 14, "entry_price": 125},
+        {"ticker": "JNJ", "shares": 6, "entry_price": 145}
+      ]
+    },
+    {
+      "name": "40 Tech + Crypto Combo",
+      "description": "MESSED UP. Concentrated megacap tech stacked with speculative crypto exposure (MSTR, COIN) — correlated risk.",
+      "positions": [
+        {"ticker": "NVDA", "shares": 24, "entry_price": 110},
+        {"ticker": "AAPL", "shares": 10, "entry_price": 200},
+        {"ticker": "MSTR", "shares": 8, "entry_price": 360},
+        {"ticker": "COIN", "shares": 10, "entry_price": 230}
+      ]
+    },
+    {
+      "name": "41 Single Small-Cap, 100% Loser",
+      "description": "DISASTER. Everything in one beaten-down small cap (PLUG) bought near the top — 100% concentration in a -70% position.",
+      "positions": [
+        {"ticker": "PLUG", "shares": 1500, "entry_price": 13}
+      ]
+    },
+    {
+      "name": "42 Speculative Inferno",
+      "description": "DISASTER. All high-vol small caps (SPCE, FCEL, BBAI, FUBO, SOUN), every one underwater. No diversification, no quality.",
+      "positions": [
+        {"ticker": "SPCE", "shares": 400, "entry_price": 18},
+        {"ticker": "FCEL", "shares": 300, "entry_price": 15},
+        {"ticker": "BBAI", "shares": 400, "entry_price": 8},
+        {"ticker": "FUBO", "shares": 500, "entry_price": 9},
+        {"ticker": "SOUN", "shares": 300, "entry_price": 15}
+      ]
+    },
+    {
+      "name": "43 Winner Drift + Junk Losers",
+      "description": "DISASTER. One mega-winner-drift position (NVDA from $15) plus a tail of small-cap losers — concentration AND losses.",
+      "positions": [
+        {"ticker": "NVDA", "shares": 90, "entry_price": 15},
+        {"ticker": "CHPT", "shares": 200, "entry_price": 24},
+        {"ticker": "OPEN", "shares": 400, "entry_price": 11},
+        {"ticker": "RGTI", "shares": 100, "entry_price": 19}
+      ]
+    },
+    {
+      "name": "44 Beaten-Down Penny Disaster",
+      "description": "DISASTER. Sub-$7 names (OPEN, PLUG, CHPT, FUBO, AMC) all bought multiples higher — deep losses across low-priced, volatile tickers.",
+      "positions": [
+        {"ticker": "OPEN", "shares": 800, "entry_price": 12},
+        {"ticker": "PLUG", "shares": 700, "entry_price": 14},
+        {"ticker": "CHPT", "shares": 300, "entry_price": 26},
+        {"ticker": "FUBO", "shares": 500, "entry_price": 10},
+        {"ticker": "AMC", "shares": 600, "entry_price": 8}
+      ]
+    },
+    {
+      "name": "45 70% Concentrated Loser",
+      "description": "DISASTER. ~70% of the book in a single name (BA) that's also down ~35% — concentration and a deep loss in the same position.",
+      "positions": [
+        {"ticker": "BA", "shares": 60, "entry_price": 270},
+        {"ticker": "JNJ", "shares": 8, "entry_price": 145},
+        {"ticker": "JPM", "shares": 5, "entry_price": 215}
+      ]
+    },
+    {
+      "name": "46 All-In Quantum Micro",
+      "description": "DISASTER. 100% in quantum micro caps (RGTI, QUBT, IONQ) bought at the peak — maximal volatility, single-theme, underwater.",
+      "positions": [
+        {"ticker": "RGTI", "shares": 200, "entry_price": 22},
+        {"ticker": "QUBT", "shares": 250, "entry_price": 20},
+        {"ticker": "IONQ", "shares": 40, "entry_price": 75}
+      ]
+    },
+    {
+      "name": "47 Meme + Crypto Casino",
+      "description": "DISASTER. Meme stocks plus crypto proxies (GME, AMC, MARA, MSTR, DJT) — pure speculation, extreme beta, no fundamentals.",
+      "positions": [
+        {"ticker": "GME", "shares": 120, "entry_price": 32},
+        {"ticker": "AMC", "shares": 500, "entry_price": 7},
+        {"ticker": "MARA", "shares": 250, "entry_price": 24},
+        {"ticker": "MSTR", "shares": 6, "entry_price": 400},
+        {"ticker": "DJT", "shares": 100, "entry_price": 35}
+      ]
+    },
+    {
+      "name": "48 Everything Wrong",
+      "description": "DISASTER. Hits every failure mode at once: a drifted concentrated winner (NVDA from $12), a deep loser (INTC -55%), a small-cap junk position, and a high-beta crypto name.",
+      "positions": [
+        {"ticker": "NVDA", "shares": 100, "entry_price": 12},
+        {"ticker": "INTC", "shares": 150, "entry_price": 50},
+        {"ticker": "PLUG", "shares": 300, "entry_price": 13},
+        {"ticker": "COIN", "shares": 6, "entry_price": 240}
+      ]
+    },
+    {
+      "name": "49 Leverage Lover",
+      "description": "DISASTER. Daily-leveraged ETFs (TQQQ, SOXL) plus a leveraged single-name bet — catastrophic volatility and decay risk.",
+      "positions": [
+        {"ticker": "TQQQ", "shares": 200, "entry_price": 70},
+        {"ticker": "SOXL", "shares": 400, "entry_price": 35},
+        {"ticker": "NVDA", "shares": 30, "entry_price": 130}
+      ]
+    },
+    {
+      "name": "50 The Gambler",
+      "description": "DISASTER. Two speculative names only (RIVN + COIN), both bought far higher — no diversification, deep losses, maximal caution.",
+      "positions": [
+        {"ticker": "RIVN", "shares": 400, "entry_price": 40},
+        {"ticker": "COIN", "shares": 12, "entry_price": 260}
       ]
     }
   ]
