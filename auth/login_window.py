@@ -30,6 +30,26 @@ from vector.constants import FORGOT_PASSWORD_URL, TASKBAR_LOGO_PATH
 from .auth import get_me, login, save_token, signup
 
 
+# ---------------------------------------------------------------------------
+# DEMO BYPASS — remove this entire block before shipping a production build.
+# Type "binky" as the username (any password) to skip the backend entirely
+# and log in as a local demo account with Pro access.
+_DEMO_BYPASS_ENABLED = True
+_DEMO_BYPASS_TRIGGER = 'binky'
+_DEMO_TOKEN = 'demo-bypass-token'
+_DEMO_USER_DATA: dict = {
+    'user': {
+        'username': 'Demo User',
+        'email': 'demo@vector.local',
+        'plan': 'pro',
+        'member_since': '2024-01-01T00:00:00Z',
+        'beta_access': True,
+        'download_count': 0,
+    }
+}
+# END DEMO BYPASS -----------------------------------------------------------
+
+
 _DIALOG_STYLESHEET = """
 QDialog {
     background-color: #0b1020;
@@ -363,6 +383,13 @@ class LoginWindow(QDialog):
         if not user or not password:
             self._set_status(self._login_status, 'Enter your username/email and password.', error=True)
             return
+
+        # DEMO BYPASS — remove this block before shipping a production build.
+        if _DEMO_BYPASS_ENABLED and user.lower() == _DEMO_BYPASS_TRIGGER:
+            self._on_login_success({'token': _DEMO_TOKEN, 'user_data': _DEMO_USER_DATA})
+            return
+        # END DEMO BYPASS
+
         self._set_status(self._login_status, 'Signing in…')
         self._set_inputs_enabled(False)
         self._login_button.setText('Signing in…')

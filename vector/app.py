@@ -376,7 +376,7 @@ class MainShell(QWidget):
             'QPushButton {'
             '  background: qlineargradient(x1:0, y1:0, x2:1, y2:1,'
             '    stop:0 #2dd4bf, stop:0.5 #38bdf8, stop:1 #1e3a8a);'
-            f'  color: #ffffff; border: none; border-radius: {sc(24)}px;'
+            f'  color: #ffffff; border: none; border-radius: {sc(12)}px;'
             f'  padding: 0px; font-size: {scpt(16)}pt; font-weight: 700;'
             '}'
             'QPushButton:hover {'

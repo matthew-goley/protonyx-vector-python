@@ -12,6 +12,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Current version: **0.4.6**
 
+## Debug / Development Helpers
+
+### Demo Login Bypass (`auth/login_window.py`)
+
+A temporary backend bypass lives at the **top of `auth/login_window.py`** (clearly marked with `# DEMO BYPASS` / `# END DEMO BYPASS` comments). When `_DEMO_BYPASS_ENABLED = True`, typing `binky` as the username and clicking Login (any password, including blank) skips the Fastify backend entirely and signs in as a local Pro demo account. No token is saved to disk.
+
+**To remove before shipping:** delete the two `# DEMO BYPASS` blocks — the module-level constants block (`_DEMO_BYPASS_ENABLED`, `_DEMO_BYPASS_TRIGGER`, `_DEMO_TOKEN`, `_DEMO_USER_DATA`) and the 3-line guard inside `_on_login_clicked`. The surrounding code is untouched and will work normally.
+
+**To disable without deleting:** set `_DEMO_BYPASS_ENABLED = False`.
+
+---
+
 ## Setup & Running
 
 ```bash
