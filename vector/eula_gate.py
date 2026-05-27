@@ -1,12 +1,14 @@
-"""Full-window EULA acceptance gate.
+"""Full-window legal acceptance gate (Terms of Service / EULA).
 
-``EulaGateOverlay`` blurs the running app and blocks all interaction behind a
-centered card until the user accepts the End User License Agreement (server
-side only, no local persistence) or declines and exits. Acceptance is sent to
-the backend on a background ``QThread`` so the UI never freezes.
+``LegalGateOverlay`` blurs the running app and blocks all interaction behind a
+centered card until the user accepts the document (server side only, no local
+persistence) or declines and exits. Acceptance is sent to the backend on a
+background ``QThread`` so the UI never freezes. The same overlay handles both
+documents via the ``document_type`` parameter (``'tos'`` or ``'eula'``).
 
-The check that decides whether to show this overlay lives in
-``vector.app._maybe_show_eula_gate`` (run once after the main window is shown).
+The check that decides whether (and in what order) to show these overlays lives
+in ``vector.app._maybe_show_legal_gates`` (run once after the main window is
+shown). ``EulaGateOverlay`` remains as a backward-compatible alias.
 """
 
 from __future__ import annotations
@@ -26,15 +28,38 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from auth.auth import _eula_status_code, accept_eula, clear_token
+from auth.auth import _legal_status_code, accept_legal_document, clear_token
 
-from .constants import EULA_URL
+from .constants import EULA_URL, TOS_URL
 from .scale import sc, scpt
 
 
+# Per-document copy + destination. Everything else about the overlay is shared.
+_LEGAL_DOCS = {
+    'eula': {
+        'title': 'End User License Agreement',
+        'message': (
+            'Please review and accept our End User License Agreement to '
+            'continue using Vector.'
+        ),
+        'link_text': 'Read the End User License Agreement',
+        'url': EULA_URL,
+    },
+    'tos': {
+        'title': 'Terms of Service',
+        'message': (
+            'Please review and accept our Terms of Service to continue using '
+            'Vector.'
+        ),
+        'link_text': 'Read the Terms of Service',
+        'url': TOS_URL,
+    },
+}
+
+
 class _AcceptWorker(QThread):
-    """Runs ``accept_eula`` off the UI thread (same pattern as the auth login
-    workers in ``auth/login_window.py``).
+    """Runs the legal-accept POST off the UI thread (same pattern as the auth
+    login workers in ``auth/login_window.py``).
 
     Emits ``done`` exactly once with one of:
       * ``'ok'``           - acceptance recorded server side
@@ -44,14 +69,15 @@ class _AcceptWorker(QThread):
 
     done = pyqtSignal(str)
 
-    def __init__(self, token: str) -> None:
+    def __init__(self, token: str, document: str) -> None:
         super().__init__()
         self._token = token
+        self._document = document
 
     def run(self) -> None:  # noqa: D401 - QThread API
         try:
-            result = accept_eula(self._token)
-        except Exception:  # noqa: BLE001 - accept_eula already swallows; belt-and-suspenders
+            result = accept_legal_document(self._token, self._document)
+        except Exception:  # noqa: BLE001 - accept already swallows; belt-and-suspenders
             self.done.emit('failed')
             return
         if isinstance(result, dict) and result.get('success'):
@@ -61,18 +87,19 @@ class _AcceptWorker(QThread):
         # apart from a transient outage: a 401 on the status endpoint means the
         # session is dead, anything else (2xx or no response) is retryable.
         try:
-            code = _eula_status_code(self._token)
+            code = _legal_status_code(self._token)
         except Exception:  # noqa: BLE001
             code = None
         self.done.emit('unauthorized' if code == 401 else 'failed')
 
 
-class EulaGateOverlay(QWidget):
-    """A blocking, full-window EULA acceptance overlay.
+class LegalGateOverlay(QWidget):
+    """A blocking, full-window legal-acceptance overlay (TOS or EULA).
 
     Construction blurs ``parent``'s central widget and paints a semi-transparent
     backdrop over the whole window. The overlay grabs the keyboard and sits on
-    top so the blurred app behind it cannot be interacted with.
+    top so the blurred app behind it cannot be interacted with. ``document_type``
+    selects the copy/link/accept payload (``'tos'`` or ``'eula'``).
     """
 
     accepted = pyqtSignal()
@@ -81,10 +108,13 @@ class EulaGateOverlay(QWidget):
         self,
         parent: QWidget,
         token: str,
+        document_type: str = 'eula',
         on_accepted: Optional[Callable[[], None]] = None,
     ) -> None:
         super().__init__(parent)
         self._token = token
+        self._document = document_type if document_type in _LEGAL_DOCS else 'eula'
+        self._doc = _LEGAL_DOCS[self._document]
         self._on_accepted = on_accepted
         self._worker: Optional[_AcceptWorker] = None
 
@@ -97,7 +127,7 @@ class EulaGateOverlay(QWidget):
             blur.setBlurRadius(50)
             self._blur_target.setGraphicsEffect(blur)
 
-        self.setObjectName('eulaGateOverlay')
+        self.setObjectName('legalGateOverlay')
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._build_ui()
 
@@ -117,10 +147,10 @@ class EulaGateOverlay(QWidget):
         row.addStretch(1)
 
         card = QFrame()
-        card.setObjectName('eulaCard')
+        card.setObjectName('legalCard')
         card.setMaximumWidth(sc(500))
         card.setStyleSheet(
-            'QFrame#eulaCard {'
+            'QFrame#legalCard {'
             ' background-color: #1e2030;'
             ' border: 1px solid #2a3142;'
             f' border-radius: {sc(16)}px;'
@@ -130,7 +160,7 @@ class EulaGateOverlay(QWidget):
         card_layout.setContentsMargins(sc(32), sc(32), sc(32), sc(32))
         card_layout.setSpacing(sc(16))
 
-        title = QLabel('End User License Agreement')
+        title = QLabel(self._doc['title'])
         tf = QFont()
         tf.setPointSize(scpt(20))
         tf.setBold(True)
@@ -147,10 +177,7 @@ class EulaGateOverlay(QWidget):
         )
         card_layout.addWidget(title)
 
-        message = QLabel(
-            'Please review and accept our End User License Agreement to '
-            'continue using Vector.'
-        )
+        message = QLabel(self._doc['message'])
         message.setWordWrap(True)
         message.setStyleSheet(
             'QLabel {'
@@ -163,13 +190,13 @@ class EulaGateOverlay(QWidget):
         card_layout.addWidget(message)
 
         # Styled as a flat text link (same approach as the login "Forgot
-        # Password?" link). Opens the EULA in the system browser.
-        self._link = QPushButton('Read the End User License Agreement')
-        self._link.setObjectName('eulaLink')
+        # Password?" link). Opens the document in the system browser.
+        self._link = QPushButton(self._doc['link_text'])
+        self._link.setObjectName('legalLink')
         self._link.setFlat(True)
         self._link.setCursor(Qt.CursorShape.PointingHandCursor)
         self._link.setStyleSheet(
-            'QPushButton#eulaLink {'
+            'QPushButton#legalLink {'
             ' background: transparent;'
             ' border: none;'
             ' color: #2dd4bf;'
@@ -177,9 +204,9 @@ class EulaGateOverlay(QWidget):
             ' text-align: left;'
             ' padding: 0px;'
             ' }'
-            'QPushButton#eulaLink:hover { color: #4ee8d3; }'
+            'QPushButton#legalLink:hover { color: #4ee8d3; }'
         )
-        self._link.clicked.connect(self._open_eula)
+        self._link.clicked.connect(self._open_link)
         card_layout.addWidget(self._link, alignment=Qt.AlignmentFlag.AlignLeft)
 
         self._error_label = QLabel('')
@@ -274,15 +301,15 @@ class EulaGateOverlay(QWidget):
 
     # ----------------------------------------------------------- Behaviour
 
-    def _open_eula(self) -> None:
-        QDesktopServices.openUrl(QUrl(EULA_URL))
+    def _open_link(self) -> None:
+        QDesktopServices.openUrl(QUrl(self._doc['url']))
 
     def _on_accept(self) -> None:
         if self._worker is not None:
             return
         self._accept_btn.setEnabled(False)
         self._error_label.hide()
-        worker = _AcceptWorker(self._token)
+        worker = _AcceptWorker(self._token, self._document)
         worker.done.connect(self._on_accept_done)
         worker.finished.connect(worker.deleteLater)
         self._worker = worker
@@ -337,3 +364,8 @@ class EulaGateOverlay(QWidget):
             pass
         if remove_blur and self._blur_target is not None:
             self._blur_target.setGraphicsEffect(None)
+
+
+# Backward-compatible alias: existing call sites that construct the EULA gate by
+# name keep working (document_type defaults to 'eula').
+EulaGateOverlay = LegalGateOverlay

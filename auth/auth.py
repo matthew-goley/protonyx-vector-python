@@ -106,17 +106,18 @@ def check_eula_status(token: str) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
-def accept_eula(token: str) -> Optional[dict]:
-    """POST /legal/accept with Bearer auth and body ``{"document": "eula"}``.
+def accept_legal_document(token: str, document: str) -> Optional[dict]:
+    """POST /legal/accept with Bearer auth and body ``{"document": document}``.
 
-    Returns the parsed JSON response on success, or ``None`` on any failure
-    (network error, non-2xx status, or unparseable body). Never raises.
+    ``document`` is ``'eula'`` or ``'tos'``. Returns the parsed JSON response on
+    success, or ``None`` on any failure (network error, non-2xx status, or
+    unparseable body). Never raises.
     """
     try:
         response = requests.post(
             f'{API_URL}/legal/accept',
             headers={'Authorization': f'Bearer {token}'},
-            json={'document': 'eula'},
+            json={'document': document},
             timeout=_REQUEST_TIMEOUT,
         )
         if response.status_code >= 400:
@@ -127,13 +128,25 @@ def accept_eula(token: str) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
-def _eula_status_code(token: str) -> Optional[int]:
+def accept_eula(token: str) -> Optional[dict]:
+    """Accept the End User License Agreement. Thin wrapper over
+    ``accept_legal_document(token, 'eula')`` (kept for call-site clarity)."""
+    return accept_legal_document(token, 'eula')
+
+
+def accept_tos(token: str) -> Optional[dict]:
+    """Accept the Terms of Service. Thin wrapper over
+    ``accept_legal_document(token, 'tos')``."""
+    return accept_legal_document(token, 'tos')
+
+
+def _legal_status_code(token: str) -> Optional[int]:
     """GET /legal/status and return only the HTTP status code (``None`` on a
     network-level failure).
 
-    Used by the EULA gate to classify an ``accept_eula`` failure: a follow-up
-    probe returning 401 means the session expired (clear + re-login), while a
-    2xx or None means the accept failure was transient (let the user retry).
+    Used by the legal gate to classify an accept failure: a follow-up probe
+    returning 401 means the session expired (clear + re-login), while a 2xx or
+    None means the accept failure was transient (let the user retry).
     """
     try:
         response = requests.get(

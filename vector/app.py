@@ -734,18 +734,20 @@ class VectorMainWindow(QMainWindow):
         QApplication.instance().quit()
 
 
-def _maybe_show_eula_gate(window: 'VectorMainWindow', token: 'str | None') -> None:
-    """Check EULA acceptance once after launch and gate the app if needed.
+def _maybe_show_legal_gates(window: 'VectorMainWindow', token: 'str | None') -> None:
+    """Check TOS + EULA acceptance once after launch and gate the app if needed.
 
-    Fails open: any network/parse failure on the status check (``None``) lets
-    the user through - the gate is only shown when the backend explicitly
-    reports the EULA as not accepted. The demo-bypass session is skipped
-    entirely because it has no real backend token.
+    Gates are shown sequentially, TOS first then EULA, never both at once: the
+    EULA gate is only created from the TOS gate's accept callback. Fails open:
+    any network/parse failure on the status check (``None``) lets the user
+    through, and a gate is only shown when the backend explicitly reports a
+    document as not accepted. The demo-bypass session is skipped entirely
+    because it has no real backend token.
     """
     if not token:
         return
 
-    # DEMO BYPASS - the demo session has no real backend token, so the EULA
+    # DEMO BYPASS - the demo session has no real backend token, so the legal
     # status check would always fail. Skip it entirely.
     try:
         from auth.login_window import _DEMO_BYPASS_ENABLED, _DEMO_TOKEN
@@ -759,13 +761,31 @@ def _maybe_show_eula_gate(window: 'VectorMainWindow', token: 'str | None') -> No
 
     status = check_eula_status(token)
     if status is None:
-        _log.warning('EULA status check failed; failing open (user not blocked).')
+        _log.warning('Legal status check failed; failing open (user not blocked).')
         return
-    if status.get('eula_accepted') is False:
-        from .eula_gate import EulaGateOverlay
-        window._eula_gate = EulaGateOverlay(window, token)
-        window._eula_gate.show()
-        window._eula_gate.raise_()
+
+    needs_tos = status.get('tos_accepted') is False
+    needs_eula = status.get('eula_accepted') is False
+    if not needs_tos and not needs_eula:
+        return
+
+    from .eula_gate import LegalGateOverlay
+
+    def _show_gate(document_type: str, on_accepted=None) -> None:
+        gate = LegalGateOverlay(window, token, document_type=document_type, on_accepted=on_accepted)
+        window._legal_gate = gate  # keep a reference to the live gate
+        gate.show()
+        gate.raise_()
+
+    def _show_eula_if_needed() -> None:
+        if needs_eula:
+            _show_gate('eula')
+
+    if needs_tos:
+        # TOS first; its accept callback shows the EULA gate when also needed.
+        _show_gate('tos', on_accepted=_show_eula_if_needed)
+    else:
+        _show_eula_if_needed()
 
 
 def main(
@@ -859,9 +879,9 @@ def main(
     def _finish() -> None:
         window.showMaximized()
         splash.finish(window)
-        # After the window is shown and the splash dismissed, gate on EULA
+        # After the window is shown and the splash dismissed, gate on TOS + EULA
         # acceptance (one lightweight authenticated GET; fails open).
-        _maybe_show_eula_gate(window, token)
+        _maybe_show_legal_gates(window, token)
 
     QTimer.singleShot(remaining_ms, _finish)
     return app.exec()

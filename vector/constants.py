@@ -24,6 +24,7 @@ COMPANY_NAME = 'Protonyx'
 APP_VERSION = '0.4.6'
 FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
 EULA_URL = 'https://protonyxdata.com/eula'
+TOS_URL = 'https://protonyxdata.com/tos'
 DATA_DIR = user_data_dir()
 POSITIONS_FILE = DATA_DIR / 'positions.json'
 SETTINGS_FILE = DATA_DIR / 'settings.json'

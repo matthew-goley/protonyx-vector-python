@@ -64,9 +64,9 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | Module | Role |
 |---|---|
 | `main.py` | Bootstrapper — creates `QApplication`, runs the auth gate, paints the splash, then imports `vector.app` and calls `main(app, splash, t_start, token, user_data)`. See **Startup & Splash Screen**. |
-| `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = http://localhost:3000`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`, plus the legal-gate calls `check_eula_status`/`accept_eula` (GET `/legal/status` and POST `/legal/accept`; return `dict` or `None` on any failure, never raise) and the private `_eula_status_code` helper (GET `/legal/status`, returns the HTTP status code, used to classify a 401 vs a transient failure). Token persisted to `auth/session.json`. |
+| `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = http://localhost:3000`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`, plus the legal-gate calls `check_eula_status` (GET `/legal/status`, returns both `tos_accepted`/`eula_accepted`) and `accept_legal_document(token, document)` (POST `/legal/accept`) with thin `accept_eula`/`accept_tos` wrappers - all return `dict` or `None` on any failure, never raise - and the private `_legal_status_code` helper (GET `/legal/status`, returns the HTTP status code, used to classify a 401 vs a transient failure). Token persisted to `auth/session.json`. |
 | `auth/login_window.py` | `LoginWindow` `QDialog` (Login / Sign Up tabs) shown when no valid saved token exists. Background `QThread` workers call the auth functions; emits `login_successful(token, user_data)`. |
-| `vector/eula_gate.py` | `EulaGateOverlay` `QWidget` (+ `_AcceptWorker`) - full-window EULA acceptance gate. See **EULA Acceptance Gate**. |
+| `vector/eula_gate.py` | `LegalGateOverlay` `QWidget` (+ `_AcceptWorker`) - parameterized full-window legal acceptance gate for TOS and EULA (`EulaGateOverlay` is a back-compat alias). See **Legal Acceptance Gate (TOS + EULA)**. |
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `_ShortcutsDialog`, `main()` — all page classes live in `vector/pages/` |
 | `vector/scale.py` | **Width-driven UI scaling** (see **UI Scaling** below). `init_scale(app)` sets a single global factor = `available_screen_width / UI_BASE_WIDTH` (clamped to `[UI_SCALE_MIN, UI_SCALE_MAX]`), or a fixed `DEBUG_SCREEN_SCALE` override. Helpers: `sc(px)` scales a pixel dimension (int), `scf(px)` returns a float, `scpt(pt)` scales a font point size (floored at `UI_MIN_POINT_SIZE`), `scale_factor()` returns the raw factor. Used **app-wide** — every page, widget, dialog, and the shell chrome routes its sizes/fonts through these. |
 | `vector/notifications.py` | `NotificationManager` + `NotificationToast` — top-right slide-in toast stack. `window.notifications` is the live instance; repositioned on window resize. |
@@ -104,7 +104,7 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | `vector/widget_registry.py` | `discover_widgets()` / `get_widget_class()` — registry of all concrete widget types |
 | `vector/widget_types/` | 8 concrete widget implementations + `LensDisplay` |
 | `vector/widgets.py` | Shared UI primitives: `CardFrame`, `GradientBorderFrame`, `GradientLine`, `BlurrableStack`, `DimOverlay`, `EmptyState`, `LoadingButton`, `OutlineButton` (transparent fill + custom-painted rounded border; `gradient=True` for the Vector brand outline or a solid `color`) |
-| `vector/constants.py` | File paths, TTL constants, default settings values, threshold maps, `APP_VERSION`, `FORGOT_PASSWORD_URL`, `EULA_URL` |
+| `vector/constants.py` | File paths, TTL constants, default settings values, threshold maps, `APP_VERSION`, `FORGOT_PASSWORD_URL`, `EULA_URL`, `TOS_URL` |
 | `vector/paths.py` | `resource_path()` (PyInstaller + Nuitka-aware asset lookup), `user_data_dir()`, `user_file()` |
 
 ### Pages subpackage (`vector/pages/`)
@@ -165,21 +165,23 @@ Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fast
 - The resolved `(token, user_data)` is threaded into `VectorMainWindow`; `ProfilePage` displays it (username, email, plan, member-since, beta flag, downloads) and offers **Logout** (clears the session and returns to login).
 - `version_check.check_version()` reuses the same backend host for the update check.
 
-### EULA Acceptance Gate
+### Legal Acceptance Gate (TOS + EULA)
 
-EULA acceptance is tracked **server side only** (no local JSON, no flag in `app_state.json`). The check runs once at launch and, if needed, blocks the app behind a full-window overlay until the user accepts.
+Terms of Service and EULA acceptance are tracked **server side only** (no local JSON, no flag in `app_state.json`). The check runs once at launch and, if needed, blocks the app behind a full-window overlay until the user accepts. **Both documents share one parameterized overlay class** (`LegalGateOverlay`); when both are unaccepted they are shown **sequentially, TOS first then EULA, never both at once**.
 
-- **Backend endpoints** (already exist, do not modify): `GET /legal/status` (authenticated) returns `{success, tos_accepted, eula_accepted, current_tos_version, current_eula_version}`; `POST /legal/accept` (authenticated) with body `{"document": "eula"}` records acceptance. Both live at the same `API_URL` as `auth/auth.py`.
-- **Launch wiring:** `vector.app._maybe_show_eula_gate(window, token)` runs inside the splash `_finish()` callback, right after `window.showMaximized()` + `splash.finish(window)`. It calls `check_eula_status(token)` (one lightweight synchronous GET) and:
+- **Backend endpoints** (already exist, do not modify): `GET /legal/status` (authenticated) returns `{success, tos_accepted, eula_accepted, current_tos_version, current_eula_version}`; `POST /legal/accept` (authenticated) with body `{"document": "tos"}` or `{"document": "eula"}` records acceptance. Both live at the same `API_URL` as `auth/auth.py`.
+- **Launch wiring:** `vector.app._maybe_show_legal_gates(window, token)` runs inside the splash `_finish()` callback, right after `window.showMaximized()` + `splash.finish(window)`. It calls `check_eula_status(token)` (one lightweight synchronous GET returning both flags) and:
   - **`None` (network/parse failure):** logs a warning via `_log` and does **not** block. **Fails open** by design.
-  - **`eula_accepted is False`:** constructs `EulaGateOverlay(window, token)`, stores it on `window._eula_gate`, and shows it.
-  - **`eula_accepted` truthy:** does nothing, the app proceeds normally.
-- **Demo bypass:** `_maybe_show_eula_gate` imports `_DEMO_BYPASS_ENABLED` / `_DEMO_TOKEN` from `auth/login_window.py`; when the bypass is active and `token == _DEMO_TOKEN`, the EULA check is skipped entirely (the demo session has no real backend token, so the check would always fail).
-- **`EulaGateOverlay` (`vector/eula_gate.py`):** a `QWidget` child of the main window that:
+  - **`tos_accepted is False`:** constructs the TOS gate; its accept callback (`on_accepted`) then shows the EULA gate **only if** `eula_accepted is False`. So both-unaccepted yields TOS then EULA; TOS-only shows just TOS.
+  - **`tos_accepted` truthy but `eula_accepted is False`:** shows the EULA gate directly (unchanged prior behavior).
+  - **both truthy:** does nothing, the app proceeds normally.
+  - The live gate is stored on `window._legal_gate` (reassigned when the flow advances from TOS to EULA).
+- **Demo bypass:** `_maybe_show_legal_gates` imports `_DEMO_BYPASS_ENABLED` / `_DEMO_TOKEN` from `auth/login_window.py`; when the bypass is active and `token == _DEMO_TOKEN`, the whole check is skipped (the demo session has no real backend token, so it would always fail).
+- **`LegalGateOverlay` (`vector/eula_gate.py`):** a `QWidget` child of the main window, constructed as `LegalGateOverlay(parent, token, document_type='tos'|'eula', on_accepted=None)`. `EulaGateOverlay` is a module-level alias (defaults to `'eula'`). The per-document title/message/link-text/URL live in the `_LEGAL_DOCS` dict (`EULA_URL` / `TOS_URL`); everything else is identical for both. It:
   - On construction applies `QGraphicsBlurEffect(blurRadius=50)` to the parent's central widget (same pattern as the dashboard/settings pro-gate), then paints a semi-transparent dark backdrop and `grabKeyboard()`s so the blurred app cannot be reached (key events are swallowed in `keyPressEvent`, blocking the app-wide R/L/D/S shortcuts; backdrop clicks are consumed).
-  - Centres a card (`#1e2030`, `sc(16)` radius, `sc(32)` padding, `sc(500)` max width) with the title, the explanatory message, a teal text link that opens `EULA_URL` via `QDesktopServices.openUrl`, an **I Accept** gradient (`accent`) button, and a **Decline** button.
+  - Centres a card (`#1e2030`, `sc(16)` radius, `sc(32)` padding, `sc(500)` max width) with the title, the explanatory message, a teal text link that opens the document URL via `QDesktopServices.openUrl`, an **I Accept** gradient (`accent`) button, and a **Decline** button.
   - **Always fills the parent:** an event filter on the parent re-fits geometry on every window resize (`resizeEvent` re-asserts the same, guarded against recursion).
-  - **I Accept** disables the button, then runs `_AcceptWorker` (a `QThread` mirroring the login workers) which calls `accept_eula(token)`. On `'ok'` it removes the blur, emits `accepted`, calls the optional `on_accepted` callback, and deletes the overlay. On `'failed'` it shows an inline "Unable to connect..." error and re-enables the button to retry. On `'unauthorized'` (the worker classifies a failed accept by probing `_eula_status_code`; a follow-up 401 means the session died) it calls `clear_token()` and `QApplication.quit()` so the user re-logs-in next launch.
+  - **I Accept** disables the button, then runs `_AcceptWorker(token, document)` (a `QThread` mirroring the login workers) which calls `accept_legal_document(token, document)`. On `'ok'` it removes the blur, calls the optional `on_accepted` callback (this is how the TOS gate chains to the EULA gate), emits `accepted`, and deletes the overlay. On `'failed'` it shows an inline "Unable to connect..." error and re-enables the button to retry. On `'unauthorized'` (the worker classifies a failed accept by probing `_legal_status_code`; a follow-up 401 means the session died) it calls `clear_token()` and `QApplication.quit()` so the user re-logs-in next launch.
   - **Decline** tears down (releases the keyboard grab) and calls `QApplication.quit()` for a clean exit. All sizes go through `sc()` / fonts through `scpt()`; stylesheets use class/id selectors only (no `padding`/`margin` on frames - layout margins instead).
 
 ### Startup & Splash Screen
@@ -192,7 +194,7 @@ EULA acceptance is tracked **server side only** (no local JSON, no flag in `app_
 4. `from vector.app import main` (the heavy import chain runs here, splash already visible), then `main(app, splash, t_start, token=…, user_data=…)`.
 5. `init_scale(app)` initialises the global width-driven UI scale factor (see **UI Scaling**), then the taskbar icon is set.
 6. `VectorMainWindow(token, user_data)` is constructed (loads data, builds UI). A daemon thread prefetches prices for `COMMON_TICKERS` so Add Position shows instant estimates.
-7. The splash is shown for a **minimum of 2 seconds** total (measured from `t_start`); a `QTimer` waits out any remainder, then `window.show()` + `splash.finish(window)`. Immediately after, `_maybe_show_eula_gate(window, token)` runs the EULA acceptance check (see **EULA Acceptance Gate**).
+7. The splash is shown for a **minimum of 2 seconds** total (measured from `t_start`); a `QTimer` waits out any remainder, then `window.show()` + `splash.finish(window)`. Immediately after, `_maybe_show_legal_gates(window, token)` runs the TOS + EULA acceptance check (see **Legal Acceptance Gate (TOS + EULA)**).
 
 `vector.app.main()` also has a self-contained fallback (auth gate + splash) for when it's invoked directly without going through `main.py` (e.g. during development).
 
@@ -431,7 +433,7 @@ Seven accordion sections plus static sections:
 
 ### Onboarding (`pages/onboarding.py`)
 
-**Steps:** the flow is a 3-step `QStackedWidget` - **Account**, **Risk Profile**, **Portfolio Setup** (in that order). There is **no Terms/EULA step** in onboarding; EULA acceptance is handled separately by the launch-time gate (see **EULA Acceptance Gate**). Step bookkeeping is derived from `self._stack.count()` rather than hardcoded indices (`_go_to` clamp, `_refresh_nav` button labels, `_on_next`, the `A`-key guard in `keyPressEvent`, and `refresh_cards`), so adding or removing a step does not break navigation. The next-button label is "Skip for now" on all but the last two steps, "Continue" on the second-to-last, and "Launch Portfolio" (enabled only when at least one position exists) on the last.
+**Steps:** the flow is a 3-step `QStackedWidget` - **Account**, **Risk Profile**, **Portfolio Setup** (in that order). There is **no Terms/EULA step** in onboarding; TOS and EULA acceptance are handled separately by the launch-time gate (see **Legal Acceptance Gate (TOS + EULA)**). Step bookkeeping is derived from `self._stack.count()` rather than hardcoded indices (`_go_to` clamp, `_refresh_nav` button labels, `_on_next`, the `A`-key guard in `keyPressEvent`, and `refresh_cards`), so adding or removing a step does not break navigation. The next-button label is "Skip for now" on all but the last two steps, "Continue" on the second-to-last, and "Launch Portfolio" (enabled only when at least one position exists) on the last.
 
 Keyboard shortcuts (widget-scoped with `WidgetWithChildrenShortcut`):
 - **A** — opens Add Position dialog
