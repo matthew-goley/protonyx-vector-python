@@ -6,6 +6,64 @@ The Lens engine is the analytic brain of Vector. It takes a list of user positio
 
 ---
 
+## Table of Contents
+
+- [1. High-Level Topology](#1-high-level-topology)
+- [2. Inputs, Contracts, and the Canonical Positions Summary](#2-inputs-contracts-and-the-canonical-positions-summary)
+  - [2.1 Inputs](#21-inputs)
+  - [2.2 The empty-portfolio short-circuit](#22-the-empty-portfolio-short-circuit)
+  - [2.3 The analyzer interface contract](#23-the-analyzer-interface-contract)
+  - [2.4 The canonical positions summary](#24-the-canonical-positions-summary)
+- [3. Risk Profiles — How Tiers Bend Every Threshold](#3-risk-profiles--how-tiers-bend-every-threshold)
+  - [3.1 The three tiers and their threshold tables](#31-the-three-tiers-and-their-threshold-tables)
+  - [3.2 User overrides](#32-user-overrides)
+  - [3.3 Conservative-tier extra gates in the CTA engine](#33-conservative-tier-extra-gates-in-the-cta-engine)
+- [4. The Analysis Pool](#4-the-analysis-pool)
+  - [4.1 Execution order](#41-execution-order)
+  - [4.2 Post-processing: index-fund suppression](#42-post-processing-index-fund-suppression)
+- [5. The Eight Analyzers — Quantitative Detail](#5-the-eight-analyzers--quantitative-detail)
+  - [5.1 Slope (`analyzers/slope.py`)](#51-slope-analyzersslopepy)
+  - [5.2 Volatility (`analyzers/volatility.py`)](#52-volatility-analyzersvolatilitypy)
+  - [5.3 Concentration (`analyzers/concentration.py`)](#53-concentration-analyzersconcentrationpy)
+  - [5.4 Earnings (`analyzers/earnings.py`)](#54-earnings-analyzersearningspy)
+  - [5.5 Dividends (`analyzers/dividends.py`)](#55-dividends-analyzersdividendspy)
+  - [5.6 Beta (`analyzers/beta.py`)](#56-beta-analyzersbetapy)
+  - [5.7 Performance (`analyzers/performance.py`)](#57-performance-analyzersperformancepy)
+  - [5.8 Index Fund (`analyzers/index_fund.py`)](#58-index-fund-analyzersindex_fundpy)
+- [6. The CTA Engine — Eleven Priorities](#6-the-cta-engine--eleven-priorities)
+  - [6.1 Helpers and gates used throughout](#61-helpers-and-gates-used-throughout)
+  - [6.2 Priority 1 — Steep decline (SELL)](#62-priority-1--steep-decline-sell)
+  - [6.3 Priority 2 — Excessive volatility (SELL)](#63-priority-2--excessive-volatility-sell)
+  - [6.4 Priority 3 — Winner drift (REBALANCE or informational HOLD)](#64-priority-3--winner-drift-rebalance-or-informational-hold)
+  - [6.5 Priority 4 — Index fund informational (HOLD)](#65-priority-4--index-fund-informational-hold)
+  - [6.6 Priority 5 — High portfolio beta (BUY)](#66-priority-5--high-portfolio-beta-buy)
+  - [6.7 Priority 6 — Single-stock concentration (BUY — up to 3 CTAs)](#67-priority-6--single-stock-concentration-buy--up-to-3-ctas)
+  - [6.8 Priority 7 — Sector over-concentration (BUY — up to 3 CTAs)](#68-priority-7--sector-over-concentration-buy--up-to-3-ctas)
+  - [6.9 Priority 8 — Dead weight (SELL — suppressed for conservative)](#69-priority-8--dead-weight-sell--suppressed-for-conservative)
+  - [6.10 Priority 9 — Underrepresented sector (BUY — up to 3 CTAs)](#610-priority-9--underrepresented-sector-buy--up-to-3-ctas)
+  - [6.11 Priority 10 — Unrealized loss (HOLD)](#611-priority-10--unrealized-loss-hold)
+  - [6.12 Priority 11 — Portfolio healthy (HOLD)](#612-priority-11--portfolio-healthy-hold)
+  - [6.13 Post-processing: sort, index suppression, dedup, tiny-buy drop, total-buy cap](#613-post-processing-sort-index-suppression-dedup-tiny-buy-drop-total-buy-cap)
+- [7. The Sentence Composers](#7-the-sentence-composers)
+  - [7.1 Deterministic template selection](#71-deterministic-template-selection)
+  - [7.2 Sentence 1 — portfolio state (slope + volatility + P&L)](#72-sentence-1--portfolio-state-slope--volatility--pl)
+  - [7.3 Sentence 2 — timing/catalyst (earnings + dividends)](#73-sentence-2--timingcatalyst-earnings--dividends)
+  - [7.4 Sentence 3 — call to action](#74-sentence-3--call-to-action)
+- [8. The Top-Level Assembler](#8-the-top-level-assembler)
+  - [8.1 Pipeline orchestration](#81-pipeline-orchestration)
+  - [8.2 Brief assembly](#82-brief-assembly)
+  - [8.3 Top CTA extraction](#83-top-cta-extraction)
+  - [8.4 Caution score](#84-caution-score)
+  - [8.5 Projected positions](#85-projected-positions)
+  - [8.6 The result dict](#86-the-result-dict)
+  - [8.7 Snapshot persistence](#87-snapshot-persistence)
+- [9. Failure Modes and Defensive Behavior](#9-failure-modes-and-defensive-behavior)
+- [10. Determinism and Reproducibility](#10-determinism-and-reproducibility)
+- [11. Quick Reference — Numerical Constants Summary](#11-quick-reference--numerical-constants-summary)
+- [12. Where to Look in the Code](#12-where-to-look-in-the-code)
+
+---
+
 ## 1. High-Level Topology
 
 Conceptually the engine is a tree-shaped pipeline with five named layers:
@@ -122,7 +180,7 @@ The `sell_scale` is the most powerful single dial: it sets the fraction of a fla
 
 ### 3.2 User overrides
 
-After `load_risk_profile()` selects the tier's default thresholds, it walks the user's `settings["lens_signals"]` dict and applies seven possible overrides:
+After `load_risk_profile()` selects the tier's default thresholds, it walks the user's `settings["lens_signals"]` dict and applies eight possible overrides:
 
 - `stock_concentration_pct` → `profile['concentration']['moderate']`
 - `sector_concentration_pct` → `profile['concentration']['sector_moderate']`
@@ -135,6 +193,8 @@ After `load_risk_profile()` selects the tier's default thresholds, it walks the 
 
 The override pattern is intentional: it only mutates the *named* threshold, leaving the rest of the tier's ladder intact. A user who increases their stock concentration threshold from 30 % to 35 % still has the tier's critical/high concentration values unchanged.
 
+**The "changed away from default" gate.** An override is applied **only when the user has deliberately moved that setting off its shipped default** — the `_changed(ls, key)` helper compares the value in `settings["lens_signals"]` against `DEFAULT_SETTINGS['lens_signals']` (numeric compare when both parse as floats, equality otherwise; a key absent from settings is treated as unchanged). Values left at the shipped default defer to the active risk tier. This gate is deliberate and important: applying the shipped defaults *unconditionally* (the old behaviour) overwrote the per-tier thresholds with a single cross-tier value, flattening Conservative/Moderate/Aggressive and even inverting their ordering — e.g. Conservative concentration `moderate` = 35 would end up **greater than** its `high` = 30, so a 34 % holding skipped straight past `moderate` to `high`. With the gate, an untouched setting honours the tier (so the tier selection stays meaningful and monotonic) while a value the user actually changed still wins.
+
 ### 3.3 Conservative-tier extra gates in the CTA engine
 
 The CTA engine reads `risk_profile['tier']` directly and applies additional gates that go beyond threshold adjustments:
@@ -143,6 +203,7 @@ The CTA engine reads `risk_profile['tier']` directly and applies additional gate
 - Priority 3 (winner drift) is converted from `rebalance` to an informational `hold` with a new reason code `winner_drift_informational` for conservative users.
 - Priority 8 (dead weight) is suppressed entirely.
 - All sell-type CTAs run through `_conservative_sell_blocked(ticker, severity, ticker_weight)`, which blocks the sell if: market cap is > $5B (or unknown — the conservative default is to *assume large cap and block*), severity isn't `critical`, or the ticker's weight is below 5 %.
+  - **Dominant-position exception (don't regress):** the very first check inside the gate is `if ticker_weight > 0.50: return False` — a holding that is more than **half the book** is *always* eligible to be trimmed, even for a conservative investor. Without this exception a 78 %-in-one-leveraged-ETF book had its sell suppressed and was instead told to *deposit* tens of thousands of dollars to dilute the position back down (unactionable). The dominant-position check runs before the market-cap, severity, and weight-floor checks, so it overrides all of them.
 
 The market-cap lookup in `_market_cap()` reads `market_cap` (or `marketCap`) from both the quote dict and the meta dict, returning the first hit. If no value is found anywhere, the function returns 0.0 and the conservative gate substitutes 100 billion dollars (a deliberately high default that blocks the sell). The principle is: when uncertain about whether a stock is large or small, a conservative profile treats it as a large blue-chip not to be touched.
 
@@ -176,7 +237,7 @@ Every analyzer follows the same outer pattern: iterate over positions, compute p
 
 ### 5.1 Slope (`analyzers/slope.py`)
 
-The slope analyzer measures price-direction over a 6-month lookback per ticker using linear regression. Key constants: `_MIN_DATA_POINTS = 30` (any history with fewer than 30 cleaned daily closes is treated as insufficient data and skipped), `_SLOPE_CLAMP_MIN = -80.0`, `_SLOPE_CLAMP_MAX = 150.0` (the final annualized percentage is clamped to this window to keep outliers from breaking downstream sentence formatting and CTA arithmetic).
+The slope analyzer measures price-direction over a 6-month lookback per ticker using linear regression. Key constants: `_MIN_DATA_POINTS = 30` (any history with fewer than 30 cleaned daily closes is treated as insufficient data and skipped), `_SLOPE_CLAMP_MIN = -80.0`, `_SLOPE_CLAMP_MAX = 250.0` (the final annualized percentage is clamped to this window to keep outliers from breaking downstream sentence formatting and CTA arithmetic). *The max was raised from 150 to 250 so genuine momentum names show distinct, data-driven figures in the brief instead of all pinning to an identical "+150.0 %". Positive slopes carry no severity — they all classify `none` — so this only affects the displayed value, never CTA logic.*
 
 The per-ticker procedure:
 
@@ -192,7 +253,7 @@ The per-ticker procedure:
    Each correction logs a debug line naming the ticker and the before/after values.
 
 6. Guard against NaN/Inf — if `annualized` is non-finite after all corrections, reset to 0 and mark insufficient.
-7. Clamp the annualized value into `[-80, 150]` and log a debug message if the clamp activated.
+7. Clamp the annualized value into `[-80, 250]` and log a debug message if the clamp activated.
 8. Classify into severity using `_classify(annualized_pct, thresholds)`:
    - `<= critical` (default -25, or whatever the active tier specifies) → `'critical'`
    - `<= high` (default -15) → `'high'`
@@ -237,7 +298,7 @@ Per-ticker procedure:
 3. Compute `drift_multiple = current_weight / entry_weight` (clamped via the guard `if entry_weight > 0.001 else 1.0`).
 4. **Sub-signal A — stock concentration** (skipped if ticker is in `INDEX_ETFS`): classify `weight_pct` against the concentration thresholds. If `> critical` (default 50) → critical; `> high` (default 40) → high; `> moderate` (default 30) → moderate; `> low` (default 20) → low; else none. If severity is moderate, high, or critical, append `'stock_concentration'` to `sub_signals` and set `best_severity`.
 5. **Sub-signal B — sector accumulation** (skipped if index ETF): add the ticker's current value to the running `sector_weights` map keyed by `pos['sector']` (or `'Unknown'`).
-6. **Sub-signal C — winner drift** (skipped if index ETF): if `weight_pct > 30` AND `drift_multiple > 2.0`, append `'winner_drift'`. Severity is `'high'` if `drift_multiple > 2.5`, else `'moderate'`. The severity ladder's order map (`_SEV_ORDER`) is used to keep `best_severity` at the higher of the two sub-signal severities.
+6. **Sub-signal C — winner drift** (skipped if index ETF): if `weight_pct > 30` AND `drift_multiple > 2.0` AND **`current_value > cost_equity`**, append `'winner_drift'`. Severity is `'high'` if `drift_multiple > 2.5`, else `'moderate'`. The severity ladder's order map (`_SEV_ORDER`) is used to keep `best_severity` at the higher of the two sub-signal severities. *The `current_value > cost_equity` clause is essential and must not be removed: without it, a position that merely fell **less** than its peers (so its current-value weight exceeds its cost-basis weight, making `drift_multiple > 2.0`) gets mislabeled a "winner that drifted" — producing "price appreciation pushed…" language and contradictory SELL+HOLD CTAs on a holding that is actually underwater. The clause requires the position to genuinely be up from cost before it counts as a runaway winner.*
 
 The per-ticker `flag` is True if any sub-signal triggered. The `details.heaviest_concentration_type` is the first sub-signal in the list (an order-dependent field — `'stock_concentration'` is appended before `'winner_drift'` so a ticker with both flags shows stock_concentration as the heaviest type).
 
@@ -251,7 +312,8 @@ Portfolio-level concentration analyzes the accumulated `sector_weights`:
    - `heaviest_pct > sector_moderate` (default 50) OR `sector_count <= 2` → `'moderate'`
    - `heaviest_pct > 40` → `'low'`
    - else → `'none'`
-5. Flag = severity in `('moderate', 'high', 'critical')`.
+5. **Index-dominated downgrade** (don't regress): compute `index_weight_pct` = (sum of index-ETF current values ÷ total current value) × 100. Index ETFs are excluded from the per-sector tally (sub-signal B above), so a heavily-index book otherwise shows `sector_count ≤ 1/2` and trips a false `high`/`moderate` sector flag — which then produces spurious "buy individual stocks to diversify" CTAs. If `index_weight_pct >= 50` AND `sector_sev` is `moderate` or `high`, downgrade it to `'low'`. The reasoning: the index funds *are* the diversification, so the small non-index remainder is not a concentration problem.
+6. Flag = severity in `('moderate', 'high', 'critical')`.
 
 The portfolio details dict includes `sector_weights` (the full per-sector percentage map), `sector_count`, `heaviest_sector`, `heaviest_sector_weight`, and `concentration_type = 'sector'`.
 
@@ -266,7 +328,7 @@ Earnings depends on slope and volatility (passed in via `prior_results`) to set 
 
 Per-ticker procedure:
 
-1. Fetch `store.get_earnings(ticker)` (a list of upcoming earnings records).
+1. Fetch `store.get_earnings(ticker)` (a list of upcoming earnings records). **Index ETFs are skipped** — a ticker in `INDEX_ETFS` is given an empty earnings list without calling the store, since index funds have no earnings reports (the fetch 404s on Yahoo and wastes an API call); they keep the neutral `'none'` result.
 2. Iterate, parse each `date` field via `_parse_date()` (which accepts `date`, `datetime`, or `'%Y-%m-%d'` / `'%Y-%m-%dT%H:%M:%S'` strings).
 3. Pick the first event with `ed >= today` — record its date, days-until, and `eps_estimate_avg`.
 4. Compute `outlook` from the prior slope/vol analysis via `_determine_outlook(slope_ann, vol_ann)`:
@@ -365,14 +427,17 @@ Final priority sorting is ascending by `priority` (1 first). The list is then de
 
 - **`_round10(v)`** — rounds dollars to the nearest $10. Every dollar amount the user ever sees is `_round10`-rounded.
 - **`_cap_buy_amount(raw, total_equity, group_size)`** — enforces two ceilings on buy CTAs: no single buy can exceed 25 % of current portfolio value, and the combined cap for buys in the same diversification group is 50 % of portfolio split evenly across the group. The effective per-CTA cap is `min(0.25 × total_equity, (0.50 × total_equity) / group_size)`, then `_round10`-applied. *This is what keeps a "you're underweight in Healthcare" suggestion from telling the user to dump 80 % of their portfolio into a single stock.*
+- **`_drop_tiny_buys(cta_list, total_equity)`** — removes any `buy_new`/`buy_more` CTA whose dollar amount is below the noise floor `max($200, 1 % of total_equity)` (`_MIN_BUY_DOLLARS = 200.0`, `_MIN_BUY_FRACTION = 0.01`). Sub-1 % "deposit $30 into KO" suggestions are noise, not advice. Sells and holds are untouched.
+- **`_cap_total_buys(cta_list, total_equity, risk_tier)`** — after dropping tiny buys, sums every remaining buy CTA's dollars; if the total exceeds the tier's cap (`_MAX_TOTAL_BUY_FRACTION_BY_TIER` = `high 0.35 / regular 0.30 / low 0.20`, falling back to `_MAX_TOTAL_BUY_FRACTION = 0.30` for an unknown tier) it scales **all** buys down proportionally by `cap / total_buy` (then `_round10`), dropping any that round to zero. Conservative is capped tightest because its sells are mostly suppressed, so an uncapped buy total would otherwise *be* the entire (large, positive) net CTA delta — the "deposit tens of thousands into a burning portfolio" case. Sells and holds are untouched.
 - **`_sell_too_small(dollars, position_value)`** — True if `position_value < $1000` (`_MIN_POSITION_VALUE_FOR_SELL`) or `|dollars| < $500` (`_MIN_SELL_DOLLARS`). Tiny positions and tiny sell amounts are filtered out — the engine refuses to suggest a $30 trim of a $50 position.
 - **`_get_ticker_sector(ticker)`** — walks `SECTOR_SUGGESTIONS` to find which sector a ticker belongs to. Returns `'Unknown'` if not found.
 - **`_pick_sector_tickers(sector, held_tickers, n=2)`** — returns up to n suggestion tickers from `SECTOR_SUGGESTIONS[sector]`, preferring tickers not already held.
 - **`_underweight_sectors_sorted(sector_weights, held_sectors, exclude_sectors)`** — returns sectors sorted lightest-first, excluding `exclude_sectors`. Unheld sectors come first (those have effective weight 0), then held sectors by ascending weight.
 - **`_best_underweight_sector(...)`** — first element of the above (defaults to `'Technology'` if nothing matches).
 - **`_split_dollars_by_underweight(sectors, sector_weights, total_dollars)`** — splits a dollar amount across sectors proportional to how underweight each is. The "underweight score" per sector is `max(avg_weight - current_weight, 1.0)` where `avg_weight = 100 / num_sectors`. Sectors are then allocated `(score / total_score) × total_dollars`, `_round10`-rounded, sorted descending by allocation.
-- **`_conservative_sell_blocked(ticker, severity, ticker_weight)`** — conservative-tier-only gate described in section 3.3.
+- **`_conservative_sell_blocked(ticker, severity, ticker_weight)`** — conservative-tier-only gate described in section 3.3 (including the dominant-position `> 50 %` exception).
 - **`_market_cap(ticker)`** — reads market cap from store quote then meta, returns 0.0 if unknown.
+- **`_CONCENTRATION_DILUTION_FACTOR`** (module constant, `0.75`) — the fraction of a concentration trigger that the "buy elsewhere to dilute" math (priorities 6 and 7) targets. See those priorities for why the dilution target must sit *below* the trigger.
 
 ### 6.2 Priority 1 — Steep decline (SELL)
 
@@ -399,6 +464,7 @@ For each ticker in volatility's `ticker_results` with `flag = True` (recall: vol
 
 For each ticker in concentration's `ticker_results` whose `sub_signals` includes `'winner_drift'` AND `flag = True`:
 
+0. **Skip if a sell already exists for this ticker** (don't regress): if any CTA already in the list targets this ticker with `action == 'sell'` (from priority 1 steep-decline or priority 2 high-volatility), skip the drift signal entirely. A position cannot simultaneously be a runaway winner to rebalance/hold *and* a steep-decline/high-vol position to sell — emitting both is contradictory (the `SELL FCEL` + `HOLD FCEL winner_drift` case). The risk sell takes precedence. This must be gated here at generation time, because `_dedupe_ctas` deliberately permits a sell and a hold to coexist on the same ticker.
 1. Get `entry_weight = entry_weight_pct / 100` and `current_weight = ticker_weights[t]`.
 2. Compute `position_value` from current values, `raw_rebalance = (current_weight - entry_weight) × total_equity`.
 3. Cap rebalance at 35 % of position value: `max_rebalance = position_value × 0.35`.
@@ -428,7 +494,7 @@ If the portfolio's beta result has `severity in ('high', 'critical')` AND `flag 
 For each ticker with `sub_signals` including `stock_concentration` AND `flag = True`:
 
 1. Skip if the ticker is in `INDEX_ETFS` or has an existing index_fund CTA.
-2. Calculate the dollar amount needed to dilute this position to its target weight: `target_weight = concentration.moderate / 100`, `v_stock = ticker_current_values[t]`, `v_total_new = v_stock / target_weight`, `total_dollars = _round10(v_total_new - total_equity)`. *This is the deposit amount that, when invested entirely in other positions, would reduce the over-weight stock's share down to the moderate threshold.*
+2. Calculate the dollar amount needed to dilute this position to its target weight: `trigger_pct = concentration.moderate` (default 30), `target_weight = (trigger_pct × _CONCENTRATION_DILUTION_FACTOR) / 100` (i.e. `trigger × 0.75`), `v_stock = ticker_current_values[t]`, `v_total_new = v_stock / target_weight`, `total_dollars = _round10(v_total_new - total_equity)`. *This is the deposit amount that, when invested entirely in other positions, would reduce the over-weight stock's share down to a target safely **below** the trigger.* **The dilution target must sit below the trigger, never equal to it (don't regress):** a holding sitting right at the trigger weight would need ≈$0 to "dilute" back to that same weight — this produced the $70-on-a-$17k-portfolio bug. The `× 0.75` factor (`_CONCENTRATION_DILUTION_FACTOR`) is what guarantees a materially-sized buy while still scaling with the user's chosen threshold; do not set the target back to the raw trigger.
 3. Skip if `total_dollars <= 0`.
 4. Determine the over-concentrated ticker's sector via `_get_ticker_sector(t)`, with fallback to the position's stored sector or a guess based on whichever sector exceeds 40 %. This sector is added to the `exclude` set.
 5. Get up to 3 underweight sectors excluding the over-concentrated one. Fall back to top-3 underweight without exclusion if none match.
@@ -440,7 +506,7 @@ For each ticker with `sub_signals` including `stock_concentration` AND `flag = T
 If the portfolio's concentration result is flagged:
 
 1. Identify `heavy_sector` and `heavy_pct`.
-2. Calculate `total_dollars`: if `heavy_pct > 50`, compute the deposit that would bring the heavy sector down to 50 % by `_round10((heavy_eq / 0.50) - total_equity)`. Otherwise default to `_round10(0.10 × total_equity)` (a 10 % top-up).
+2. Calculate `total_dollars`: read `sector_trigger = concentration.sector_moderate` (default 50). If `heavy_pct > sector_trigger`, dilute toward a target **below** the trigger — `target = (sector_trigger × _CONCENTRATION_DILUTION_FACTOR) / 100` (i.e. `trigger × 0.75`), `v_total_new = sector_eq / target`, `total_dollars = _round10(v_total_new - total_equity)`. Otherwise default to `_round10(0.10 × total_equity)` (a 10 % top-up). *This is the same trigger-vs-target collision as single-stock concentration (priority 6): diluting a heavy sector back to its own trigger weight needs ≈$0, so the target is shifted to 0.75× the trigger.*
 3. Pull top-3 underweight sectors excluding the heavy one. Same fallback logic as priority 6.
 4. Split dollars proportionally. For each allocation: pick a sector-suggestion ticker, *verify it's not in the heavy sector* (and if it is, walk the suggestion list to find a substitute that isn't), cap with `_cap_buy_amount`, emit a `buy_new` with reason `sector_underweight`.
 
@@ -461,7 +527,7 @@ If the portfolio has at least 3 known sectors (`sector_count >= 3`):
 3. Cap with `_cap_buy_amount(raw_deposit, total_equity, group_size=min(thin_count, 3))`.
 4. Emit `buy_new` with reason `sector_underweight`, severity `'low'`.
 
-### 6.11 Priority 10 — Unrealized loss (HOLD)aa
+### 6.11 Priority 10 — Unrealized loss (HOLD)
 
 For each ticker flagged by performance: emit a `hold` CTA with `dollars = 0.0`, reason `unrealized_loss`, severity carried through from the analyzer. Details carry `unrealized_pct`, `unrealized_dollar`, `entry_price`.
 
@@ -469,18 +535,19 @@ For each ticker flagged by performance: emit a `hold` CTA with `dollars = 0.0`, 
 
 A catch-all fired only when the CTA list is otherwise empty: emit a single `hold` CTA with `ticker = ''`, `dollars = 0.0`, reason `portfolio_healthy`, severity `'none'`. This guarantees the sentence composers always have at least one CTA to render.
 
-### 6.13 Post-processing: index suppression, deduplication, sector cap
+### 6.13 Post-processing: sort, index suppression, dedup, tiny-buy drop, total-buy cap
 
-After all priorities are emitted, three post-pass steps run:
+After all priorities are emitted, the list is sorted ascending by `priority`, then these post-pass steps run in order:
 
 1. **Index-fund buy suppression**: if `index_cta_tickers` is non-empty, drop any `buy_new` or `buy_more` CTA whose ticker is in that set. *We never recommend buying more of an index fund that's already triggered an informational hold.*
 2. **`_dedupe_ctas`** runs three sub-steps:
    - **Deduplicate by `(action, ticker)`**: if the same action targets the same ticker at multiple priorities, keep the lowest-priority-number (highest-priority) one.
-   - **Sell-group conflict resolution**: a single ticker can't carry both `sell` and `rebalance` CTAs — collapse to the highest-priority of the two using a `(ticker, '_sell_group')` slot key.
+   - **Sell-group conflict resolution**: a single ticker can't carry both `sell` and `rebalance` CTAs — collapse to the highest-priority of the two using a `(ticker, '_sell_group')` slot key. (Note: a `sell` and a `hold` on the same ticker are deliberately *allowed* to coexist here — the winner-drift-vs-sell contradiction is prevented earlier, at generation time in priority 3, not in dedup.)
    - **Per-sector buy cap**: across the whole CTA list, no target sector receives more than 3 buy CTAs. Beyond 3, surplus buys are dropped.
-3. The list is sorted ascending by `priority`.
+3. **`_drop_tiny_buys`**: drop any `buy_new`/`buy_more` below the noise floor `max($200, 1 % of total_equity)`. Sub-1 % deposit suggestions are noise.
+4. **`_cap_total_buys`**: sum all remaining buy dollars; if the total exceeds the tier-aware cap (`_MAX_TOTAL_BUY_FRACTION_BY_TIER` = `high 0.35 / regular 0.30 / low 0.20` of equity), scale every buy down proportionally by `cap / total_buy` and drop any that round to zero. Several buy priorities (high beta + concentration dilution + sector underweight) can stack, so this keeps the *combined* recommended deposit to a sensible slice of the portfolio.
 
-The resulting list is the canonical CTA output.
+The resulting list is the canonical CTA output. Steps 3 and 4 touch only buy CTAs; sells and holds pass through unchanged.
 
 ---
 
@@ -570,9 +637,12 @@ The first CTA in the sorted list (highest priority) drives several output fields
 
 ### 8.4 Caution score
 
-`_compute_caution_score(cta_list, total_equity)` produces an integer 1–99 that summarises the size of CTAs relative to the portfolio. The formula:
+`_compute_caution_score(cta_list, total_equity, pool_results)` produces an integer 1–99 that summarises overall risk pressure. It is the **greater** of two independent measures: a **trade-flow score** (how much trading the CTAs imply) and an **exposure-weighted risk floor** (how dangerous the book is regardless of whether any trade was recommended).
 
 ```
+if total_equity <= 0: return 0
+
+# (a) trade-flow score
 weighted_total = 0
 for each CTA:
     if action in ('sell', 'rebalance'):
@@ -580,11 +650,27 @@ for each CTA:
     elif action in ('buy_new', 'buy_more'):
         weighted_total += dollars × 0.30         # 30% weight
     # hold actions ignored
-score = (weighted_total / total_equity) × 100
-return clamp(score, 1, 99)
+score_pct = (weighted_total / total_equity) × 100
+
+# (b) exposure-weighted risk floor
+floor = _risk_floor(pool_results)
+
+return clamp(round(max(score_pct, floor)), 1, 99)
 ```
 
-The asymmetric weighting is deliberate: a sell signal is a "you should reduce risk" message that carries full weight; a buy signal is a "you have room to grow" opportunity that contributes only 30 %. Hold actions are entirely ignored. This makes the caution score a directional risk indicator, not a generic activity meter. If `total_equity <= 0`, the score is 0. The threat level returned in the result dict is simply `caution_score / 100.0`.
+**Trade-flow weighting** is asymmetric and deliberate: a sell signal is a "you should reduce risk" message that carries full weight; a buy signal is a "you have room to grow" opportunity that contributes only 30 %. Hold actions are entirely ignored — so trade-flow alone is a directional risk indicator, not a generic activity meter.
+
+**Why the floor exists.** Trade-flow alone collapses in tiers that suppress sells: a genuinely dangerous Conservative book whose large-cap sells are all blocked would show a near-zero trade-flow score and read as "calm". The `_risk_floor()` term reads analyzer severities directly so a dangerous portfolio still scores high even when its recommended trades are suppressed.
+
+**`_risk_floor(pool_results)`** maps every analyzer severity through the points ladder `_SEVERITY_CAUTION_POINTS = {none: 0, low: 8, moderate: 30, high: 60, critical: 88}`, then returns the `max` of three continuous components so the dominant risk drives the score:
+
+- **`pos_pts`** — exposure-weighted **average** danger across all positions: `Σ (weight × broad)`, where `broad` is the worst severity that ticker carries across `volatility`, `concentration`, `performance`, and `slope`.
+- **`single_pts`** — the **worst single position**, damped by its weight: `max over tickers of (single × min(1, weight / 0.45))`, where `single` is the worst severity across `volatility`, `concentration`, and `performance` (note: `slope` is excluded from the single-position term). The `min(1, w/0.45)` damping means a small dangerous satellite no longer pins the score — only a *large* dangerous position drives it.
+- **`port_pts`** — portfolio-level risks that warrant caution on their own: the sector-concentration portfolio severity, plus aggregate `volatility`/`beta` severity but **only once elevated to high/critical** (a ~1.0 beta or low aggregate vol is normal market exposure, not caution).
+
+**Why this replaced the old flat max-of-severities (don't regress).** The previous floor was a flat max across all per-ticker severities at full weight — so one 41 %-vol satellite at 20 % weight pinned a "near-perfect" portfolio to 60/99, and the whole score collapsed into ~5 buckets (8/30/60/88). The weight-aware floor restores granularity: a healthy book lands in the single digits, a disaster lands at 88, and only a *large* dangerous position can drive the score up.
+
+If `total_equity <= 0`, the score is 0. The threat level returned in the result dict is simply `caution_score / 100.0`.
 
 ### 8.5 Projected positions
 
@@ -651,7 +737,7 @@ For convenience, the table below collects every numerical threshold and constant
 | Constant | Value (regular tier where applicable) | Used by |
 |---|---|---|
 | `_MIN_DATA_POINTS` (slope, vol) | 30 | history-based analyzers |
-| `_SLOPE_CLAMP_MIN` / `_MAX` | -80 % / 150 % annualized | slope |
+| `_SLOPE_CLAMP_MIN` / `_MAX` | -80 % / 250 % annualized | slope |
 | Slope sanity-correction tolerance | 5 % vs peak/trough, 25 % vs actual | slope |
 | Annualization multiplier | 252 (trading days) | slope, volatility, beta |
 | `_VOL_CLAMP_MIN` / `_MAX` | 0 % / 150 % annualized | volatility |
@@ -666,23 +752,31 @@ For convenience, the table below collects every numerical threshold and constant
 | Beta minimum-data-points | 10 | beta |
 | Performance loss ladder | -5 / -15 / -25 / -40 → low/mod/high/crit | performance |
 | Index-ETF weight flag gate | > 30 % single-ticker, > 30 % portfolio total | index_fund |
+| Index-dominated sector downgrade | index weight ≥ 50 % → sector severity floored to `low` | concentration |
 | `_MIN_SELL_DOLLARS` | $500 | CTA engine sell gates |
 | `_MIN_POSITION_VALUE_FOR_SELL` | $1,000 | CTA engine sell gates |
+| `_MIN_BUY_DOLLARS` / `_MIN_BUY_FRACTION` | greater of $200 and 1 % of equity | `_drop_tiny_buys` |
 | Per-CTA buy cap | 25 % of total equity | `_cap_buy_amount` |
 | Group buy cap | 50 % of total equity / group_size | `_cap_buy_amount` |
+| `_MAX_TOTAL_BUY_FRACTION_BY_TIER` | high 0.35 / regular 0.30 / low 0.20 (fallback 0.30) | `_cap_total_buys` |
+| `_CONCENTRATION_DILUTION_FACTOR` | 0.75 (dilution target = 0.75 × trigger) | priorities 6 & 7 |
 | Dollar rounding | nearest $10 | `_round10` |
 | Priority 3 rebalance cap | 35 % of position value | winner drift CTA |
 | Priority 5 high-beta deposit | 10 % of total equity | high-beta CTA |
-| Priority 7 default deposit | 10 % of total equity (60 % heavy uses target=50 %) | sector over-concentration |
+| Priority 6 single-stock dilution target | 0.75 × `concentration.moderate` (default 0.75 × 30) | single-stock concentration |
+| Priority 7 default deposit | 10 % of equity (> `sector_moderate` heavy dilutes to 0.75 × trigger) | sector over-concentration |
 | Priority 8 dead-weight gates | weight < 2 % AND annualized ≤ 2 % | dead-weight CTA |
 | Priority 9 thin-sector cutoff | weight < 10 % AND non-Unknown | underrepresented sector |
 | Conservative blocked-sell market cap | > $5B | `_conservative_sell_blocked` |
 | Conservative blocked-sell weight floor | < 5 % | `_conservative_sell_blocked` |
+| Conservative dominant-position sell exception | weight > 50 % always eligible | `_conservative_sell_blocked` |
 | Sell-group dedup | one of {sell, rebalance} per ticker | `_dedupe_ctas` |
 | Per-sector buy cap | 3 CTAs / sector | `_dedupe_ctas` |
 | Caution score sell weight | 1.0× | `_compute_caution_score` |
 | Caution score buy weight | 0.30× | `_compute_caution_score` |
-| Caution score clamp | [1, 99] integer | `_compute_caution_score` |
+| `_SEVERITY_CAUTION_POINTS` | none 0 / low 8 / moderate 30 / high 60 / critical 88 | `_risk_floor` |
+| Risk-floor single-position damping | × min(1, weight / 0.45) | `_risk_floor` |
+| Caution score | max(trade-flow score, risk floor), clamped [1, 99] | `_compute_caution_score` |
 | Lens history rolling cap | 50 snapshots | `_save_snapshot` |
 | Action color: sell | `#ff4d4d` | assembler |
 | Action color: rebalance | `#ff9f43` | assembler |
