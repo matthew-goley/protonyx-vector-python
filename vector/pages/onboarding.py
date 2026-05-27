@@ -557,7 +557,6 @@ class OnboardingPage(QWidget):
         self._stack = QStackedWidget()
         self._stack.setMinimumHeight(sc(340))
         self._stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._stack.addWidget(self._build_step_terms())
         self._stack.addWidget(self._build_step_account())
         self._stack.addWidget(self._build_step_risk())
         self._stack.addWidget(self._build_step_portfolio())
@@ -610,7 +609,7 @@ class OnboardingPage(QWidget):
         row.setContentsMargins(sc(8), sc(4), sc(8), sc(4))
         row.setSpacing(0)
 
-        step_names = ['Terms & Privacy', 'Account', 'Risk Profile', 'Portfolio Setup']
+        step_names = ['Account', 'Risk Profile', 'Portfolio Setup']
 
         for i, name in enumerate(step_names):
             # Column: dot above, label below
@@ -642,7 +641,7 @@ class OnboardingPage(QWidget):
 
             row.addWidget(col_widget, 0, Qt.AlignmentFlag.AlignVCenter)
 
-            if i < 3:
+            if i < len(step_names) - 1:
                 # Connector — sits at the same vertical level as the dot centres
                 line_wrap = QWidget()
                 line_wrap.setStyleSheet('background: transparent;')
@@ -684,38 +683,6 @@ class OnboardingPage(QWidget):
         return layout
 
     # ── Step pages ────────────────────────────────────────────────────────
-
-    def _build_step_terms(self) -> QWidget:
-        page = QWidget()
-        page.setStyleSheet('background: transparent;')
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, sc(4), 0, sc(4))
-        layout.setSpacing(sc(6))
-
-        title = QLabel('Terms & Privacy')
-        tf = QFont(); tf.setPointSize(scpt(17)); tf.setBold(True)
-        title.setFont(tf)
-        title.setStyleSheet('color: #e8eaf0; border: none;')
-        layout.addWidget(title)
-
-        subtitle = QLabel('Legal terms and privacy policy will be available here.')
-        subtitle.setStyleSheet(f'color: #6b7280; font-size: {sc(12)}px; border: none;')
-        layout.addWidget(subtitle)
-
-        layout.addSpacing(sc(12))
-
-        card = QFrame()
-        card.setStyleSheet(_CARD_QSS)
-        card.setMinimumHeight(sc(200))
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(sc(24), sc(24), sc(24), sc(24))
-        ph = QLabel('Terms of Service and Privacy Policy\ncoming soon.')
-        ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph.setStyleSheet(f'color: #4b5563; font-size: {sc(13)}px; border: none;')
-        card_layout.addWidget(ph, alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(card, stretch=1)
-
-        return page
 
     def _build_step_account(self) -> QWidget:
         page = QWidget()
@@ -873,16 +840,15 @@ class OnboardingPage(QWidget):
     # ── Navigation logic ───────────────────────────────────────────────────
 
     def _go_to(self, step: int) -> None:
-        self._current_step = max(0, min(3, step))
+        self._current_step = max(0, min(self._stack.count() - 1, step))
         self._stack.setCurrentIndex(self._current_step)
         self._refresh_stepper()
         self._refresh_nav()
 
     def _refresh_stepper(self) -> None:
         # Each dot samples the app gradient at an evenly spaced position:
-        # Dot 1 → 0% (#2dd4bf), Dot 2 → 33% (#34c5e5),
-        # Dot 3 → 66% (#3093d5), Dot 4 → 100% (#1e3a8a)
-        _dot_colors = ['#2dd4bf', '#34c5e5', '#3093d5', '#1e3a8a']
+        # Dot 1 -> 0% (#2dd4bf), Dot 2 -> 50% (#38bdf8), Dot 3 -> 100% (#1e3a8a)
+        _dot_colors = ['#2dd4bf', '#38bdf8', '#1e3a8a']
         _lit_tpl = 'background: {color}; color: #ffffff; border: none; border-radius: 14px;'
         _idle = (
             'background: #1e2a3a;'
@@ -913,18 +879,19 @@ class OnboardingPage(QWidget):
 
         self._back_btn.setVisible(self._current_step > 0)
 
-        if self._current_step == 0 or self._current_step == 1:
-            self._next_btn.setText('Skip for now')
-            self._next_btn.setEnabled(True)
-        elif self._current_step == 2:
+        last = self._stack.count() - 1
+        if self._current_step == last:
+            self._next_btn.setText('Launch Portfolio')
+            self._next_btn.setEnabled(bool(self.pending_positions))
+        elif self._current_step == last - 1:
             self._next_btn.setText('Continue')
             self._next_btn.setEnabled(True)
         else:
-            self._next_btn.setText('Launch Portfolio')
-            self._next_btn.setEnabled(bool(self.pending_positions))
+            self._next_btn.setText('Skip for now')
+            self._next_btn.setEnabled(True)
 
     def _on_next(self) -> None:
-        if self._current_step < 3:
+        if self._current_step < self._stack.count() - 1:
             self._go_to(self._current_step + 1)
         else:
             self.launch()
@@ -932,7 +899,7 @@ class OnboardingPage(QWidget):
     # ── Event overrides ────────────────────────────────────────────────────
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
-        if self._current_step == 3 and event.key() == Qt.Key.Key_A:
+        if self._current_step == self._stack.count() - 1 and event.key() == Qt.Key.Key_A:
             self.open_add_modal()
             return
         if event.key() == Qt.Key.Key_Space:
@@ -989,7 +956,7 @@ class OnboardingPage(QWidget):
             self.cards_container.setMinimumWidth(natural_w)
         else:
             self.cards_container.setMinimumWidth(0)
-        if self._current_step == 3:
+        if self._current_step == self._stack.count() - 1:
             self._next_btn.setEnabled(bool(self.pending_positions))
         self.cards_container.adjustSize()
         self.cards_container.updateGeometry()

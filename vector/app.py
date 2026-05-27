@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 import threading
 import time
@@ -36,6 +37,8 @@ from .pages.profile import ProfilePage
 from .pages.settings import SettingsPage
 from .store import DataStore
 from .widgets import GradientBorderFrame, GradientLine
+
+_log = logging.getLogger(__name__)
 
 
 DARK_STYLESHEET = """
@@ -731,6 +734,40 @@ class VectorMainWindow(QMainWindow):
         QApplication.instance().quit()
 
 
+def _maybe_show_eula_gate(window: 'VectorMainWindow', token: 'str | None') -> None:
+    """Check EULA acceptance once after launch and gate the app if needed.
+
+    Fails open: any network/parse failure on the status check (``None``) lets
+    the user through - the gate is only shown when the backend explicitly
+    reports the EULA as not accepted. The demo-bypass session is skipped
+    entirely because it has no real backend token.
+    """
+    if not token:
+        return
+
+    # DEMO BYPASS - the demo session has no real backend token, so the EULA
+    # status check would always fail. Skip it entirely.
+    try:
+        from auth.login_window import _DEMO_BYPASS_ENABLED, _DEMO_TOKEN
+        if _DEMO_BYPASS_ENABLED and token == _DEMO_TOKEN:
+            return
+    except Exception:  # noqa: BLE001
+        pass
+    # END DEMO BYPASS
+
+    from auth.auth import check_eula_status
+
+    status = check_eula_status(token)
+    if status is None:
+        _log.warning('EULA status check failed; failing open (user not blocked).')
+        return
+    if status.get('eula_accepted') is False:
+        from .eula_gate import EulaGateOverlay
+        window._eula_gate = EulaGateOverlay(window, token)
+        window._eula_gate.show()
+        window._eula_gate.raise_()
+
+
 def main(
     app: 'QApplication | None' = None,
     splash: 'QSplashScreen | None' = None,
@@ -822,6 +859,9 @@ def main(
     def _finish() -> None:
         window.showMaximized()
         splash.finish(window)
+        # After the window is shown and the splash dismissed, gate on EULA
+        # acceptance (one lightweight authenticated GET; fails open).
+        _maybe_show_eula_gate(window, token)
 
     QTimer.singleShot(remaining_ms, _finish)
     return app.exec()

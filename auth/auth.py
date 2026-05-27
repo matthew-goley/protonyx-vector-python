@@ -84,6 +84,68 @@ def get_me(token: str) -> dict:
     return data
 
 
+def check_eula_status(token: str) -> Optional[dict]:
+    """GET /legal/status with Bearer auth.
+
+    Returns the parsed JSON response (which includes ``tos_accepted`` /
+    ``eula_accepted`` flags and the current document versions), or ``None`` on
+    any failure (network error, non-2xx status, or unparseable body). Unlike
+    ``get_me`` this never raises - the caller fails open when it returns None.
+    """
+    try:
+        response = requests.get(
+            f'{API_URL}/legal/status',
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=_REQUEST_TIMEOUT,
+        )
+        if response.status_code >= 400:
+            return None
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def accept_eula(token: str) -> Optional[dict]:
+    """POST /legal/accept with Bearer auth and body ``{"document": "eula"}``.
+
+    Returns the parsed JSON response on success, or ``None`` on any failure
+    (network error, non-2xx status, or unparseable body). Never raises.
+    """
+    try:
+        response = requests.post(
+            f'{API_URL}/legal/accept',
+            headers={'Authorization': f'Bearer {token}'},
+            json={'document': 'eula'},
+            timeout=_REQUEST_TIMEOUT,
+        )
+        if response.status_code >= 400:
+            return None
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _eula_status_code(token: str) -> Optional[int]:
+    """GET /legal/status and return only the HTTP status code (``None`` on a
+    network-level failure).
+
+    Used by the EULA gate to classify an ``accept_eula`` failure: a follow-up
+    probe returning 401 means the session expired (clear + re-login), while a
+    2xx or None means the accept failure was transient (let the user retry).
+    """
+    try:
+        response = requests.get(
+            f'{API_URL}/legal/status',
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=_REQUEST_TIMEOUT,
+        )
+    except requests.RequestException:
+        return None
+    return response.status_code
+
+
 def save_token(token: str) -> None:
     """Persist the token alongside the auth module."""
     _SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
