@@ -198,7 +198,7 @@ def _save_snapshot(result: dict[str, Any]) -> None:
         json.dump({'snapshots': snapshots}, f, indent=2)
 
 
-_SEVERITY_CAUTION_POINTS = {'none': 0, 'low': 8, 'moderate': 30, 'high': 60, 'critical': 88}
+_SEVERITY_CAUTION_POINTS = {'none': 0, 'low': 10, 'moderate': 35, 'high': 62, 'critical': 90}
 
 
 def _risk_floor(pool_results: dict[str, Any]) -> float:
@@ -234,6 +234,7 @@ def _risk_floor(pool_results: dict[str, Any]) -> float:
 
     pos_pts = 0.0
     single_pts = 0.0
+    crit_weight = 0.0
     for t, w in weights.items():
         broad = max(P.get(_tsev(k, t), 0)
                     for k in ('volatility', 'concentration', 'performance', 'slope'))
@@ -241,6 +242,9 @@ def _risk_floor(pool_results: dict[str, Any]) -> float:
         single = max(P.get(_tsev(k, t), 0)
                      for k in ('volatility', 'concentration', 'performance'))
         single_pts = max(single_pts, single * min(1.0, w / 0.45))
+        if any(_tsev(k, t) == 'critical'
+               for k in ('volatility', 'concentration', 'performance', 'slope')):
+            crit_weight += w
 
     port_pts = P.get(
         (pool_results.get('concentration', {}) or {})
@@ -251,7 +255,16 @@ def _risk_floor(pool_results: dict[str, Any]) -> float:
         if sev in ('high', 'critical'):
             port_pts = max(port_pts, P.get(sev, 0))
 
-    return max(pos_pts, single_pts, float(port_pts))
+    base = max(pos_pts, single_pts, float(port_pts))
+
+    # Breadth of danger: the more of the book that sits in *critical* positions,
+    # the closer the floor climbs toward the 99 ceiling. This spreads the worst
+    # books across the upper band (a single dominant critical position lands in
+    # the low-90s; a wholly-critical book approaches the high-90s) instead of
+    # every disaster tying at the old critical bucket. crit_weight is ~0 for any
+    # healthy/mild book, so low scores are untouched.
+    floor = base + (99.0 - base) * min(1.0, crit_weight) * 0.8
+    return min(99.0, floor)
 
 
 def _compute_caution_score(

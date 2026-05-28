@@ -13,6 +13,19 @@ _log = logging.getLogger(__name__)
 _MIN_SELL_DOLLARS = 500
 _MIN_POSITION_VALUE_FOR_SELL = 1000
 
+# Dead-weight (priority 8) is a "clean up the odd-lot tail" suggestion, not a
+# risk trim, so it is exempt from _MIN_POSITION_VALUE_FOR_SELL — which otherwise
+# rejects every sub-2% position before it can ever be flagged, making the whole
+# priority dead code. It only needs a tiny floor so we don't emit a sell on a
+# literal penny stub.
+_MIN_DEAD_WEIGHT_VALUE = 25.0
+
+# Priority 9 (underrepresented sector) only nudges books that are not yet
+# broadly diversified. A portfolio already spread across this many sectors is
+# diversified enough that "deposit into a slightly-light sector" is noise (it
+# was firing on near-perfect 10-sector books).
+_DIVERSIFIED_SECTOR_COUNT = 6
+
 # A concentration threshold is the weight ABOVE which a holding/sector is flagged.
 # Diluting it back to that same threshold requires ~$0 for a position sitting right
 # at the trigger (target == current weight → near-zero buy). We instead dilute toward
@@ -274,7 +287,14 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             if risk_tier != 'low' and _sell_too_small(dollars, position_value):
                 continue
             if dollars > 0:
-                if risk_tier == 'low':
+                # Conservative normally only *notes* a drifted winner. But a
+                # position that dominates the book (>50%) should be trimmable
+                # even for a low-risk investor — mirroring the >50% sell
+                # exception in _conservative_sell_blocked — rather than left as
+                # an informational hold while the buy-to-dilute path tells the
+                # user to deposit fresh capital into a position that is already
+                # most of their portfolio.
+                if risk_tier == 'low' and current_w <= 0.50:
                     ctas.append({
                         'priority': 3,
                         'action': 'hold',
@@ -363,7 +383,7 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 'action': 'buy_new',
                 'ticker': suggestions[0] if suggestions else '',
                 'dollars': dollars,
-                'reason': 'high_beta',
+                'reason': 'reduce_beta',
                 'severity': port_beta['severity'],
                 'details': {
                     'portfolio_beta': port_beta['details'].get('beta', 1.0),
@@ -525,7 +545,9 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                     t, w * total_equity,
                 )
                 dollars = _round10(pos_value)
-                if _sell_too_small(dollars, pos_value):
+                # Dead-weight is exempt from the generic sell floors (a tiny
+                # odd-lot is BY DEFINITION below them); only skip penny stubs.
+                if pos_value < _MIN_DEAD_WEIGHT_VALUE or dollars <= 0:
                     continue
                 ctas.append({
                     'priority': 8,
@@ -544,7 +566,10 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     conc_details = port_conc.get('details', {})
     sector_wts = conc_details.get('sector_weights', {})
     sector_count = conc_details.get('sector_count', 0)
-    if sector_count >= 3:
+    # Only nudge books that hold a few sectors but aren't yet broadly diversified
+    # (3..<6). A book already spread across 6+ sectors is diversified enough that
+    # filling a slightly-light sector is noise, not advice.
+    if 3 <= sector_count < _DIVERSIFIED_SECTOR_COUNT:
         thin_sectors = sorted(
             ((s, w) for s, w in sector_wts.items()
              if w < 10 and s not in ('Unknown', '')),
@@ -619,9 +644,16 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     ctas = _dedupe_ctas(ctas)
 
     # Drop sub-threshold buy noise, then keep the combined buy recommendation
-    # within a sensible (tier-aware) slice of the portfolio.
+    # within a sensible slice of the portfolio. The slice is tier-aware AND
+    # danger-aware: the more of the book that sits in critical positions, the
+    # less we recommend depositing, scaling to zero for a book that is wholly in
+    # crisis — it should be de-risked (trim/sell), not topped up. This is what
+    # stops the "deposit $13,800 into a leveraged-ETF fire" recommendation.
     ctas = _drop_tiny_buys(ctas, total_equity)
-    ctas = _cap_total_buys(ctas, total_equity, risk_tier)
+    base_fraction = _MAX_TOTAL_BUY_FRACTION_BY_TIER.get(risk_tier, _MAX_TOTAL_BUY_FRACTION)
+    danger = _critical_weight(pool_results, ticker_weights)
+    buy_fraction = base_fraction * max(0.0, 1.0 - danger)
+    ctas = _cap_total_buys(ctas, total_equity, buy_fraction)
 
     return ctas
 
@@ -639,17 +671,17 @@ def _drop_tiny_buys(cta_list: list[dict], total_equity: float) -> list[dict]:
 
 
 def _cap_total_buys(
-    cta_list: list[dict], total_equity: float, risk_tier: str = 'regular',
+    cta_list: list[dict], total_equity: float, max_fraction: float,
 ) -> list[dict]:
     """Scale all buy CTAs down proportionally so their combined dollars stay within
-    the tier's fraction of portfolio value (``_MAX_TOTAL_BUY_FRACTION_BY_TIER``).
-    Sells and holds are untouched. Buys that round to zero after scaling are dropped."""
+    ``max_fraction`` of portfolio value. A fraction of 0 scales every buy to zero
+    (and drops it) — used when the book is in crisis. Sells and holds are
+    untouched. Buys that round to zero after scaling are dropped."""
     if total_equity <= 0:
         return cta_list
     buys = [c for c in cta_list if c.get('action') in ('buy_new', 'buy_more')]
     total_buy = sum(float(c.get('dollars', 0.0) or 0.0) for c in buys)
-    fraction = _MAX_TOTAL_BUY_FRACTION_BY_TIER.get(risk_tier, _MAX_TOTAL_BUY_FRACTION)
-    cap = total_equity * fraction
+    cap = total_equity * max(0.0, max_fraction)
     if total_buy <= cap or total_buy <= 0:
         return cta_list
     scale = cap / total_buy
@@ -660,6 +692,33 @@ def _cap_total_buys(
         if not (c.get('action') in ('buy_new', 'buy_more')
                 and float(c.get('dollars', 0.0) or 0.0) <= 0)
     ]
+
+
+def _critical_weight(
+    pool_results: dict[str, Any], ticker_weights: dict[str, float],
+) -> float:
+    """Fraction of portfolio weight held in positions carrying ANY critical risk
+    signal (volatility / performance / slope / concentration).
+
+    Used to throttle 'deposit fresh capital' advice: a book largely composed of
+    critical positions is in crisis and should be de-risked (trim/sell), not
+    topped up. Returns 0.0 for any healthy/mild book, so normal diversification
+    buys are unaffected.
+    """
+    def _sev(key: str, t: str) -> str:
+        return (
+            (pool_results.get(key, {}) or {})
+            .get('ticker_results', {})
+            .get(t, {})
+            .get('severity', 'none')
+        )
+
+    total = 0.0
+    for t, w in ticker_weights.items():
+        if any(_sev(k, t) == 'critical'
+               for k in ('volatility', 'performance', 'slope', 'concentration')):
+            total += w
+    return min(1.0, total)
 
 
 def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:

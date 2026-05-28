@@ -96,27 +96,12 @@ def compose(pool_results: dict[str, Any]) -> str:
         except (KeyError, ValueError):
             return tmpl
 
-    # 3. High-vol + rising slope — prefer tickers also showing unrealized gain
-    rising_candidates: list[tuple[str, int, float, float]] = []
-    for t in sorted_tickers:
-        s_data = slope_tickers.get(t, {})
-        v_data = vol_tickers.get(t, {})
-        s_ann = s_data.get('details', {}).get('annualized_pct', 0)
-        v_ann = v_data.get('details', {}).get('annualized_vol', 0)
-        v_sev = v_data.get('severity', 'none')
-        if v_sev in ('high', 'critical') and s_ann > 5:
-            pl = _unrealized_pct(t)
-            align = 0 if pl > 0 else 1
-            rising_candidates.append((t, align, s_ann, v_ann))
-    if rising_candidates:
-        rising_candidates.sort(key=lambda x: (x[1], -x[2]))
-        t, _, s_ann, v_ann = rising_candidates[0]
-        tmpls = templates.get('combined', {}).get('high_vol_rising', [])
-        tmpl = _pick(tmpls, hash_base)
-        try:
-            return tmpl.format(ticker=t, vol=v_ann, slope=s_ann)
-        except (KeyError, ValueError):
-            return tmpl
+    # NOTE: we deliberately do NOT lead the brief with a "high volatility on X
+    # has not derailed its uptrend" sentence. Foregrounding the most volatile
+    # *rising* holding praises the very position a risk-conscious reader should
+    # be wary of (and surfaces the clamped, non-credible momentum figure). Loss
+    # and decline signals above DO lead — those are the dominant risk — but a
+    # purely-rising high-vol book falls through to the portfolio-state sentence.
 
     # 3. Portfolio-level slope state
     state = port_slope.get('details', {}).get('state', 'mixed')

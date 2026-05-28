@@ -167,7 +167,7 @@
             }
         },
         "buy_new": {
-            "high_beta": {
+            "reduce_beta": {
                 "default": [
                     "Portfolio beta is {value:.2f} — adding ${dollars:,.0f} in lower-beta names like {ticker} would bring the portfolio's market sensitivity closer to 1.0.",
                     "At {value:.2f} beta, the portfolio amplifies market swings — ${dollars:,.0f} into {ticker} would help moderate that sensitivity.",

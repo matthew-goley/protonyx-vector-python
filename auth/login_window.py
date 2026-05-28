@@ -32,10 +32,10 @@ from .auth import get_me, login, save_token, signup
 
 # ---------------------------------------------------------------------------
 # DEMO BYPASS — remove this entire block before shipping a production build.
-# Type "binky" as the username (any password) to skip the backend entirely
+# Type "demo" as the username (any password) to skip the backend entirely
 # and log in as a local demo account with Pro access.
 _DEMO_BYPASS_ENABLED = True
-_DEMO_BYPASS_TRIGGER = 'binky'
+_DEMO_BYPASS_TRIGGER = 'demo'
 _DEMO_TOKEN = 'demo-bypass-token'
 _DEMO_USER_DATA: dict = {
     'user': {

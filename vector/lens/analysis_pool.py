@@ -181,16 +181,12 @@ def _build_positions_summary(
 
     weight_sum = sum(ticker_weights.values())
     if total_equity > 0 and abs(weight_sum - 1.0) > 0.01:
-        print(
-            f'[lens DEBUG] WARNING: ticker_weights sum to {weight_sum:.4f}, '
-            f'should be ~1.0'
+        _log.debug(
+            'ticker_weights sum to %.4f (should be ~1.0); positions=%s, '
+            'prices=%s, values=%s, total_equity=%s',
+            weight_sum,
+            [(p['ticker'], p.get('shares')) for p in positions],
+            ticker_current_prices, ticker_current_values, total_equity,
         )
-        print(
-            f"[lens DEBUG] Positions: {[(p['ticker'], p.get('shares')) for p in positions]}"
-        )
-        print(f'[lens DEBUG] Current prices: {ticker_current_prices}')
-        print(f'[lens DEBUG] Current values: {ticker_current_values}')
-        print(f'[lens DEBUG] Total equity: {total_equity}')
-        print(f'[lens DEBUG] Weights: {ticker_weights}')
 
     return summary

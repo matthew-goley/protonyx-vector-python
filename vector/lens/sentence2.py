@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from typing import Any
 
 from vector.lens._templates import load_templates as _load_templates
@@ -16,6 +17,24 @@ def _pick(templates: list[str], hash_key: str) -> str:
         return ''
     h = int(hashlib.sha256(hash_key.encode()).hexdigest(), 16)
     return templates[h % len(templates)]
+
+
+_DAYS_REPLACEMENTS = (
+    ('in 0 days', 'today'),
+    ('0 days out', 'out today'),
+    ('0 days away', 'due today'),
+    ('With 0 days until ', ''),
+)
+_ONE_DAY_RE = re.compile(r'\b1 days\b')
+
+
+def _humanize_days(sentence: str) -> str:
+    """Clean up catalyst day-count phrasing: a same-day (``0 days``) event reads
+    as 'today' across the various template forms, and the ``1 days`` grammar
+    artifact becomes ``1 day``."""
+    for old, new in _DAYS_REPLACEMENTS:
+        sentence = sentence.replace(old, new)
+    return _ONE_DAY_RE.sub('1 day', sentence)
 
 
 def compose(pool_results: dict[str, Any]) -> str:
@@ -60,9 +79,9 @@ def compose(pool_results: dict[str, Any]) -> str:
         tmpls = templates.get('combined_catalyst', {}).get('earnings_and_dividend', [])
         tmpl = _pick(tmpls, hash_base)
         try:
-            return tmpl.format(
+            return _humanize_days(tmpl.format(
                 e_ticker=e_ticker, e_days=e_days, d_ticker=d_ticker, d_days=d_days,
-            )
+            ))
         except (KeyError, ValueError):
             return tmpl
 
@@ -76,10 +95,10 @@ def compose(pool_results: dict[str, Any]) -> str:
         tmpls = earn_tmpls.get(outlook, earn_tmpls.get('neutral', []))
         tmpl = _pick(tmpls, hash_base)
         try:
-            return tmpl.format(
+            return _humanize_days(tmpl.format(
                 e_ticker=e_ticker, e_days=e_days, eps=e_eps or 0,
                 ticker=e_ticker, days=e_days,
-            )
+            ))
         except (KeyError, ValueError):
             return tmpl
 
@@ -88,10 +107,10 @@ def compose(pool_results: dict[str, Any]) -> str:
         tmpls = templates.get('dividends', {}).get('dividend_upcoming', [])
         tmpl = _pick(tmpls, hash_base)
         try:
-            return tmpl.format(
+            return _humanize_days(tmpl.format(
                 d_ticker=d_ticker, d_days=d_days, yield_pct=d_yield,
                 ticker=d_ticker, days=d_days,
-            )
+            ))
         except (KeyError, ValueError):
             return tmpl
 

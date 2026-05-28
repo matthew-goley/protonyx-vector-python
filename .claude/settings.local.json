@@ -70,7 +70,9 @@
       "Bash(awk '/^## 41 /,/^## 42 /' output_after.md)",
       "Bash(awk '/^## 02 /,/^## 03 /' output_after.md)",
       "Bash(rm -f _diag.py _runfull.py _summ.py _check.py output_after.md)",
-      "Bash(ls *.py)"
+      "Bash(ls *.py)",
+      "Bash(cmd /c dir /b /a)",
+      "Skill(update-config)"
     ]
   }
 }

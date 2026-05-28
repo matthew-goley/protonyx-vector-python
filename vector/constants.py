@@ -128,7 +128,7 @@ INDEX_FUND_TYPES: dict[str, str] = {
 # Well-known lower-beta names per sector — used to suggest alternatives when portfolio beta is high.
 # These are examples of historically lower-beta equities; not investment advice.
 LOW_BETA_BY_SECTOR: dict[str, list[str]] = {
-    'Technology':             ['MSFT', 'AAPL', 'ACN', 'IBM', 'TXN'],
+    'Technology':             ['IBM', 'CSCO', 'ACN', 'TXN', 'ORCL'],
     'Healthcare':             ['JNJ', 'ABT', 'MDT', 'BMY', 'PFE'],
     'Consumer Defensive':     ['KO', 'PEP', 'WMT', 'PG', 'CL'],
     'Financial Services':     ['BRK-B', 'V', 'MA', 'AXP', 'WFC'],
