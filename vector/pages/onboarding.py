@@ -2,8 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor, QDoubleValidator, QFont, QKeySequence, QPainter, QPen, QPixmap, QShortcut
+from PyQt6.QtCore import Qt, QTimer, QUrl
+from PyQt6.QtGui import (
+    QColor,
+    QDesktopServices,
+    QDoubleValidator,
+    QFont,
+    QKeySequence,
+    QPainter,
+    QPen,
+    QPixmap,
+    QShortcut,
+)
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -20,7 +30,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from ..constants import APP_NAME, COMPANY_NAME
+from ..constants import APP_NAME, COMPANY_NAME, EULA_URL
+from ..eula_gate import _AcceptWorker
 from ..paths import resource_path
 from ..scale import sc, scpt
 from ..store import DataStore
@@ -499,7 +510,41 @@ class OnboardingPage(QWidget):
         self._next_btn: LoadingButton | None = None
         self.cards_container: QWidget | None = None
         self._cards_scroll: QScrollArea | None = None
+        # EULA step state. When the EULA is already accepted server-side (or no
+        # backend session / a failed network check), the EULA step is left in the
+        # stack but is never shown — onboarding starts on the Risk Profile step.
+        self._eula_error: QLabel | None = None
+        self._eula_worker: _AcceptWorker | None = None
+        self._eula_required: bool = self._check_eula_required()
+        self._min_step: int = 0 if self._eula_required else 1
         self._build_ui()
+
+    # ── EULA gating ──────────────────────────────────────────────────────────
+
+    def _check_eula_required(self) -> bool:
+        """Return True only when the backend explicitly reports the EULA as not
+        accepted. Fails open (returns False) for the demo bypass, a missing
+        session token, or any network/parse failure — never blocks onboarding
+        over a failed check."""
+        token = getattr(self.window, 'token', None)
+        if not token:
+            return False
+
+        # DEMO BYPASS - the demo session has no real backend token, so the legal
+        # status check would always fail. Skip it and start past the EULA step.
+        try:
+            from auth.login_window import _DEMO_BYPASS_ENABLED, _DEMO_TOKEN
+            if _DEMO_BYPASS_ENABLED and token == _DEMO_TOKEN:
+                return False
+        except Exception:  # noqa: BLE001
+            pass
+        # END DEMO BYPASS
+
+        from auth.auth import check_eula_status
+        status = check_eula_status(token)
+        if status is None:
+            return False  # network/parse failure — fail open
+        return status.get('eula_accepted') is False
 
     # ── Build ──────────────────────────────────────────────────────────────
 
@@ -558,7 +603,7 @@ class OnboardingPage(QWidget):
         self._stack = QStackedWidget()
         self._stack.setMinimumHeight(sc(340))
         self._stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._stack.addWidget(self._build_step_account())
+        self._stack.addWidget(self._build_step_eula())
         self._stack.addWidget(self._build_step_risk())
         self._stack.addWidget(self._build_step_portfolio())
         panel_layout.addWidget(self._stack, stretch=1)
@@ -574,8 +619,8 @@ class OnboardingPage(QWidget):
         space_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         space_shortcut.activated.connect(self._on_space_shortcut)
 
-        # Initialise to step 0
-        self._go_to(0)
+        # Initialise to the first navigable step (skips EULA when already accepted)
+        self._go_to(self._min_step)
 
     def _on_space_shortcut(self) -> None:
         focus = QApplication.focusWidget()
@@ -610,7 +655,7 @@ class OnboardingPage(QWidget):
         row.setContentsMargins(sc(8), sc(4), sc(8), sc(4))
         row.setSpacing(0)
 
-        step_names = ['Account', 'Risk Profile', 'Portfolio Setup']
+        step_names = ['EULA', 'Risk Profile', 'Portfolio Setup']
 
         for i, name in enumerate(step_names):
             # Column: dot above, label below
@@ -685,20 +730,21 @@ class OnboardingPage(QWidget):
 
     # ── Step pages ────────────────────────────────────────────────────────
 
-    def _build_step_account(self) -> QWidget:
+    def _build_step_eula(self) -> QWidget:
         page = QWidget()
         page.setStyleSheet('background: transparent;')
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, sc(4), 0, sc(4))
         layout.setSpacing(sc(6))
 
-        title = QLabel('Account Setup')
+        title = QLabel('End User License Agreement')
         tf = QFont(); tf.setPointSize(scpt(17)); tf.setBold(True)
         title.setFont(tf)
         title.setStyleSheet('color: #e8eaf0; border: none;')
         layout.addWidget(title)
 
-        subtitle = QLabel('Profile and account configuration will be available here.')
+        subtitle = QLabel('Please review and accept our End User License Agreement to continue.')
+        subtitle.setWordWrap(True)
         subtitle.setStyleSheet(f'color: #6b7280; font-size: {sc(12)}px; border: none;')
         layout.addWidget(subtitle)
 
@@ -709,10 +755,46 @@ class OnboardingPage(QWidget):
         card.setMinimumHeight(sc(200))
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(sc(24), sc(24), sc(24), sc(24))
-        ph = QLabel('Account setup and profile configuration\ncoming soon.')
-        ph.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ph.setStyleSheet(f'color: #4b5563; font-size: {sc(13)}px; border: none;')
-        card_layout.addWidget(ph, alignment=Qt.AlignmentFlag.AlignCenter)
+        card_layout.setSpacing(sc(14))
+
+        body = QLabel(
+            'By continuing you agree to the terms of the Vector End User License '
+            'Agreement. Please read the full agreement before accepting.'
+        )
+        body.setWordWrap(True)
+        body.setStyleSheet(
+            f'color: #c0cce0; font-size: {sc(13)}px; border: none; background: transparent;'
+        )
+        card_layout.addWidget(body)
+
+        # Flat text link that opens the EULA in the system browser.
+        link = QPushButton('Read the End User License Agreement')
+        link.setObjectName('eulaLink')
+        link.setFlat(True)
+        link.setCursor(Qt.CursorShape.PointingHandCursor)
+        link.setStyleSheet(
+            'QPushButton#eulaLink {'
+            ' background: transparent;'
+            ' border: none;'
+            ' color: #2dd4bf;'
+            f' font-size: {scpt(12)}pt;'
+            ' text-align: left;'
+            ' padding: 0px;'
+            ' }'
+            'QPushButton#eulaLink:hover { color: #4ee8d3; }'
+        )
+        link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(EULA_URL)))
+        card_layout.addWidget(link, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        self._eula_error = QLabel('')
+        self._eula_error.setWordWrap(True)
+        self._eula_error.setStyleSheet(
+            f'color: #ff6b6b; font-size: {sc(12)}px; border: none; background: transparent;'
+        )
+        self._eula_error.hide()
+        card_layout.addWidget(self._eula_error)
+
+        card_layout.addStretch(1)
         layout.addWidget(card, stretch=1)
 
         return page
@@ -842,7 +924,9 @@ class OnboardingPage(QWidget):
     # ── Navigation logic ───────────────────────────────────────────────────
 
     def _go_to(self, step: int) -> None:
-        self._current_step = max(0, min(self._stack.count() - 1, step))
+        # Clamp the lower bound to _min_step so an already-accepted EULA step
+        # (left in the stack but skipped) can never be navigated back to.
+        self._current_step = max(self._min_step, min(self._stack.count() - 1, step))
         self._stack.setCurrentIndex(self._current_step)
         self._refresh_stepper()
         self._refresh_nav()
@@ -879,10 +963,14 @@ class OnboardingPage(QWidget):
         if not self._back_btn or not self._next_btn:
             return
 
-        self._back_btn.setVisible(self._current_step > 0)
+        self._back_btn.setVisible(self._current_step > self._min_step)
 
         last = self._stack.count() - 1
-        if self._current_step == last:
+        if self._current_step == 0 and self._eula_required:
+            # EULA step (only ever shown when acceptance is required).
+            self._next_btn.setText('I Accept')
+            self._next_btn.setEnabled(True)
+        elif self._current_step == last:
             self._next_btn.setText('Launch Portfolio')
             self._next_btn.setEnabled(bool(self.pending_positions))
         elif self._current_step == last - 1:
@@ -893,10 +981,62 @@ class OnboardingPage(QWidget):
             self._next_btn.setEnabled(True)
 
     def _on_next(self) -> None:
+        # On the EULA step, "I Accept" records acceptance server-side before
+        # advancing — the step is only navigable when _eula_required is True.
+        if self._current_step == 0 and self._eula_required:
+            self._accept_eula()
+            return
         if self._current_step < self._stack.count() - 1:
             self._go_to(self._current_step + 1)
         else:
             self.launch()
+
+    # ── EULA acceptance ─────────────────────────────────────────────────────
+
+    def _accept_eula(self) -> None:
+        if self._eula_worker is not None:
+            return
+        token = getattr(self.window, 'token', None)
+        if not token:
+            # No backend session to record against — advance without blocking.
+            self._eula_required = False
+            self._min_step = 1
+            self._go_to(1)
+            return
+        if self._eula_error is not None:
+            self._eula_error.hide()
+        self._next_btn.start_loading('Accepting...')
+        QApplication.processEvents()
+        worker = _AcceptWorker(token, 'eula')
+        worker.done.connect(self._on_eula_accept_done)
+        worker.finished.connect(worker.deleteLater)
+        self._eula_worker = worker
+        worker.start()
+
+    def _on_eula_accept_done(self, status: str) -> None:
+        self._eula_worker = None
+        if status == 'ok':
+            # Accepted server-side: lock the EULA step behind us and advance.
+            self._eula_required = False
+            self._min_step = 1
+            self._next_btn.stop_loading('Continue')
+            self._go_to(1)
+        elif status == 'unauthorized':
+            # Session expired mid-run: drop the token and quit so the user
+            # re-authenticates on the next launch (mirrors the legal gate).
+            from auth.auth import clear_token
+            try:
+                clear_token()
+            except Exception:  # noqa: BLE001
+                pass
+            QApplication.quit()
+        else:
+            self._next_btn.stop_loading('I Accept')
+            if self._eula_error is not None:
+                self._eula_error.setText(
+                    'Unable to connect. Please check your internet connection and try again.'
+                )
+                self._eula_error.show()
 
     # ── Event overrides ────────────────────────────────────────────────────
 
