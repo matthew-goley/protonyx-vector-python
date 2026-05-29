@@ -21,16 +21,21 @@ UI_MIN_POINT_SIZE: int = 7
 
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
-APP_VERSION = '0.4.6'
+APP_VERSION = '0.4.7'
 # Chronological version of the Lens engine (vector/lens/*). This is a simple
 # monotonic change counter, NOT app/semver — bump the last number by one on ANY
 # change to Lens logic (analyzers, CTA engine, sentence composers, caution
 # score, risk profiles, sector resolution, templates that alter output). It is
 # not shown in the UI. See CLAUDE.md → "Lens Engine Version".
 LENS_VERSION = '0.1.3'
-FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
-EULA_URL = 'https://protonyxdata.com/eula'
-TOS_URL = 'https://protonyxdata.com/tos'
+# Base URL for all web redirects (forgot password, EULA, TOS). Change this single
+# value to repoint every web link at a different host — each redirect below just
+# appends its path. e.g. BASE_URL = 'protonyxdata.com' makes FORGOT_PASSWORD_URL
+# 'protonyxdata.com/forgot-password'.
+BASE_URL = 'http://localhost:5500'
+FORGOT_PASSWORD_URL = f'{BASE_URL}/forgot-password'
+EULA_URL = f'{BASE_URL}/eula'
+TOS_URL = f'{BASE_URL}/tos'
 DATA_DIR = user_data_dir()
 POSITIONS_FILE = DATA_DIR / 'positions.json'
 SETTINGS_FILE = DATA_DIR / 'settings.json'

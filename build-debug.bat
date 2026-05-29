@@ -1,16 +1,16 @@
 @echo off
-REM Vector v0.4.6 Nuitka DEBUG build (console enabled for tracebacks)
+REM Vector v0.4.7 Nuitka DEBUG build (console enabled for tracebacks)
 REM Run from project root with .venv activated.
 
-if exist "Vector-v0.4.6-debug.dist" (
-    echo Removing stale Vector-v0.4.6-debug.dist...
-    rmdir /s /q "Vector-v0.4.6-debug.dist"
+if exist "Vector-v0.4.7-debug.dist" (
+    echo Removing stale Vector-v0.4.7-debug.dist...
+    rmdir /s /q "Vector-v0.4.7-debug.dist"
 )
 
 python -m nuitka ^
   --standalone ^
   --enable-plugin=pyqt6 ^
-  --output-filename="Vector-v0.4.6-debug.exe" ^
+  --output-filename="Vector-v0.4.7-debug.exe" ^
   --include-data-dir=assets=assets ^
   --include-data-dir=vector/lens/templates=vector/lens/templates ^
   --include-data-files=debug_test.json=debug_test.json ^
