@@ -49,9 +49,34 @@ _MAX_TOTAL_BUY_FRACTION = 0.30  # fallback when tier is unknown
 _MIN_BUY_DOLLARS = 200.0
 _MIN_BUY_FRACTION = 0.01
 
+# When a genuinely dangerous book is generating NO sell/rebalance proceeds (sells
+# suppressed by the conservative tier, or every signal resolved to a HOLD), the
+# engine must not tell the user to deposit fresh capital into it. If this much of
+# the book (by _danger_weight: critical at full weight, high at half) sits in
+# dangerous positions and nothing is being freed, all diversification buys are
+# dropped — the right posture is hold / de-risk, not "deposit into the fire".
+_NO_DEPOSIT_DANGER_WEIGHT = 0.30
+
+# Fresh-deposit advice is also dropped when this much of the book sits in
+# positions with REALIZED weakness (a high/critical unrealized loss or steep
+# decline). Depositing elsewhere does not remedy a realized loss, so a book whose
+# defining feature is losers should be de-risked, not topped up. Set above a
+# single mid-size decliner (~15%) so a lone declining name inside an otherwise
+# concentration-driven book does not wipe legitimate diversification advice; it
+# fires once losers are a substantial share of the book. Tier-independent: it
+# reads analyzer severities, which are set even when a tier suppresses the sell.
+_NO_DEPOSIT_LOSS_WEIGHT = 0.20
+
 
 def _round10(v: float) -> float:
     return round(v / 10) * 10
+
+
+def _floor10(v: float) -> float:
+    """Round DOWN to the nearest 10. Used when scaling buys to a hard cap so the
+    rounded total can never exceed the cap (a +$10 rounding overshoot otherwise
+    left a 'redistribute' plan marginally net-positive)."""
+    return float(int(v // 10) * 10) if v > 0 else 0.0
 
 
 def _cap_buy_amount(raw_amount: float, total_equity: float, group_size: int) -> float:
@@ -637,12 +662,17 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     # (3..<6). A book already spread across 6+ sectors is diversified enough that
     # filling a slightly-light sector is noise, not advice.
     if 3 <= sector_count < _DIVERSIFIED_SECTOR_COUNT:
-        # A sector represented only by a position we're already flagging as
-        # dead_weight is "thin" only because of that odd-lot — don't recommend
-        # buying into it while simultaneously dumping it (sell T, buy GOOGL).
+        # A sector that is "thin" only because its single holding is a sub-2%
+        # odd-lot is not genuinely missing — don't recommend buying into it while
+        # the odd-lot itself should be cleaned up (sell T, buy GOOGL). Derive this
+        # from the holdings directly (sub-2% weight) rather than from emitted
+        # dead_weight CTAs, so the exclusion ALSO applies to the conservative
+        # tier, which suppresses dead_weight sells and would otherwise be told to
+        # deposit into the very sector holding the stub it can't sell.
         dead_weight_sectors = {
-            sector_for(c.get('ticker', ''))
-            for c in ctas if c.get('reason') == 'dead_weight'
+            sector_for(t)
+            for t, w in ticker_weights.items()
+            if w < 0.02 and t not in INDEX_ETFS
         }
         thin_sectors = sorted(
             ((s, w) for s, w in sector_wts.items()
@@ -738,18 +768,65 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     # floor — re-drop tiny buys so a scaled-down "deposit $80" never survives.
     ctas = _drop_tiny_buys(ctas, total_equity)
 
-    # A concentration / winner-drift trim should REDISTRIBUTE proceeds, not be
-    # topped up with fresh capital. When any rebalance (trim) is present, cap the
-    # combined diversification buys to the total trimmed so the net CTA delta
-    # stays <= 0 — otherwise the stacked sector buys (esp. at the aggressive
-    # tier) turn a "you're too concentrated" plan into a net deposit.
+    # Trim redistribution: a concentration / winner-drift trim should REDISTRIBUTE
+    # its proceeds, not be topped up with fresh capital — cap the combined buys to
+    # the amount trimmed so the plan stays net <= 0. A plain risk SELL does NOT cap
+    # diversification buys: a small volatility trim on one rising name must not wipe
+    # the advice to diversify an over-concentrated book (that conflation silently
+    # dropped diversification at the moderate tier that both neighbouring tiers
+    # gave). Dangerous books are instead handled by the loss/danger gate below.
     rebalance_total = sum(
         abs(float(c.get('dollars', 0.0) or 0.0))
         for c in ctas if c.get('action') == 'rebalance'
     )
-    if rebalance_total > 0 and total_equity > 0:
+    has_rebalance = rebalance_total > 0
+    if has_rebalance and total_equity > 0:
         ctas = _cap_total_buys(ctas, total_equity, rebalance_total / total_equity)
         ctas = _drop_tiny_buys(ctas, total_equity)
+
+    # Don't deposit fresh capital into a book whose dominant risk is realized
+    # loss/decline, or that is broadly dangerous — when there is no trim to
+    # redistribute, drop the diversification buys entirely. A book whose only issue
+    # is STRUCTURAL (concentration / volatility / beta on names that are not
+    # losing) keeps its buys, because those buys are themselves the remedy. The
+    # loss test is tier-independent, so it also covers the conservative tier whose
+    # protective sells are blocked.
+    if not has_rebalance and total_equity > 0:
+        loss = _loss_weight(pool_results, ticker_weights)
+        if danger >= _NO_DEPOSIT_DANGER_WEIGHT or loss >= _NO_DEPOSIT_LOSS_WEIGHT:
+            ctas = [c for c in ctas if c.get('action') not in ('buy_new', 'buy_more')]
+
+    # Keep a flagged single-stock concentration visible even when its dilution buys
+    # were dropped/capped above — otherwise a dominant holding (e.g. 49% of the
+    # book) can vanish from the readout entirely.
+    _add_concentration_informational(ctas, conc_res, ticker_weights, risk_profile)
+
+    # Never return an empty list: if every buy was dropped and nothing else remains,
+    # synthesise a closing HOLD so the readout always has a card — the caution
+    # variant when the book is genuinely risky, otherwise the healthy line.
+    if not ctas:
+        elevated = (
+            danger >= _NO_DEPOSIT_DANGER_WEIGHT
+            or _loss_weight(pool_results, ticker_weights) >= _NO_DEPOSIT_LOSS_WEIGHT
+        )
+        ctas.append({
+            'priority': 11,
+            'action': 'hold',
+            'ticker': '',
+            'dollars': 0.0,
+            'reason': 'portfolio_caution' if elevated else 'portfolio_healthy',
+            'severity': 'high' if elevated else 'none',
+            'details': {},
+        })
+
+    # Buy CTAs describe a routine, approachable action (deposit into a sector or a
+    # low-beta name). Tagging them with the *problem's* critical/high severity
+    # overstates the urgency of the buy itself, so cap their displayed severity at
+    # moderate. Buy templates key only on 'default', so rendering is unchanged —
+    # this only affects the severity label/colour shown to the user.
+    for c in ctas:
+        if c.get('action') in ('buy_new', 'buy_more') and c.get('severity') in ('high', 'critical'):
+            c['severity'] = 'moderate'
 
     return ctas
 
@@ -782,7 +859,9 @@ def _cap_total_buys(
         return cta_list
     scale = cap / total_buy
     for c in buys:
-        c['dollars'] = _round10(float(c.get('dollars', 0.0) or 0.0) * scale)
+        # Floor (not round) so the scaled total can never exceed the cap — keeps a
+        # 'redistribute the trim' plan from going marginally net-positive.
+        c['dollars'] = _floor10(float(c.get('dollars', 0.0) or 0.0) * scale)
     return [
         c for c in cta_list
         if not (c.get('action') in ('buy_new', 'buy_more')
@@ -822,6 +901,77 @@ def _danger_weight(
         elif any(s == 'high' for s in sevs):
             high += w
     return min(1.0, crit + 0.5 * high)
+
+
+def _loss_weight(
+    pool_results: dict[str, Any], ticker_weights: dict[str, float],
+) -> float:
+    """Fraction of the book in positions showing REALIZED weakness — a high/critical
+    unrealized loss (performance) or steep decline (slope).
+
+    Fresh deposits do not remedy a realized loss, so this gates 'deposit to
+    diversify' advice. Crucially it does NOT count volatility / beta /
+    concentration: those are structural risks that diversification and
+    stabilization buys genuinely DO remedy (a 55% *rising* winner or a high-beta
+    book should still be allowed to diversify), which is what keeps a small,
+    unrelated volatility trim from wiping legitimate concentration advice. Reads
+    analyzer severities directly, so it is tier-independent (set even when a tier
+    suppresses the sell).
+    """
+    def _sev(key: str, t: str) -> str:
+        return (
+            (pool_results.get(key, {}) or {})
+            .get('ticker_results', {})
+            .get(t, {})
+            .get('severity', 'none')
+        )
+
+    total = 0.0
+    for t, w in ticker_weights.items():
+        if (_sev('performance', t) in ('high', 'critical')
+                or _sev('slope', t) in ('high', 'critical')):
+            total += w
+    return total
+
+
+def _add_concentration_informational(
+    ctas: list[dict],
+    conc_res: dict[str, Any],
+    ticker_weights: dict[str, float],
+    risk_profile: dict[str, Any],
+) -> None:
+    """Append an informational HOLD for a flagged single-stock concentration whose
+    dilution buys were dropped/capped, so a dominant holding never vanishes from
+    the readout. Mutates ``ctas`` in place. Skips a name that already has any CTA
+    or is the ``heavy_ticker`` behind a surviving buy (already represented)."""
+    trigger = risk_profile.get('concentration', {}).get('moderate', 30) / 100.0
+    represented: set[str] = set()
+    for c in ctas:
+        if c.get('ticker'):
+            represented.add(c['ticker'])
+        heavy = (c.get('details', {}) or {}).get('heavy_ticker')
+        if heavy:
+            represented.add(heavy)
+
+    for t, data in conc_res.get('ticker_results', {}).items():
+        subs = (data.get('details', {}) or {}).get('sub_signals', [])
+        if 'stock_concentration' not in subs or not data.get('flag'):
+            continue
+        if t in represented or t in INDEX_ETFS:
+            continue
+        w = ticker_weights.get(t, 0.0)
+        if w < trigger:
+            continue
+        ctas.append({
+            'priority': 6,
+            'action': 'hold',
+            'ticker': t,
+            'dollars': 0.0,
+            'reason': 'concentration_informational',
+            'severity': data.get('severity', 'high'),
+            'details': {'current_weight': w * 100, 'weight_pct': w * 100},
+        })
+        represented.add(t)
 
 
 def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:

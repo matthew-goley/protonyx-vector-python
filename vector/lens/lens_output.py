@@ -204,6 +204,15 @@ def _save_snapshot(result: dict[str, Any]) -> None:
 
 _SEVERITY_CAUTION_POINTS = {'none': 0, 'low': 10, 'moderate': 35, 'high': 62, 'critical': 90}
 
+# Concentration is STRUCTURAL exposure, not realized danger: a 55% *rising* winner
+# is far less alarming than a 55% *crashing* position, yet both flag the same
+# concentration severity. Its contribution to the risk floor is discounted by this
+# factor so a purely-concentrated-but-healthy book no longer scores as high as a
+# book of deep losers (it previously let a 2-stock rising book out-score a
+# five-deep-loser book). A concentrated position that is ALSO losing/volatile still
+# scores high via its (undiscounted) performance / volatility severity.
+_CONCENTRATION_CAUTION_DISCOUNT = 0.7
+
 
 def _risk_floor(pool_results: dict[str, Any]) -> float:
     """An exposure-weighted, continuous risk floor (0–99) derived from analyzer
@@ -236,26 +245,37 @@ def _risk_floor(pool_results: dict[str, Any]) -> float:
             .get('severity', 'none')
         )
 
+    D = _CONCENTRATION_CAUTION_DISCOUNT
     pos_pts = 0.0
     single_pts = 0.0
     crit_weight = 0.0
     high_weight = 0.0
     for t, w in weights.items():
         sevs = [_tsev(k, t) for k in ('volatility', 'concentration', 'performance', 'slope')]
-        broad = max(P.get(s, 0) for s in sevs)
+        # Concentration points are discounted (structural, not realized danger);
+        # everything else counts at full value.
+        conc_pts = P.get(_tsev('concentration', t), 0) * D
+        realized_pts = [P.get(_tsev(k, t), 0) for k in ('volatility', 'performance', 'slope')]
+        broad = max(realized_pts + [conc_pts])
         pos_pts += w * broad
-        single = max(P.get(_tsev(k, t), 0)
-                     for k in ('volatility', 'concentration', 'performance'))
+        single = max(
+            P.get(_tsev('volatility', t), 0),
+            P.get(_tsev('performance', t), 0),
+            conc_pts,
+        )
         single_pts = max(single_pts, single * min(1.0, w / 0.45))
+        # Breadth still counts concentration at full weight (a concentrated book
+        # is still broadly exposed), only its *point value* is discounted above.
         if any(s == 'critical' for s in sevs):
             crit_weight += w
         elif any(s == 'high' for s in sevs):
             high_weight += w
 
+    # Sector over-concentration is also structural — discount it the same way.
     port_pts = P.get(
         (pool_results.get('concentration', {}) or {})
         .get('portfolio_result', {}).get('severity', 'none'), 0,
-    )
+    ) * D
     for key in ('volatility', 'beta'):
         sev = (pool_results.get(key, {}) or {}).get('portfolio_result', {}).get('severity', 'none')
         if sev in ('high', 'critical'):
@@ -271,8 +291,12 @@ def _risk_floor(pool_results: dict[str, Any]) -> float:
     # the high-90s, and a mostly-high-severity book sits above a lone-high book
     # — instead of every such book tying at the old discrete severity bucket.
     # Both weights are ~0 for any healthy/mild book, so low scores are untouched.
+    # The 0.65 multiplier (was 0.8) widens the gap in the 90s so single-issue
+    # books (one drifted winner) no longer pin to the same 94-97 as five-alarm
+    # books; a wholly-critical book still lands ~95 while a single-issue book sits
+    # several points lower, restoring granularity at the top of the range.
     danger = min(1.0, crit_weight + 0.5 * high_weight)
-    floor = base + (99.0 - base) * danger * 0.8
+    floor = base + (99.0 - base) * danger * 0.65
     return min(99.0, floor)
 
 

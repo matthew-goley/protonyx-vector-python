@@ -241,6 +241,15 @@
                     "Through gains alone, {ticker} grew into {weight:.0f}% of your portfolio. That's not a red flag, but it's worth knowing."
                 ]
             },
+            "concentration_informational": {
+                "default": [
+                    "{ticker} is {weight:.0f}% of your portfolio — a large single-name position to be aware of, even though no trade clears your current risk setting.",
+                    "At {weight:.0f}% of the book, {ticker} is your dominant holding — significant single-stock exposure worth keeping an eye on.",
+                    "{ticker} makes up {weight:.0f}% of your portfolio — concentrated single-stock risk, held for now without a recommended trade at your tier.",
+                    "Roughly {weight:.0f}% of your portfolio sits in {ticker} — a concentration worth monitoring even if current signals don't trigger a trim.",
+                    "{ticker} carries outsized weight at {weight:.0f}% of the book — noted as a concentration risk, though no action clears your current tier."
+                ]
+            },
             "unrealized_loss": {
                 "default": [
                     "{ticker} is down {unrealized_pct:.0f}% from entry (${unrealized_dollar:,.0f}) — the position is underwater but no additional action is indicated by current signals.",

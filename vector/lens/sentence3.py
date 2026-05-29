@@ -98,23 +98,33 @@ def compose(cta_list: list[dict], pool_results: dict, caution_score: int = 0) ->
     """
     Take the CTA list (already sorted by priority) and return one sentence.
 
-    Diversification CTAs (reduce_concentration, sector_underweight) are
-    always preferred for the brief because they're the most actionable
-    and approachable recommendation for casual investors.
+    A trim (rebalance) is the most material action on the book, so the largest
+    one headlines the brief. Otherwise diversification CTAs (reduce_concentration,
+    sector_underweight) are preferred because they're the most actionable and
+    approachable recommendation for casual investors, then the highest-priority
+    CTA.
     """
     if not cta_list:
         return _healthy_sentence(caution_score)
 
-    # Prefer diversification CTAs — pick the first (largest dollar amount)
-    top = None
-    for cta in cta_list:
-        if cta.get('reason') in _DIVERSIFICATION_REASONS:
-            top = cta
-            break
+    # A trim is the headline action — surface the largest one ahead of the
+    # approachable diversification buys so a dominant winner-drift / concentration
+    # rebalance is never buried behind a small sector deposit (e.g. a $7,610 AAPL
+    # trim must not lose the brief to a $370 JPM buy).
+    rebalances = [c for c in cta_list if c.get('action') == 'rebalance']
+    if rebalances:
+        top = max(rebalances, key=lambda c: abs(float(c.get('dollars', 0.0) or 0.0)))
+    else:
+        # Prefer diversification CTAs — pick the first (highest priority)
+        top = None
+        for cta in cta_list:
+            if cta.get('reason') in _DIVERSIFICATION_REASONS:
+                top = cta
+                break
 
-    # Fall back to highest-priority CTA
-    if top is None:
-        top = cta_list[0]
+        # Fall back to highest-priority CTA
+        if top is None:
+            top = cta_list[0]
 
     # A lone "portfolio_healthy" CTA with elevated caution means the tier
     # suppressed every trade — acknowledge the risk rather than claim health.

@@ -27,7 +27,7 @@ APP_VERSION = '0.4.6'
 # change to Lens logic (analyzers, CTA engine, sentence composers, caution
 # score, risk profiles, sector resolution, templates that alter output). It is
 # not shown in the UI. See CLAUDE.md → "Lens Engine Version".
-LENS_VERSION = '0.1.1'
+LENS_VERSION = '0.1.3'
 FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
 EULA_URL = 'https://protonyxdata.com/eula'
 TOS_URL = 'https://protonyxdata.com/tos'
