@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from vector.constants import INDEX_ETFS, LOW_BETA_BY_SECTOR, SECTOR_SUGGESTIONS
+from vector.constants import INDEX_ETFS, LOW_BETA_BY_SECTOR, SECTOR_SUGGESTIONS, sector_for
 
 _log = logging.getLogger(__name__)
 
@@ -183,9 +183,14 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
         if ticker_weight > 0.50:
             return False
         mc = _market_cap(ticker)
-        # Missing data → assume large cap (safe default is to BLOCK the sell)
+        # Missing market cap: normally assume large cap and BLOCK the sell (a safe
+        # default for blue chips). BUT a CRITICAL-severity position with unknown
+        # cap is almost always a speculative small-cap that genuinely needs
+        # trimming — assuming large-cap there made the conservative tier go fully
+        # silent (all HOLDs) on max-caution small-cap disasters. So only assume
+        # large-cap for non-critical signals; let critical unknowns through.
         if mc <= 0:
-            mc = 100_000_000_000.0
+            mc = 0.0 if severity == 'critical' else 100_000_000_000.0
         if mc > 5_000_000_000:
             return True
         if severity != 'critical':
@@ -405,11 +410,13 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
             # >50% sell exceptions elsewhere and trim toward the target, for every
             # tier. Always skip the buy-to-dilute path for such a position.
             if current_w > 0.50:
-                already_selling = any(
-                    c.get('ticker') == t and c.get('action') in ('sell', 'rebalance')
+                # An existing winner-drift rebalance is already a proper trim —
+                # leave it (its narrative is more informative).
+                has_rebalance = any(
+                    c.get('ticker') == t and c.get('action') == 'rebalance'
                     for c in ctas
                 )
-                if not already_selling:
+                if not has_rebalance:
                     rp = pool_results.get('_risk_profile', {})
                     trigger_pct = rp.get('concentration', {}).get('moderate', 30)
                     target_weight = (trigger_pct * _CONCENTRATION_DILUTION_FACTOR) / 100
@@ -418,7 +425,23 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                     )
                     raw_trim = (current_w - target_weight) * total_equity
                     trim = _round10(min(raw_trim, pos_value * 0.35))
-                    if trim > 0:
+                    # The trim supersedes a SMALLER same-direction risk sell: a
+                    # tier-scaled vol/decline sell (conservative sell_scale 0.10)
+                    # would otherwise leave a 76% position barely reduced. Keep
+                    # whichever de-risks more.
+                    existing_sells = [
+                        c for c in ctas
+                        if c.get('ticker') == t and c.get('action') == 'sell'
+                    ]
+                    sell_max = max(
+                        (abs(float(c.get('dollars', 0.0) or 0.0)) for c in existing_sells),
+                        default=0.0,
+                    )
+                    if trim > 0 and trim >= sell_max:
+                        ctas = [
+                            c for c in ctas
+                            if not (c.get('ticker') == t and c.get('action') == 'sell')
+                        ]
                         ctas.append({
                             'priority': 6,
                             'action': 'rebalance',
@@ -614,9 +637,16 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     # (3..<6). A book already spread across 6+ sectors is diversified enough that
     # filling a slightly-light sector is noise, not advice.
     if 3 <= sector_count < _DIVERSIFIED_SECTOR_COUNT:
+        # A sector represented only by a position we're already flagging as
+        # dead_weight is "thin" only because of that odd-lot — don't recommend
+        # buying into it while simultaneously dumping it (sell T, buy GOOGL).
+        dead_weight_sectors = {
+            sector_for(c.get('ticker', ''))
+            for c in ctas if c.get('reason') == 'dead_weight'
+        }
         thin_sectors = sorted(
             ((s, w) for s, w in sector_wts.items()
-             if w < 10 and s not in ('Unknown', '')),
+             if w < 10 and s not in ('Unknown', '') and s not in dead_weight_sectors),
             key=lambda x: x[1],
         )
         cta_count = 0
@@ -701,12 +731,25 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     # stops the "deposit $13,800 into a leveraged-ETF fire" recommendation.
     ctas = _drop_tiny_buys(ctas, total_equity)
     base_fraction = _MAX_TOTAL_BUY_FRACTION_BY_TIER.get(risk_tier, _MAX_TOTAL_BUY_FRACTION)
-    danger = _critical_weight(pool_results, ticker_weights)
+    danger = _danger_weight(pool_results, ticker_weights)
     buy_fraction = base_fraction * max(0.0, 1.0 - danger)
     ctas = _cap_total_buys(ctas, total_equity, buy_fraction)
     # _cap_total_buys scales buys DOWN, which can push a buy back below the noise
     # floor — re-drop tiny buys so a scaled-down "deposit $80" never survives.
     ctas = _drop_tiny_buys(ctas, total_equity)
+
+    # A concentration / winner-drift trim should REDISTRIBUTE proceeds, not be
+    # topped up with fresh capital. When any rebalance (trim) is present, cap the
+    # combined diversification buys to the total trimmed so the net CTA delta
+    # stays <= 0 — otherwise the stacked sector buys (esp. at the aggressive
+    # tier) turn a "you're too concentrated" plan into a net deposit.
+    rebalance_total = sum(
+        abs(float(c.get('dollars', 0.0) or 0.0))
+        for c in ctas if c.get('action') == 'rebalance'
+    )
+    if rebalance_total > 0 and total_equity > 0:
+        ctas = _cap_total_buys(ctas, total_equity, rebalance_total / total_equity)
+        ctas = _drop_tiny_buys(ctas, total_equity)
 
     return ctas
 
@@ -747,16 +790,20 @@ def _cap_total_buys(
     ]
 
 
-def _critical_weight(
+def _danger_weight(
     pool_results: dict[str, Any], ticker_weights: dict[str, float],
 ) -> float:
-    """Fraction of portfolio weight held in positions carrying ANY critical risk
-    signal (volatility / performance / slope / concentration).
+    """Fraction of portfolio weight in dangerous positions, used to throttle
+    'deposit fresh capital' advice.
 
-    Used to throttle 'deposit fresh capital' advice: a book largely composed of
-    critical positions is in crisis and should be de-risked (trim/sell), not
-    topped up. Returns 0.0 for any healthy/mild book, so normal diversification
-    buys are unaffected.
+    Critical-severity exposure (volatility / performance / slope / concentration)
+    counts at FULL weight; high-severity (non-critical) at HALF. The half-weight
+    high term is what stops a book full of deep-but-not-catastrophic losers from
+    still being told to deposit fresh capital — at the aggressive tier the
+    performance ``critical`` threshold is -60%, so -40..-55% losers register as
+    ``high`` and would otherwise escape a critical-only throttle. Mirrors the
+    breadth lift in ``lens_output._risk_floor``. Returns 0.0 for any healthy/mild
+    book, so normal diversification buys are unaffected.
     """
     def _sev(key: str, t: str) -> str:
         return (
@@ -766,12 +813,15 @@ def _critical_weight(
             .get('severity', 'none')
         )
 
-    total = 0.0
+    crit = 0.0
+    high = 0.0
     for t, w in ticker_weights.items():
-        if any(_sev(k, t) == 'critical'
-               for k in ('volatility', 'performance', 'slope', 'concentration')):
-            total += w
-    return min(1.0, total)
+        sevs = [_sev(k, t) for k in ('volatility', 'performance', 'slope', 'concentration')]
+        if any(s == 'critical' for s in sevs):
+            crit += w
+        elif any(s == 'high' for s in sevs):
+            high += w
+    return min(1.0, crit + 0.5 * high)
 
 
 def _dedupe_ctas(cta_list: list[dict]) -> list[dict]:

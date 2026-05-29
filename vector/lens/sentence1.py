@@ -130,13 +130,15 @@ def compose(pool_results: dict[str, Any]) -> str:
     details = port_slope.get('details', {})
 
     # Don't frame a concentration-dominated book as "strength across holdings":
-    # when one position is more than half the portfolio and at least one name is
-    # declining, the broad-uptrend praise foregrounds the wrong thing. Fall back
-    # to the neutral mixed framing (the dominant-position risk is surfaced by the
-    # CTA sentence).
+    # when one position is more than half the portfolio and not every name is
+    # rising, the broad-uptrend praise foregrounds the wrong thing. Fall back to
+    # the neutral mixed framing (the dominant-position risk is surfaced by the
+    # CTA sentence). Gate on up_count < total (not down_count) so a "3 up, 1
+    # flat" concentrated book is caught — a flat position is not a decline.
     weights = pool_results.get('_positions_summary', {}).get('ticker_weights', {})
     max_weight = max(weights.values()) if weights else 0.0
-    if state == 'broad_uptrend' and max_weight > 0.50 and details.get('down_count', 0) >= 1:
+    if (state == 'broad_uptrend' and max_weight > 0.50
+            and details.get('up_count', 0) < details.get('total_count', 0)):
         state = 'mixed'
     ctx = {
         'slope': slope_val,

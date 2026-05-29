@@ -27,7 +27,7 @@ APP_VERSION = '0.4.6'
 # change to Lens logic (analyzers, CTA engine, sentence composers, caution
 # score, risk profiles, sector resolution, templates that alter output). It is
 # not shown in the UI. See CLAUDE.md → "Lens Engine Version".
-LENS_VERSION = '0.1.0'
+LENS_VERSION = '0.1.1'
 FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
 EULA_URL = 'https://protonyxdata.com/eula'
 TOS_URL = 'https://protonyxdata.com/tos'
@@ -310,7 +310,12 @@ DEFAULT_RISK_PROFILES: dict[str, dict] = {
     'low': {
         'slope':         {'critical': -35, 'high': -25, 'moderate': -12},
         'volatility':    {'critical': 55,  'high': 42,  'moderate': 30},
-        'concentration': {'critical': 40,  'high': 30,  'moderate': 20},
+        # Concentration moderate=25 (was 20): a 20–25% single position is normal,
+        # not a flag. The old 20% trigger made the conservative tier alarmist —
+        # flagging any one-fifth holding and turning it into multi-thousand-$
+        # buy-to-dilute deposits + a 90s caution on otherwise-healthy books.
+        # Still tighter than regular (30/40/50) so the tier stays cautious.
+        'concentration': {'critical': 45,  'high': 35,  'moderate': 25},
         'beta':          {'critical': 1.4, 'high': 1.1, 'moderate': 0.8},
         'performance':   {'critical': -40, 'high': -25, 'moderate': -15},
         'sell_scale': 0.10,
