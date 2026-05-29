@@ -677,6 +677,14 @@ class VectorMainWindow(QMainWindow):
         self._setup_auto_refresh()
 
     def add_position_from_settings(self) -> None:
+        # During onboarding the global "A" shortcut must drive the onboarding
+        # add flow (pending_positions), not the settings flow — otherwise the
+        # added ticker lands in self.positions, never shows in the onboarding
+        # card list, and is clobbered when launch() overwrites self.positions.
+        central = self.centralWidget()
+        if isinstance(central, OnboardingPage):
+            central.open_add_modal()
+            return
         existing = {p.get('ticker', '').upper() for p in self.positions}
         dialog = PositionDialog(self.store, self, existing_tickers=existing)
         if dialog.exec() == QDialog.DialogCode.Accepted and dialog.position_data:

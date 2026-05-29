@@ -498,6 +498,7 @@ class OnboardingPage(QWidget):
         self._back_btn: QPushButton | None = None
         self._next_btn: LoadingButton | None = None
         self.cards_container: QWidget | None = None
+        self._cards_scroll: QScrollArea | None = None
         self._build_ui()
 
     # ── Build ──────────────────────────────────────────────────────────────
@@ -832,6 +833,7 @@ class OnboardingPage(QWidget):
         )
 
         cards_scroll.setWidget(self.cards_container)
+        self._cards_scroll = cards_scroll
         cf_layout.addWidget(cards_scroll)
         layout.addWidget(cards_frame, stretch=1)
 
@@ -919,7 +921,8 @@ class OnboardingPage(QWidget):
         if self.blur_wrapper and self.overlay:
             self.blur_wrapper.set_blurred(True)
             self.overlay.show()
-        dialog = PositionDialog(self.window.store, self)
+        existing = {p['ticker'].upper() for p in self.pending_positions}
+        dialog = PositionDialog(self.window.store, self, existing_tickers=existing)
         accepted = dialog.exec() == QDialog.DialogCode.Accepted and dialog.position_data
         if accepted:
             self.pending_positions.append(dialog.position_data)
@@ -947,19 +950,27 @@ class OnboardingPage(QWidget):
         for position in self.pending_positions:
             self.cards_layout.addWidget(PositionCard(position, self.window.format_currency))
         self.cards_layout.addStretch(1)
-        # Drive horizontal scrolling: set minimumWidth wider than the viewport
-        # when cards are present, so the scroll area activates the scrollbar.
-        card_w, spacing, margins = 220, 12, 16
+        # Drive horizontal scrolling: set the container's minimum width to the
+        # real (scaled) content width so the scroll area exposes a scrollbar and
+        # the cards keep their gaps. Must use sc() — the cards are sc(220) wide
+        # with sc(12) spacing inside sc(8) margins, so a raw-pixel sum under-sizes
+        # the container at any scale != 1 and the gaps/scroll collapse.
         n = len(self.pending_positions)
         if n > 0:
-            natural_w = margins + n * card_w + (n - 1) * spacing
+            natural_w = 2 * sc(8) + n * sc(220) + (n - 1) * sc(12)
             self.cards_container.setMinimumWidth(natural_w)
         else:
             self.cards_container.setMinimumWidth(0)
         if self._current_step == self._stack.count() - 1:
             self._next_btn.setEnabled(bool(self.pending_positions))
+        # Settle the layout now so the scroll area recomputes its scrollbar range
+        # immediately instead of waiting for an incidental repaint — this keeps
+        # the keyboard-add ("a") and click-add paths visually identical.
+        self.cards_layout.activate()
         self.cards_container.adjustSize()
         self.cards_container.updateGeometry()
+        if self._cards_scroll is not None:
+            self._cards_scroll.updateGeometry()
         self.cards_container.update()
 
     def _select_risk_tier(self, tier_key: str) -> None:
