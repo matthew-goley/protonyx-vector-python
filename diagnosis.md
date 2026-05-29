@@ -1,171 +1,144 @@
-# Vector Lens Engine — Diagnosis
+# Vector Lens — Diagnosis from `output.md` (50-portfolio debug run)
 
-_Source: `output.md` (50 synthetic portfolios × 3 risk tiers = 150 runs, generated 2026-05-28) cross-referenced against the engine source in `vector/lens/`._
+_Source: `output.md` generated 2026-05-28 from `debug_test.json` (50 portfolios × 3 tiers)._
+_This document is analysis only — no engine logic was changed. Each item lists the **symptom** (with evidence), the **root cause** (file:line), and a **recommended change**._
 
-_Scope: this is analysis only. No logic has been changed. Every finding cites the portfolio(s) that expose it and the file/line that causes it._
-
----
-
-## Method
-
-I read all 150 results in `output.md`, then traced each behaviour back through the pipeline:
-`analyzers/* → analysis_pool.py → cta_engine.py → sentence{1,2,3}.py → lens_output.py`.
-Findings are grounded in code, not inferred from symptoms alone. Live Yahoo prices (May 2026) mean some test portfolios no longer match their *intended* failure mode (e.g. "loser" names that have since recovered above entry) — where that matters I call it out so it isn't mistaken for an engine bug.
+> **Read this first — the dominant finding.** A large share of the bad output traces to **one upstream problem: positions whose `sector` came back missing / `"Unknown"`.** Near-perfect, fully diversified books (#01–#08) are repeatedly told that sectors they *clearly hold* (Healthcare via JNJ, Financial Services via JPM, Consumer Defensive via PG) are "thin at 0%". That can only happen if those holdings were never counted under their real sector. Index-only books (#01, #08) behave correctly because index detection keys off the static `INDEX_ETFS` list, not live metadata — so the breakage is specifically in the **live sector-metadata path**. Fixing sector resolution will, by itself, correct a majority of the wrong CTAs and a big chunk of the inflated caution scores below. It is plausible the bulk live run hit yfinance rate limits and returned empty sectors; even so, the engine must degrade gracefully when sector is absent.
 
 ---
 
-## Part A — What's working (keep / don't regress)
+## CRITICAL
 
-1. **Index-fund handling is excellent.** Detection, the informational `HOLD` CTA, exclusion from buy suggestions, and the sector-concentration downgrade for index-dominated books all work. #01/#03/#06/#08 produce clean, correct "this index fund *is* your diversification" briefs and never get told to "buy stocks to diversify." (`concentration.py:125-130`, `analysis_pool.py:100-106`, `cta_engine.py:611-617`).
+### C1. Missing/`Unknown` sector data has no fallback, and it cascades into wrong advice
+**Symptom.** Well-diversified books are told to buy sectors they already own:
+- **#02 Diversified Blue Chips** (one leader per sector, holds JNJ/JPM/PG/AMZN/XOM/CAT/NEE/GOOGL/LIN/AAPL): brief says *"Healthcare exposure is thin at 0%"* → BUY UNH/V/KO. It holds JNJ (Healthcare), JPM (Financial Services), PG (Consumer Defensive).
+- **#04 Dividend Diversified** (holds JNJ, JPM): *"$990 into AAPL (Technology)… 0% underexposure"* + BUY UNH + V.
+- **#05 Eight-Sector Spread** (holds ABBV=Healthcare, MA=Financials): *"Healthcare underrepresented at 0%"* → BUY UNH + JPM.
+- **#16, #11, #17, #39** — same pattern (BUY UNH/V while JNJ/JPM held).
 
-2. **Genuinely healthy books resolve to `portfolio_healthy`.** #04 (all tiers), #05 (moderate/aggressive), #07 (moderate/aggressive), #24 (moderate/aggressive) correctly produce a single neutral HOLD. The "no signals" fallback (`cta_engine.py:596-606`) fires when it should.
+**Root cause.** Sectors are tallied from each position's `sector` string:
+- `vector/lens/analysis_pool.py:169-172` (`_build_positions_summary`) — `sector = p.get('sector') or 'Unknown'`.
+- `vector/lens/analyzers/concentration.py:82-84` — same.
+- The debug build path takes the sector straight from the live snapshot with no static fallback: `vector/lens/debug_runner.py:70` (`snapshot.get('sector', 'Unknown')`).
 
-3. **Concentration detection is monotonic across tiers and well-calibrated.** Triggers 20/30/40 % for low/regular/high (`constants.py:202-210`) produce sensible, tier-ordered behaviour: #11 (AAPL ~35 %) flags on conservative+moderate but is healthy on aggressive. The dilution-target fix (`_CONCENTRATION_DILUTION_FACTOR = 0.75`, `cta_engine.py:21`) is holding — no "$70 to fix a $17k book" regressions, and briefs correctly say "toward the 15 %/22 %/30 % target".
+When the live sector is empty, the holding lands in an `"Unknown"` bucket, so:
+1. It is **not** counted under its true sector → the CTA engine's `_underweight_sectors_sorted` (`vector/lens/cta_engine.py:98-119`) treats that true sector as "unheld" → recommends buying it (UNH/V/AAPL).
+2. `known_sectors`/`sector_count` collapse (`concentration.py:105-119`) → a false **high-severity** sector-concentration flag → spurious priority-7 `sector_underweight` BUYs **and** a pinned caution score (see C2).
 
-4. **Risk SELLs target the right names** in moderate/aggressive: steep-decline and high-vol sells correctly hit INTC, FUBO, RGTI, SOFI, LCID, etc. (#19, #32, #37, #42, #46). Severity scaling via `sell_scale` (0.10/0.50/0.25) is visible and ordered.
+**Recommended change.**
+- Add a **static ticker→sector fallback map** and use it whenever the live sector is missing/`Unknown`. The data already exists implicitly in `SECTOR_SUGGESTIONS` / `LOW_BETA_BY_SECTOR` / `COMMON_TICKERS` (`vector/constants.py:130-187`); promote it to an explicit `TICKER_SECTOR` dict and consult it in `_build_positions_summary`, `concentration.py`, and `_build_mock_position`.
+- In `concentration.py`, **don't let an `Unknown` bucket masquerade as a single real sector** — exclude `Unknown` weight from the `sector_count<=1 ⇒ high` collapse (lines 105-119) so missing data can't fabricate a concentration flag.
+- **Verify the run wasn't rate-limited**: re-run the debug suite with a warmed `market_data.json` cache and confirm sectors populate. If they still don't, the snapshot/meta path (`store.get_snapshot`/`get_meta`) needs a retry/fallback.
 
-5. **Unrealized-loss HOLDs are accurate and graded.** Underwater names are identified with correct, monotone severity (#31, #36, #44, #47). Gains never flag (`performance.py:11-25`).
+### C2. Caution score collapses into ~3 buckets (10, 62, 95–97); the whole mid-band is dead
+**Symptom.** Wildly different portfolios share identical scores:
+- **62/99** for *near-perfect* #02/#04/#05/#07 **and** moderate #11/#13/#14/#16/#17/#24/#25.
+- **95–97/99** for nearly every "messed up"/"disaster" (#20, #26, #31–#37, #41–#50).
+- A "good, minor flaw" book (#12) swings **92 (conservative) / 61 / 35 (aggressive)** — non-monotonic and extreme.
 
-6. **Earnings-proximity catalyst sentence works.** AVGO (6 d), NKE (28 d), GME (12 d), CHPT (6 d) are detected and feed sentence 2 correctly (`earnings.py:28-37`).
+**Root cause.** The risk floor maps severities through only five discrete points and takes their `max`:
+- `vector/lens/lens_output.py:201` — `_SEVERITY_CAUTION_POINTS = {none:0, low:10, moderate:35, high:62, critical:90}`.
+- `_risk_floor` (`lens_output.py:204-267`) → any single `high` severity pins the floor to **62**; any `critical` pins to **90**, then the breadth lift pushes disasters to **95–97**. Nothing populates 11–34, 36–61, 63–89.
+- The pervasive **62** is largely a *downstream artifact of C1* (the false high-severity sector flag).
 
-7. **Two prior known-bug guards are holding:**
-   - Winner-drift requires real appreciation (`current_value > cost_equity`, `concentration.py:74-75`) — no "price appreciation pushed…" text on underwater names.
-   - SELL + winner-drift on the same ticker is suppressed (`cta_engine.py:260-261`) — no contradictory `SELL X` + `HOLD X winner_drift`.
+**Recommended change.**
+- Fix C1 first — that alone removes most spurious 62s.
+- Make the floor **continuous within a severity band** (e.g. interpolate by how far a metric is past its threshold) so scores spread across 1–99 instead of snapping to 62/90.
+- Re-examine the conservative tier specifically: tighter thresholds push severities up (higher caution) while sells are suppressed (fewer actions) — the worst of both. See C3/H4.
 
-8. **Conservative >50 % trim exception works.** #34 (TSLA 76 %) and #41 (PLUG 100 %) do produce a conservative SELL of the dominant position instead of suppressing it (`cta_engine.py:170`).
-
-9. **Brief prose is fluent and varied** — deterministic template selection gives natural-sounding, non-repetitive language across portfolios.
-
----
-
-## Part B — Issues, ranked by severity
-
-### CRITICAL
-
-#### B1. Broken/disaster portfolios are told to DEPOSIT, not de-risk ("deposit into a fire")
-
-**Symptom.** The dominant recommendation for most MESSED-UP / DISASTER books is to buy more, producing a large *positive* net CTA delta:
-- #49 Leverage Lover, conservative: **net +$13,800** (BUY JNJ $5,300 / UNH $8,840 / JPM $8,840, only SELL SOXL $9,180) — i.e. "deposit $13.8k into a leveraged-ETF book."
-- #48 Everything Wrong, conservative: **net +$8,340**.
-- #35 Extreme Winner Drift, conservative: **net +$5,500** while the actual problem (AAPL 79 %) only gets an *informational* hold.
-- #41 Single 100 % PLUG (-68 %), conservative: **net +$630** deposit across a 4-name spread.
-- #45 70 % BA loser, all tiers: net +$3,420 / +$5,100 / +$5,970, **zero sells** (BA's loss severity is only "moderate" so it's never trimmed).
-
-**Root cause.** The CTA philosophy is "dilute concentration/sector/beta by *buying* underweight sectors." Every diversification priority (5 high-beta, 6 single-stock, 7 sector, 9 underweight) emits **buys** (`cta_engine.py:323-577`). Sells are simultaneously scaled down (`sell_scale`) and gated (`_sell_too_small` min $500 / min $1,000 position, `_conservative_sell_blocked`). The tier buy-cap (`_cap_total_buys`, `_MAX_TOTAL_BUY_FRACTION_BY_TIER = 0.20/0.30/0.35`, `cta_engine.py:31`) *is* working mechanically — but it only **bounds** the deposit to 20–35 % of equity; it does not flip the direction. So `net = capped_buys − scaled_sells` stays strongly positive on exactly the books where the user should be reducing risk. The cap was designed for this case (per the comment at `cta_engine.py:26-30`) yet 20 % of a large book is still a five-figure deposit recommendation.
-
-**Why it matters.** A user staring at a -68 % single position or a leveraged-ETF book usually should *not* (and often cannot) add 20–35 % fresh capital; the correct move is to trim the dangerous holdings. The tool currently gives the opposite, unactionable advice for its worst-graded portfolios.
-
-**Direction to consider (not yet implemented).** For high-caution/disaster books, prefer trim/rebalance of the offending positions over buy-to-dilute; or suppress net-positive deltas when caution is extreme; or make "buy to dilute" conditional on the book not already being in crisis. Relevant: `cta_engine.py` priorities 5/6/7/9, the sell gates (`_sell_too_small`, `_conservative_sell_blocked`), and `_apply_all_ctas` net-delta in `lens_output.py:279-376`.
-
----
-
-#### B2. The `+250.0%` slope clamp produces non-credible, identical figures and incoherent briefs
-
-**Symptom.** "+250.0% annualized" appears verbatim across many unrelated names and leads briefs that praise the portfolio's *worst* holding:
-- #19 "The +250.0% annualized gain on INTC… strong momentum" (INTC is the designed loser).
-- #15/#22 "+250.0%… on AMD", #28/#36 "INTC… +250.0%… strong momentum", #49 "+250.0%… on SOXL".
-
-**Root cause.** `_SLOPE_CLAMP_MAX = 250.0` (`slope.py:18`). Beaten-down, high-volatility names that bounced off a trough have a genuinely huge 6-month regression slope (the trough-to-current cap at `slope.py:99-109` lets it through), which then pins to the round 250 ceiling. Because the ceiling is shared, several different portfolios open with the *identical* "+250.0%" phrase, which reads as a bug to any user. Note: the slope is price-history-relative, not entry-relative, so a "loser" that recovered above entry legitimately shows a positive slope — but the clamped magnitude is the problem.
-
-**Direction to consider.** Lower / soften the clamp, or display a qualitative band ("strong uptrend") rather than an unbelievable precise number above some threshold, so two different names don't both read "+250.0%". `slope.py:18,124-136`.
-
----
-
-#### B3. Caution score saturates at 88 and clusters on severity buckets — poor differentiation
-
-**Symptom.** The score barely uses its range. The absolute worst books all tie:
-- #34 (single 76 % TSLA), #49 (leveraged ETFs), #50 (2-name -62 %), #41 (100 % PLUG) → **all 88**.
-- A wide band of distinct "moderate" books → **all 60** (#17, #25 every tier).
-- Nothing in 150 runs exceeds **88**; the 89–99 band is dead.
-- Caution is also nearly **tier-invariant** for risky books (same 88 or 60 regardless of tier), even though the recommended actions differ wildly.
-
-**Root cause.** `_SEVERITY_CAUTION_POINTS = {none:0, low:8, moderate:30, high:60, critical:88}` (`lens_output.py:201`). `_risk_floor` (`lens_output.py:204-254`) takes `max(pos_pts, single_pts, port_pts)`, and `single_pts`/`port_pts` snap to those exact discrete values; for any genuinely risky book the floor (60 or 88) dominates the continuous trade-flow score, so the final score collapses onto the bucket. `critical = 88` is the structural ceiling, so 89–99 is unreachable (`_compute_caution_score`, `lens_output.py:257-276`).
-
-**Direction to consider.** Make the severity→points mapping continuous / push `critical` toward 99, and let `pos_pts` (the already-continuous weighted average) carry more weight relative to the snapping `single_pts`/`port_pts`, so disasters spread across ~80–99 and moderates across ~30–60. `lens_output.py:201-276`.
-
----
-
-### MEDIUM
-
-#### B4. Dead-weight detection (priority 8) is dead code — never fires
-
-**Symptom.** Zero `dead_weight` CTAs in all 150 runs. #16, explicitly built to test it (F, T sub-1 % odd lots), never flags them — instead it gets large sector-buy CTAs.
-
-**Root cause.** Priority 8 requires `weight < 0.02` (`cta_engine.py:523`) but then runs the dollars through `_sell_too_small`, which rejects any position worth `< $1,000` (`_MIN_POSITION_VALUE_FOR_SELL`, `cta_engine.py:14,59-65,528`). A sub-2 % position in any realistic book is almost always worth < $1,000, so the two conditions are mutually exclusive. The detector can never pass its own gate.
-
-**Direction to consider.** Exempt dead-weight from the min-position-value floor (it's a "clean up the tail" suggestion, not a risk trim), or drop the floor for this priority. `cta_engine.py:518-541`.
-
----
-
-#### B5. Over-eager sector-underweight buys on already-diversified / near-perfect books
-
+### C3. The brief contradicts the danger (and the caution score)
 **Symptom.**
-- #02 (graded NEAR-PERFECT, 10 sectors ~10 % each) → "deposit ~$2,400" across KO/APD/V (all tiers).
-- #16 (graded GOOD) → "deposit ~$2,700" into GOOGL/AMZN while **ignoring its actual dead-weight tail**.
+- **#38 Two-Position** (AAPL+NVDA, ~50/50, 100% tech), conservative: caution **97/99** but brief says *"No actionable signals detected — the portfolio's risk metrics, diversification, and momentum are all within normal bounds."* and **zero CTAs**.
+- **#28 Dividend Trap** (PFE/VZ/INTC/T, all beaten down): *"5 of 5 positions are trending upward — +150.0% annualized."*
+- **#35 Extreme Winner Drift** (AAPL 79%): leads *"Strength across holdings — 3 of 4 appreciating."*
+- **#19, #36, #39** — momentum-positive lead on books dominated by losers / single-sector bets.
 
-**Root cause.** Priority 9 fires whenever `sector_count >= 3` and any sector is `< 10 %` (`cta_engine.py:547-550`). In a genuinely equal-weight 10-sector book, several sectors naturally dip just under 10 %, so a near-perfect portfolio is told to deposit money. The `< 10 %` trigger doesn't account for "this book is already balanced." Same root applies to priority 7 firing on mildly-tilted books.
+**Root cause.**
+- Sentence 1 chooses a loss/decline lead **only when volatility is high** (`vector/lens/sentence1.py:53-97`); otherwise it falls through to a pure slope-direction sentence (`sentence1.py:106-133`) that ignores unrealized losses and concentration entirely. Low-vol-but-underwater books (Dividend Trap) and calm-but-concentrated books (winner drift) therefore lead with "strength".
+- The `portfolio_healthy` fallback line is emitted whenever the top CTA is `portfolio_healthy` (`vector/lens/sentence3.py:60,89` → `templates/sentences.json:239`), with no check against the caution floor.
 
-**Direction to consider.** Gate priority 9 on the book not already being well-diversified (e.g. require a meaningful gap below equal-weight, or skip when `sector_count` is high and the spread is tight). `cta_engine.py:543-577`.
-
----
-
-#### B6. The brief leads by praising the most dangerous holding
-
-**Symptom.** On risk-heavy books the very first sentence foregrounds the volatile/“rising” problem name positively: #15 opens "High volatility (63 %) on AMD has not derailed its +250.0 % uptrend" — for a portfolio whose top action is SELL AMD. The user reads praise of the thing they should sell.
-
-**Root cause.** sentence1's branch ordering puts `high_vol_rising` (`sentence1.py:99-119`) ahead of the portfolio-state sentence, and it selects the *most volatile* ticker whenever slope > 5. The lead-sentence emphasis is decoupled from the portfolio's actual risk posture / top CTA.
-
-**Direction to consider.** Reorder so the lead reflects the dominant signal (loss/risk) rather than the highest-vol *riser*, or tone down the "has not derailed its uptrend" framing for high-vol names. `sentence1.py:99-119`.
+**Recommended change.**
+- Sentence 1 should factor **breadth of unrealized loss** and **dominant single-stock/sector weight** even when volatility is low, and must **not** lead with "strength/momentum" when the risk floor is elevated.
+- Reconcile sentence 3: never say *"all within normal bounds"* when the caution floor is high or when actions were merely **suppressed by tier** (vs genuinely absent). Distinguish "healthy" from "risky but no action recommended for your tier".
 
 ---
 
-#### B7. `high_beta` BUY CTA is mislabeled and suggests names that aren't actually low-beta
+## HIGH
 
-**Symptom.** Reports show e.g. "BUY MSFT — high_beta (critical)" on a meme book (#30), and MSFT/AAPL are offered as the "low-beta" fix. The action (buy) under a reason named "high_beta" reads oddly, and the suggested tickers aren't genuinely low-beta.
+### H1. The clamped slope (`+150.0%` / `-80.0%`) is surfaced verbatim in the brief
+**Symptom.** `+150.0%` appears as a literal portfolio slope in #19, #28, #36, #49 (and high figures like +109.2% #15, +128.0% #22). It reads as a bug/non-credible.
+**Root cause.** `vector/lens/analyzers/slope.py:14,21` clamp to `[-80, 150]`; the clamped `port_annual` flows into sentence 1's `slope` field (`sentence1.py:43,111-119`). The code comment at `slope.py:18-20` claims the ceiling "is rarely surfaced" — that is **out of date**: the portfolio-state sentence surfaces it on every mixed/uptrend book.
+**Recommended change.** Either (a) format the figure qualitatively above a believable bound (e.g. ">50% → 'strongly positive'") instead of printing the clamp, or (b) compute the portfolio slope from a regression on **total portfolio value** rather than `Σ per-ticker rawslope×252×weight`, which over-amplifies and saturates the clamp.
 
-**Root cause.** Priority 5 buys a "low-beta" name from an underweight sector to pull portfolio beta down (`cta_engine.py:323-372`), drawing from `LOW_BETA_BY_SECTOR`, whose Technology entry is `['MSFT','AAPL','ACN','IBM','TXN']` (`constants.py:131`) — high-beta megacaps. Suggesting more tech to a tech-light disaster also undercuts the intent.
+### H2. `SELL X` and `HOLD X` emitted for the same ticker (reads contradictory)
+**Symptom.** #41 (100% PLUG): *SELL PLUG -$620* **and** *HOLD PLUG (unrealized_loss)*. Same double-listing in #31, #32, #33, #42, #44, #50.
+**Root cause.** Priority 2 (`high_volatility` sell) and priority 10 (`unrealized_loss` hold) both fire for one ticker, and `_dedupe_ctas` **intentionally** permits a sell + a hold on the same ticker (`vector/lens/cta_engine.py:738-749`).
+**Recommended change.** When a ticker already carries a `sell`/`rebalance`, suppress (or merge into) its informational `unrealized_loss` HOLD so the projections list never tells the user to both sell and hold the same position — particularly for single-holding books.
 
-**Direction to consider.** Curate `LOW_BETA_BY_SECTOR` to actually-defensive names, and reword the report tag so a buy-to-reduce-beta doesn't display as "high_beta." `cta_engine.py:323-372`, `constants.py:130-143`.
+### H3. Tiny sub-floor BUY CTAs leak through after total-buy scaling
+**Symptom.** Buys far below the stated $200 floor: #30 *BUY IBM +$80*, #36 *BUY JNJ +$140*, #40 *BUY JNJ +$100*, #47 *BUY JNJ +$120*.
+**Root cause.** Order of operations in `compute_ctas` (`vector/lens/cta_engine.py:652-656`): `_drop_tiny_buys` runs **before** `_cap_total_buys`. The danger-aware `_cap_total_buys` then scales every buy **down** (`cta_engine.py:687-689`), producing new sub-$200/sub-1% amounts that are never re-filtered.
+**Recommended change.** Re-apply the tiny-buy floor (`_drop_tiny_buys`) **after** `_cap_total_buys`, or drop any buy that falls below the floor post-scaling.
 
----
+### H4. Calm-but-concentrated books are told to *deposit*, never to trim (non-conservative tiers)
+**Symptom.**
+- **#45 70% Concentrated Loser** (BA ~80%, underwater): every tier only BUYs (AAPL/UNH/V); **net CTA delta is positive** (+$660/+$990/+$1,170) — i.e. "deposit more into a falling 80% position".
+- **#34 Single Stock 60%** (TSLA ~76%): moderate/aggressive recommend **only** buy-to-dilute, **no TSLA trim**. (Conservative does trim TSLA via the >50% exception.)
+**Root cause.** Single-stock concentration (priority 6, `cta_engine.py:394-470`) is **BUY-only**. There is no "trim the concentrated name" sell path for non-conservative tiers unless volatility/slope independently flags it. The danger throttle `_critical_weight` (`cta_engine.py:697-721`) only counts **critical**-severity positions, so a concentration that is `high`/`moderate` (not `critical`) escapes the throttle and the buy budget stays large.
+**Recommended change.** For very high single-stock weight (e.g. >50–60%), generate a **trim/rebalance SELL** (mirroring winner-drift) regardless of tier, instead of recommending fresh deposits to dilute. Consider including concentration `high` in the danger-weight throttle.
 
-### LOW / POLISH
-
-#### B8. "COST reports earnings in 0 days" (#05)
-`days_until == 0` yields awkward "in 0 days" copy and implies a stale/as-of-today earnings date. Cosmetic. `earnings.py:90-95`, sentence2 templates.
-
-#### B9. Conservative dilution wants *more* new capital than aggressive
-Because the conservative concentration target is lower (15 % vs 30 %), the dilution math demands a larger deposit before the cap clips it. Counterintuitive that the low-risk tier is asked to invest the largest fraction. Worth a design review alongside B1. `cta_engine.py:380-391`, `constants.py:207-214`.
-
-#### B10. Net-delta sign flips across tiers for the same book
-e.g. #21: +$2,700 (cons) / -$600 (mod) / -$700 (agg); #33: +$3,170 / -$2,730 / +$2,870. Toggling risk tier flips "deposit" ↔ "withdraw," which is confusing. A downstream symptom of B1 + the sell gating.
-
-#### B11. Stray `print()` debug in `analysis_pool.py`
-`_build_positions_summary` still `print()`s a weight-sum warning to stdout (`analysis_pool.py:184-194`). CLAUDE.md notes the standalone copy converted these to `_log.debug`; the app copy did not. Spam risk in console builds.
-
----
-
-## Part C — Cross-cutting themes
-
-1. **The engine's core bias is "add, don't trim."** Four of the highest-priority non-sell actions are buys, sells are scaled+gated, and the safety cap only bounds (not redirects) deposits. This single design choice drives B1, B5, B9, and B10. It works fine for healthy/mild books and breaks down precisely at the disaster end where correct advice matters most.
-
-2. **Discretization is hurting two outputs.** The `+250` slope clamp (B2) and the severity→points table (B3) both quantize continuous quantities onto a few values, producing identical-looking figures and coarse caution buckets.
-
-3. **A few detectors are effectively unreachable** (dead-weight, B4) or fire too readily (sector-underweight on balanced books, B5) — the thresholds and the shared gates haven't been reconciled.
+### H5. Dead-weight CTA still effectively never fires
+**Symptom.** **#16 Tiny Dead-Weight Tail** holds F and T as sub-1% odd lots (the scenario's whole point) — **no** `dead_weight` CTA in any tier; instead it shows the C1 false "buy UNH/V".
+**Root cause.** Priority 8 requires the position to also be nearly flat: `w < 0.02 and ann <= 2.0` (`vector/lens/cta_engine.py:543`). A real odd-lot can have any slope, so the `ann <= 2.0` gate suppresses it. (This is the same "dead code" failure mode `CLAUDE.md` says was fixed — it is **not** fixed in this output.)
+**Recommended change.** Base dead-weight detection on **weight + dollar value alone** (it is a tidy-up suggestion), not on slope; drop the `ann <= 2.0` condition or widen it substantially.
 
 ---
 
-## Part D — Suggested priority order for fixes
+## MEDIUM
 
-| # | Issue | Severity | Primary file(s) |
-|---|---|---|---|
-| B1 | Disasters recommend net deposits, not de-risking | Critical | `cta_engine.py`, `lens_output.py` |
-| B2 | `+250%` slope clamp → non-credible identical figures | Critical | `slope.py`, `sentence1.py` |
-| B3 | Caution score saturates at 88 / bucket clustering | Critical | `lens_output.py` |
-| B4 | Dead-weight priority can never fire | Medium | `cta_engine.py` |
-| B5 | Sector-underweight buys on already-balanced books | Medium | `cta_engine.py` |
-| B6 | Brief leads by praising the riskiest holding | Medium | `sentence1.py` |
-| B7 | `high_beta` buy mislabeled / not-low-beta picks | Medium | `cta_engine.py`, `constants.py` |
-| B8–B11 | Earnings "0 days", conservative dilution, tier sign-flip, stray `print` | Low | various |
+### M1. Duplicate `'Financials'` vs `'Financial Services'` sector keys (latent)
+**Symptom/risk.** `SECTOR_SUGGESTIONS` and `LOW_BETA_BY_SECTOR` define **both** keys (`vector/constants.py:134-135, 177-178`). yfinance returns only `'Financial Services'`. The duplicate `'Financials'` key can therefore never be "held" → `_underweight_sectors_sorted` always lists it as unheld → a phantom "Financials 0%" recommendation even when JPM is held. (In this run the missing-data bug C1 dominates, masking it, but it is a real defect.)
+**Recommended change.** Collapse to a single canonical taxonomy that matches yfinance (`'Financial Services'`), or normalize sector strings on ingest. Remove the duplicate key.
 
-_No code changed. Ready to discuss which of these to tackle and in what order._
+### M2. Winner-drift rebalance ignores tier (`sell_scale`)
+**Symptom.** #35 *REBALANCE AAPL -$7,660* is **identical** across all three tiers; #43/#48 NVDA -$6,750/-$7,500 likewise.
+**Root cause.** The rebalance amount is `(current_w − entry_w)×equity` capped at 35% of the position (`cta_engine.py:278-281`) and never multiplied by `sell_scale`, unlike every other sell (`cta_engine.py:218,245`).
+**Recommended change.** Decide intentionally: either apply `sell_scale` so the trim varies by tier like other sells, or document why winner-drift is tier-invariant.
+
+### M3. High-volatility sell magnitudes are large and counter-intuitive across tiers
+**Symptom.** #49 Leverage Lover: *SELL SOXL* is **-$44,930 (moderate)** vs **-$22,460 (aggressive)** vs **-$8,990 (conservative)** — the moderate recommendation is ~$45k and exceeds the aggressive one.
+**Root cause.** `dollars = pos_value × sell_scale × sev_factor` (`cta_engine.py:241-245`); `sell_scale` is higher for `regular` (0.5) than `high` (0.25), so moderate trims more than aggressive. No cap relative to position size is applied to vol sells.
+**Recommended change.** Sanity-check the tier ordering of `sell_scale` for vol/decline sells, and consider a cap so a single sell can't dwarf the rest of the de-risking plan.
+
+### M4. Caution score is non-monotonic and over-sensitive across tiers
+**Symptom.** #12 → 92/61/35; #18 → 94/94/62; #19 → 94/94/64. A "good, minor flaw" book scoring 92 on conservative is alarmist.
+**Root cause.** Tier thresholds shift per-position severities up/down, and the discrete floor (C2) amplifies each step. Conservative ends up highest-caution **and** lowest-action.
+**Recommended change.** After C1/C2, validate that caution moves smoothly and sensibly with tier; cap how far tier alone can move the score for the same holdings.
+
+---
+
+## LOW / POLISH
+
+### L1. Suggestion tickers are repetitive
+Every Healthcare rec is **UNH**, every Financials rec is **V/JPM**, every beta fix is **JNJ/ABT/IBM**. `_pick_sector_tickers` always returns the top-market-cap name (`cta_engine.py:89-95`). Consider rotating among the candidate list for variety.
+
+### L2. `index_fund_informational` HOLD shown at `moderate` severity
+The informational index HOLD (`cta_engine.py:326-341`, severity hard-coded `moderate`) appears beside real CTAs (#10, #15, #16, #21, #23) and may slightly color perception. Consider `low`/`none` for a purely informational line.
+
+### L3. Brief is identical across tiers even when the action plan differs drastically
+#19 conservative (no sells) and moderate (near-full liquidation) share nearly identical briefs. The brief never reflects that the tier changed the recommended action. Quality improvement, not a bug.
+
+### L4. "Trending upward" counts can contradict P&L
+Direction counts come from 6-month slope (`slope.py:145,166-176`); a deeply underwater name that recently bounced reads as "up". Pairing "5 of 5 trending upward" (#28) with five underwater holdings is misleading — gate the "trending up" framing against unrealized P&L or soften the wording.
+
+---
+
+## Suggested fix order
+1. **C1** (sector fallback) — unblocks the most wrong output; re-run to confirm whether the run was rate-limited.
+2. **C2** (caution granularity) — largely resolves once C1 lands; then add intra-band interpolation.
+3. **C3 / H1 / L4** (brief vs reality, clamped slope) — credibility of the headline text.
+4. **H2 / H3 / H5** (contradictory SELL+HOLD, sub-floor buys, dead-weight) — self-contained CTA-list fixes.
+5. **H4 / M2 / M3 / M4** (trim-vs-deposit logic, tier consistency) — behavioral tuning, validate against a re-run.
+6. **M1 / L1 / L2 / L3** (taxonomy cleanup + polish).
+
+_No code was modified in producing this diagnosis._

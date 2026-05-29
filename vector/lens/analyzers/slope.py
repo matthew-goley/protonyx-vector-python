@@ -16,9 +16,10 @@ _SLOPE_CLAMP_MIN = -80.0
 # produce absurd regression/×2 figures; without a believable ceiling several
 # unrelated tickers all pinned to an identical "+250.0%" in the brief. Positive
 # slopes carry no severity (all classify 'none'), so this only bounds the
-# DISPLAYED value. The brief no longer leads with a single ticker's momentum
-# (see sentence1), so this ceiling is rarely surfaced to the user.
-_SLOPE_CLAMP_MAX = 150.0
+# DISPLAYED value. The ceiling IS surfaced by the portfolio-state sentence, so
+# it must be a *believable* momentum figure — a literal "+150.0%" reads as a
+# bug. 60% annualized is a credible strong-uptrend ceiling.
+_SLOPE_CLAMP_MAX = 60.0
 
 
 def _classify(annualized_pct: float, thresholds: dict[str, float]) -> str:

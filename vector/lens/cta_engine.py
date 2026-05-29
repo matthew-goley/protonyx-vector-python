@@ -397,6 +397,43 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
         if 'stock_concentration' in subs and data.get('flag'):
             if t in INDEX_ETFS or t in index_cta_tickers:
                 continue
+
+            current_w = ticker_weights.get(t, 0)
+            # A single position that is more than half the book is TRIMMED, not
+            # diluted with fresh deposits. Telling someone with 60%+ in one name
+            # to deposit cash into other sectors is unactionable — mirror the
+            # >50% sell exceptions elsewhere and trim toward the target, for every
+            # tier. Always skip the buy-to-dilute path for such a position.
+            if current_w > 0.50:
+                already_selling = any(
+                    c.get('ticker') == t and c.get('action') in ('sell', 'rebalance')
+                    for c in ctas
+                )
+                if not already_selling:
+                    rp = pool_results.get('_risk_profile', {})
+                    trigger_pct = rp.get('concentration', {}).get('moderate', 30)
+                    target_weight = (trigger_pct * _CONCENTRATION_DILUTION_FACTOR) / 100
+                    pos_value = summary.get('ticker_current_values', {}).get(
+                        t, current_w * total_equity,
+                    )
+                    raw_trim = (current_w - target_weight) * total_equity
+                    trim = _round10(min(raw_trim, pos_value * 0.35))
+                    if trim > 0:
+                        ctas.append({
+                            'priority': 6,
+                            'action': 'rebalance',
+                            'ticker': t,
+                            'dollars': trim,
+                            'reason': 'reduce_concentration',
+                            'severity': data['severity'],
+                            'details': {
+                                'current_weight': current_w * 100,
+                                'target_weight': target_weight * 100,
+                                'heavy_ticker': t,
+                            },
+                        })
+                continue
+
             rp = pool_results.get('_risk_profile', {})
             # Dilute toward a target safely BELOW the trigger threshold (see
             # _CONCENTRATION_DILUTION_FACTOR) — diluting back to the trigger itself
@@ -536,11 +573,13 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 })
 
     # --- Priority 8: Dead weight (SELL — suppressed for conservative) ---
+    # A sub-2% odd-lot is clutter regardless of its slope. The old near-flat
+    # slope gate (ann <= 2.0) made this priority effectively dead code — real
+    # odd-lots are rarely flat — so flag on weight + dollar value alone.
     if risk_tier != 'low':
-        for t, s_data in slope_res.get('ticker_results', {}).items():
+        for t in slope_res.get('ticker_results', {}):
             w = ticker_weights.get(t, 0)
-            ann = s_data.get('details', {}).get('annualized_pct', 0)
-            if w < 0.02 and ann <= 2.0 and t not in INDEX_ETFS:
+            if w < 0.02 and t not in INDEX_ETFS:
                 pos_value = summary.get('ticker_current_values', {}).get(
                     t, w * total_equity,
                 )
@@ -548,6 +587,11 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
                 # Dead-weight is exempt from the generic sell floors (a tiny
                 # odd-lot is BY DEFINITION below them); only skip penny stubs.
                 if pos_value < _MIN_DEAD_WEIGHT_VALUE or dollars <= 0:
+                    continue
+                # Don't tag a position as dead weight if a stronger signal is
+                # already selling/trimming it.
+                if any(c.get('ticker') == t and c.get('action') in ('sell', 'rebalance')
+                       for c in ctas):
                     continue
                 ctas.append({
                     'priority': 8,
@@ -604,6 +648,12 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     # --- Priority 10: Unrealized loss (HOLD) ---
     for t, data in perf_res.get('ticker_results', {}).items():
         if data.get('flag'):
+            # If this ticker is already being sold/trimmed, an informational
+            # "underwater, holding the rest" line is redundant and reads as a
+            # contradiction (SELL X + HOLD X) — the sell already conveys intent.
+            if any(c.get('ticker') == t and c.get('action') in ('sell', 'rebalance')
+                   for c in ctas):
+                continue
             ctas.append({
                 'priority': 10,
                 'action': 'hold',
@@ -654,6 +704,9 @@ def compute_ctas(pool_results: dict[str, Any]) -> list[dict[str, Any]]:
     danger = _critical_weight(pool_results, ticker_weights)
     buy_fraction = base_fraction * max(0.0, 1.0 - danger)
     ctas = _cap_total_buys(ctas, total_equity, buy_fraction)
+    # _cap_total_buys scales buys DOWN, which can push a buy back below the noise
+    # floor — re-drop tiny buys so a scaled-down "deposit $80" never survives.
+    ctas = _drop_tiny_buys(ctas, total_equity)
 
     return ctas
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from vector.constants import sector_for
+
 from .risk_profile import load_risk_profile
 
 _log = logging.getLogger(__name__)
@@ -168,7 +170,7 @@ def _build_positions_summary(
 
     sector_weights: dict[str, float] = {}
     for p in positions:
-        sector = p.get('sector') or 'Unknown'
+        sector = sector_for(p['ticker'], p.get('sector'))
         sector_weights[sector] = sector_weights.get(sector, 0.0) + ticker_weights.get(p['ticker'], 0.0)
 
     summary = {

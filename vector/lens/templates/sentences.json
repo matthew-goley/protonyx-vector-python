@@ -28,6 +28,13 @@
                 "The portfolio is in a low-volatility phase at {vol:.0f}% annualized, with direction holding steady at {slope:+.1f}%.",
                 "Across all positions, volatility reads {vol:.0f}% and the weighted slope is {slope:+.1f}% — nothing demanding attention right now.",
                 "A {vol:.0f}% volatility reading with {slope:+.1f}% slope indicates the portfolio is moving in a narrow, predictable band."
+            ],
+            "position_loss_only": [
+                "{ticker} is down {loss_pct:.1f}% from entry — the largest unrealized drag on the portfolio right now.",
+                "An unrealized loss of {loss_pct:.1f}% on {ticker} stands out — recent price action hasn't recovered the cost basis.",
+                "{ticker} sits {loss_pct:.1f}% below cost — the deepest drawdown among current holdings.",
+                "The portfolio's dominant weakness is {ticker}, {loss_pct:.1f}% underwater from its entry.",
+                "{ticker} remains {loss_pct:.1f}% below entry — the position weighing most on the book."
             ]
         },
         "slope": {
@@ -204,6 +211,15 @@
                     "Price appreciation has pushed {ticker} from {entry_weight:.0f}% to {weight:.0f}% — redirecting ${dollars:,.0f} would rebalance toward the original target.",
                     "A ${dollars:,.0f} rebalance on {ticker} (drifted from {entry_weight:.0f}% to {weight:.0f}%) would lock in appreciation and restore diversification."
                 ]
+            },
+            "reduce_concentration": {
+                "default": [
+                    "{ticker} is {weight:.0f}% of the portfolio — trimming ${dollars:,.0f} would reduce single-stock risk toward a {target_weight:.0f}% target.",
+                    "At {weight:.0f}% of the book, {ticker} dominates — a ${dollars:,.0f} trim would bring it back toward {target_weight:.0f}% and spread risk.",
+                    "{ticker} carries outsized weight at {weight:.0f}% — reducing the position by ${dollars:,.0f} would cut concentration toward {target_weight:.0f}%.",
+                    "Trimming ${dollars:,.0f} from {ticker} (currently {weight:.0f}% of the portfolio) would lower single-name exposure toward {target_weight:.0f}%.",
+                    "{ticker} makes up {weight:.0f}% of holdings — a ${dollars:,.0f} reduction would rebalance toward a {target_weight:.0f}% single-stock target."
+                ]
             }
         },
         "hold": {
@@ -241,6 +257,15 @@
                     "The portfolio is well-positioned with no signals exceeding their thresholds — a hold posture is appropriate for the current state.",
                     "Risk metrics are contained, diversification is adequate, and no individual position is flagging — the portfolio is in a stable state.",
                     "No positions require attention right now — the portfolio's weighted slope, volatility, and concentration are all within acceptable ranges."
+                ]
+            },
+            "portfolio_caution": {
+                "default": [
+                    "Risk signals are elevated, but no trade clears your current risk setting — the exposure is worth monitoring.",
+                    "No action fits your risk tier right now, yet the portfolio's risk profile is running high — keep an eye on the flagged exposure.",
+                    "The portfolio carries elevated risk that your current tier doesn't act on — a more cautious setting would surface trims here.",
+                    "Caution is warranted: risk metrics are elevated even though no trade clears your tier's thresholds.",
+                    "Heightened risk is present without a recommended action at this tier — the position-level exposure remains worth watching."
                 ]
             }
         }

@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from vector.constants import sector_for
+
 from .analysis_pool import run_analysis
 from .cta_engine import compute_ctas
 from .sentence1 import compose as compose_s1
@@ -67,6 +69,13 @@ def build_lens_output(
         _log.debug('Lens CTA engine failed', exc_info=True)
         cta_list = []
 
+    # Caution score is computed up front because sentence 3 needs it: when the
+    # tier suppresses every trade the CTA list can be empty/healthy even though
+    # the risk floor is high, and the brief must not then claim "all within
+    # normal bounds" (sells dominate, buys count 30%, holds are ignored).
+    total_equity = pool_results.get('_positions_summary', {}).get('total_equity', 1.0)
+    caution_score = _compute_caution_score(cta_list, total_equity, pool_results)
+
     try:
         s1 = compose_s1(pool_results)
     except Exception:
@@ -80,7 +89,7 @@ def build_lens_output(
         s2 = ''
 
     try:
-        s3 = compose_s3(cta_list, pool_results)
+        s3 = compose_s3(cta_list, pool_results, caution_score)
     except Exception:
         _log.debug('sentence3 failed', exc_info=True)
         s3 = ''
@@ -112,11 +121,6 @@ def build_lens_output(
     deposit_amount = top_cta.get('dollars', 0.0)
     underweight_sector = details.get('target_sector', details.get('heavy_sector', ''))
 
-    # Caution score: sells dominate, buys contribute 30%, holds are ignored.
-    # A "you should reduce risk" signal weighs much more than a "you have room
-    # to grow" opportunity.
-    total_equity = pool_results.get('_positions_summary', {}).get('total_equity', 1.0)
-    caution_score = _compute_caution_score(cta_list, total_equity, pool_results)
     threat_level = caution_score / 100.0
 
     # Build projected positions with all CTAs applied
@@ -235,16 +239,18 @@ def _risk_floor(pool_results: dict[str, Any]) -> float:
     pos_pts = 0.0
     single_pts = 0.0
     crit_weight = 0.0
+    high_weight = 0.0
     for t, w in weights.items():
-        broad = max(P.get(_tsev(k, t), 0)
-                    for k in ('volatility', 'concentration', 'performance', 'slope'))
+        sevs = [_tsev(k, t) for k in ('volatility', 'concentration', 'performance', 'slope')]
+        broad = max(P.get(s, 0) for s in sevs)
         pos_pts += w * broad
         single = max(P.get(_tsev(k, t), 0)
                      for k in ('volatility', 'concentration', 'performance'))
         single_pts = max(single_pts, single * min(1.0, w / 0.45))
-        if any(_tsev(k, t) == 'critical'
-               for k in ('volatility', 'concentration', 'performance', 'slope')):
+        if any(s == 'critical' for s in sevs):
             crit_weight += w
+        elif any(s == 'high' for s in sevs):
+            high_weight += w
 
     port_pts = P.get(
         (pool_results.get('concentration', {}) or {})
@@ -257,13 +263,16 @@ def _risk_floor(pool_results: dict[str, Any]) -> float:
 
     base = max(pos_pts, single_pts, float(port_pts))
 
-    # Breadth of danger: the more of the book that sits in *critical* positions,
-    # the closer the floor climbs toward the 99 ceiling. This spreads the worst
-    # books across the upper band (a single dominant critical position lands in
-    # the low-90s; a wholly-critical book approaches the high-90s) instead of
-    # every disaster tying at the old critical bucket. crit_weight is ~0 for any
-    # healthy/mild book, so low scores are untouched.
-    floor = base + (99.0 - base) * min(1.0, crit_weight) * 0.8
+    # Breadth of danger: the more of the book that sits in dangerous positions,
+    # the closer the floor climbs toward the 99 ceiling. Critical exposure lifts
+    # at full weight; high (non-critical) exposure lifts at half. This spreads
+    # books that share the same top severity across the band — a single dominant
+    # critical position lands in the low-90s, a wholly-critical book approaches
+    # the high-90s, and a mostly-high-severity book sits above a lone-high book
+    # — instead of every such book tying at the old discrete severity bucket.
+    # Both weights are ~0 for any healthy/mild book, so low scores are untouched.
+    danger = min(1.0, crit_weight + 0.5 * high_weight)
+    floor = base + (99.0 - base) * danger * 0.8
     return min(99.0, floor)
 
 
@@ -354,13 +363,13 @@ def _apply_all_ctas(
             else:
                 # New position — fetch metadata
                 price = 0.0
-                sector = 'Unknown'
+                sector = sector_for(ticker)
                 name = ticker
                 try:
                     refresh = settings.get('refresh_interval', '5 min')
                     snap = store.get_snapshot(ticker, refresh) or {}
                     price = snap.get('price', 0.0)
-                    sector = snap.get('sector', 'Unknown') or 'Unknown'
+                    sector = sector_for(ticker, snap.get('sector'))
                     name = snap.get('name', ticker) or ticker
                 except Exception:
                     pass

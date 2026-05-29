@@ -22,6 +22,12 @@ UI_MIN_POINT_SIZE: int = 7
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
 APP_VERSION = '0.4.6'
+# Chronological version of the Lens engine (vector/lens/*). This is a simple
+# monotonic change counter, NOT app/semver — bump the last number by one on ANY
+# change to Lens logic (analyzers, CTA engine, sentence composers, caution
+# score, risk profiles, sector resolution, templates that alter output). It is
+# not shown in the UI. See CLAUDE.md → "Lens Engine Version".
+LENS_VERSION = '0.1.0'
 FORGOT_PASSWORD_URL = 'https://example.com/forgot-password'
 EULA_URL = 'https://protonyxdata.com/eula'
 TOS_URL = 'https://protonyxdata.com/tos'
@@ -132,7 +138,6 @@ LOW_BETA_BY_SECTOR: dict[str, list[str]] = {
     'Healthcare':             ['JNJ', 'ABT', 'MDT', 'BMY', 'PFE'],
     'Consumer Defensive':     ['KO', 'PEP', 'WMT', 'PG', 'CL'],
     'Financial Services':     ['BRK-B', 'V', 'MA', 'AXP', 'WFC'],
-    'Financials':             ['BRK-B', 'V', 'MA', 'AXP', 'WFC'],
     'Industrials':            ['HON', 'MMM', 'ITW', 'EMR', 'PH'],
     'Energy':                 ['CVX', 'XOM', 'COP', 'PSX', 'VLO'],
     'Consumer Cyclical':      ['MCD', 'HD', 'LOW', 'TGT', 'YUM'],
@@ -175,7 +180,6 @@ SECTOR_SUGGESTIONS: dict[str, list[str]] = {
     'Technology':             ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AVGO'],
     'Healthcare':             ['UNH', 'JNJ', 'LLY', 'PFE', 'ABT'],
     'Financial Services':     ['JPM', 'V', 'MA', 'BAC', 'GS'],
-    'Financials':             ['JPM', 'V', 'MA', 'BAC', 'GS'],
     'Consumer Defensive':     ['PG', 'KO', 'PEP', 'COST', 'WMT'],
     'Consumer Cyclical':      ['AMZN', 'TSLA', 'MCD', 'NKE', 'HD'],
     'Industrials':            ['GE', 'CAT', 'HON', 'UPS', 'BA'],
@@ -185,6 +189,105 @@ SECTOR_SUGGESTIONS: dict[str, list[str]] = {
     'Real Estate':            ['PLD', 'AMT', 'EQIX', 'CCI', 'SPG'],
     'Basic Materials':        ['LIN', 'APD', 'SHW', 'FCX', 'NEM'],
 }
+
+# Canonical sector for well-known tickers — a deterministic fallback used when
+# live metadata (yfinance) does not return a sector (e.g. during rate-limited
+# bulk fetches). Without it, a held name with a missing sector falls into an
+# "Unknown" bucket: the diversification math then reports its real sector as 0%
+# (telling the user to buy a sector they already hold) and can fabricate a
+# single-sector concentration flag. Names whose classification is genuinely
+# ambiguous (some crypto-miners, a few small caps) are intentionally omitted —
+# they fall through to 'Unknown', which the analyzers now treat as "insufficient
+# data" rather than a real sector. Sector strings match the yfinance taxonomy.
+TICKER_SECTOR: dict[str, str] = {
+    # Technology
+    'AAPL': 'Technology', 'MSFT': 'Technology', 'NVDA': 'Technology',
+    'AVGO': 'Technology', 'ORCL': 'Technology', 'AMD': 'Technology',
+    'INTC': 'Technology', 'IBM': 'Technology', 'CSCO': 'Technology',
+    'ACN': 'Technology', 'TXN': 'Technology', 'ADBE': 'Technology',
+    'CRM': 'Technology', 'QCOM': 'Technology', 'PLTR': 'Technology',
+    'UBER': 'Technology', 'MSTR': 'Technology', 'SOUN': 'Technology',
+    'BBAI': 'Technology', 'QUBT': 'Technology', 'RGTI': 'Technology',
+    'IONQ': 'Technology',
+    # Healthcare
+    'JNJ': 'Healthcare', 'UNH': 'Healthcare', 'ABBV': 'Healthcare',
+    'LLY': 'Healthcare', 'PFE': 'Healthcare', 'ABT': 'Healthcare',
+    'MDT': 'Healthcare', 'BMY': 'Healthcare', 'MRK': 'Healthcare',
+    'AMGN': 'Healthcare', 'GILD': 'Healthcare', 'TMO': 'Healthcare',
+    'DHR': 'Healthcare', 'ISRG': 'Healthcare', 'REGN': 'Healthcare',
+    'VRTX': 'Healthcare', 'MRNA': 'Healthcare',
+    # Financial Services
+    'JPM': 'Financial Services', 'V': 'Financial Services', 'MA': 'Financial Services',
+    'BAC': 'Financial Services', 'GS': 'Financial Services', 'MS': 'Financial Services',
+    'C': 'Financial Services', 'BLK': 'Financial Services', 'AXP': 'Financial Services',
+    'BRK-B': 'Financial Services', 'WFC': 'Financial Services', 'PYPL': 'Financial Services',
+    'SOFI': 'Financial Services', 'HOOD': 'Financial Services', 'COIN': 'Financial Services',
+    # Consumer Defensive
+    'PG': 'Consumer Defensive', 'KO': 'Consumer Defensive', 'PEP': 'Consumer Defensive',
+    'COST': 'Consumer Defensive', 'WMT': 'Consumer Defensive', 'CL': 'Consumer Defensive',
+    # Consumer Cyclical
+    'AMZN': 'Consumer Cyclical', 'TSLA': 'Consumer Cyclical', 'MCD': 'Consumer Cyclical',
+    'NKE': 'Consumer Cyclical', 'HD': 'Consumer Cyclical', 'LOW': 'Consumer Cyclical',
+    'TGT': 'Consumer Cyclical', 'YUM': 'Consumer Cyclical', 'SBUX': 'Consumer Cyclical',
+    'RIVN': 'Consumer Cyclical', 'LCID': 'Consumer Cyclical', 'GME': 'Consumer Cyclical',
+    'F': 'Consumer Cyclical',
+    # Energy
+    'XOM': 'Energy', 'CVX': 'Energy', 'COP': 'Energy', 'SLB': 'Energy',
+    'EOG': 'Energy', 'VLO': 'Energy', 'PSX': 'Energy', 'UEC': 'Energy',
+    # Industrials
+    'HON': 'Industrials', 'MMM': 'Industrials', 'ITW': 'Industrials',
+    'EMR': 'Industrials', 'PH': 'Industrials', 'BA': 'Industrials',
+    'CAT': 'Industrials', 'DE': 'Industrials', 'UNP': 'Industrials',
+    'LMT': 'Industrials', 'RTX': 'Industrials', 'FDX': 'Industrials',
+    'UPS': 'Industrials', 'GE': 'Industrials', 'PLUG': 'Industrials',
+    'FCEL': 'Industrials', 'SPCE': 'Industrials',
+    # Communication Services
+    'GOOGL': 'Communication Services', 'META': 'Communication Services',
+    'NFLX': 'Communication Services', 'DIS': 'Communication Services',
+    'T': 'Communication Services', 'VZ': 'Communication Services',
+    'CMCSA': 'Communication Services', 'WBD': 'Communication Services',
+    'FUBO': 'Communication Services', 'DJT': 'Communication Services',
+    # Utilities
+    'NEE': 'Utilities', 'SO': 'Utilities', 'DUK': 'Utilities',
+    'AEP': 'Utilities', 'WEC': 'Utilities', 'SRE': 'Utilities',
+    # Real Estate
+    'O': 'Real Estate', 'PLD': 'Real Estate', 'SPG': 'Real Estate',
+    'PSA': 'Real Estate', 'EQR': 'Real Estate', 'AMT': 'Real Estate',
+    'EQIX': 'Real Estate', 'CCI': 'Real Estate', 'OPEN': 'Real Estate',
+    # Basic Materials
+    'LIN': 'Basic Materials', 'APD': 'Basic Materials', 'SHW': 'Basic Materials',
+    'ECL': 'Basic Materials', 'NEM': 'Basic Materials', 'FCX': 'Basic Materials',
+    'HL': 'Basic Materials', 'CDE': 'Basic Materials',
+}
+
+# yfinance occasionally returns alternate sector spellings; fold them onto the
+# canonical names used as keys in SECTOR_SUGGESTIONS / TICKER_SECTOR.
+_SECTOR_ALIASES: dict[str, str] = {
+    'Financials': 'Financial Services',
+    'Health Care': 'Healthcare',
+}
+
+
+def normalize_sector(sector: str | None) -> str:
+    """Return a cleaned, canonical sector name, or '' for missing/unknown."""
+    if not sector:
+        return ''
+    s = str(sector).strip()
+    if not s or s.lower() == 'unknown':
+        return ''
+    return _SECTOR_ALIASES.get(s, s)
+
+
+def sector_for(ticker: str, live_sector: str | None = None) -> str:
+    """Resolve a position's sector: trust valid live metadata, else fall back to
+    the static ``TICKER_SECTOR`` map, else ``'Unknown'``. This keeps a held name
+    from vanishing out of the diversification math when a live sector lookup
+    fails or returns empty."""
+    s = normalize_sector(live_sector)
+    if s:
+        return s
+    return TICKER_SECTOR.get((ticker or '').upper(), 'Unknown')
+
 
 # ── Lens: Default Risk Profiles ──
 DEFAULT_RISK_PROFILES: dict[str, dict] = {

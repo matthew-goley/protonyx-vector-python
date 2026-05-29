@@ -73,6 +73,26 @@ def compose(pool_results: dict[str, Any]) -> str:
         except (KeyError, ValueError):
             return tmpl
 
+    # 1b. Deep unrealized loss even without elevated volatility. An underwater
+    # book whose names recently bounced reads as a "broad uptrend" by slope, so
+    # without this the brief would lead with momentum/strength on a portfolio
+    # that is actually carrying significant losses. Lead with the deepest loss.
+    deep_losers: list[tuple[str, float]] = []
+    for t in sorted_tickers:
+        loss_pct = _unrealized_pct(t)
+        sev = perf_tickers.get(t, {}).get('severity', 'none')
+        if loss_pct <= -25 or sev == 'critical':
+            deep_losers.append((t, loss_pct))
+    if deep_losers:
+        deep_losers.sort(key=lambda x: x[1])
+        t, loss_pct = deep_losers[0]
+        tmpls = templates.get('combined', {}).get('position_loss_only', [])
+        tmpl = _pick(tmpls, hash_base)
+        try:
+            return tmpl.format(ticker=t, loss_pct=abs(loss_pct))
+        except (KeyError, ValueError):
+            return tmpl
+
     # 2. High-vol + declining slope — prefer tickers also at unrealized loss
     declining_candidates: list[tuple[str, float, float, float]] = []
     for t in sorted_tickers:
@@ -108,6 +128,16 @@ def compose(pool_results: dict[str, Any]) -> str:
     slope_tmpls = templates.get('slope', {})
 
     details = port_slope.get('details', {})
+
+    # Don't frame a concentration-dominated book as "strength across holdings":
+    # when one position is more than half the portfolio and at least one name is
+    # declining, the broad-uptrend praise foregrounds the wrong thing. Fall back
+    # to the neutral mixed framing (the dominant-position risk is surfaced by the
+    # CTA sentence).
+    weights = pool_results.get('_positions_summary', {}).get('ticker_weights', {})
+    max_weight = max(weights.values()) if weights else 0.0
+    if state == 'broad_uptrend' and max_weight > 0.50 and details.get('down_count', 0) >= 1:
+        state = 'mixed'
     ctx = {
         'slope': slope_val,
         'vol': vol_val,

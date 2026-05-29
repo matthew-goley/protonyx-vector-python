@@ -75,8 +75,26 @@ _DIVERSIFICATION_REASONS = frozenset({
     'reduce_concentration', 'sector_underweight',
 })
 
+# Above this caution level a "no action" posture is NOT "all healthy" — the tier
+# has merely suppressed trades on a genuinely risky book, so the brief must say
+# so instead of claiming everything is within normal bounds.
+_ELEVATED_CAUTION = 45
 
-def compose(cta_list: list[dict], pool_results: dict) -> str:
+
+def _healthy_sentence(caution_score: int) -> str:
+    """Pick the closing 'no action' sentence — risk-acknowledging when the
+    caution score is elevated, otherwise the plain healthy line."""
+    templates = _load_templates().get('sentence3', {})
+    if caution_score >= _ELEVATED_CAUTION:
+        tmpls = templates.get('hold', {}).get('portfolio_caution', {}).get('default', [])
+        picked = _pick(tmpls, f'caution|{caution_score}')
+        if picked:
+            return picked
+    tmpls = templates.get('hold', {}).get('portfolio_healthy', {}).get('default', [])
+    return _pick(tmpls, 'empty') or 'No action signals detected.'
+
+
+def compose(cta_list: list[dict], pool_results: dict, caution_score: int = 0) -> str:
     """
     Take the CTA list (already sorted by priority) and return one sentence.
 
@@ -85,9 +103,7 @@ def compose(cta_list: list[dict], pool_results: dict) -> str:
     and approachable recommendation for casual investors.
     """
     if not cta_list:
-        templates = _load_templates().get('sentence3', {})
-        tmpls = templates.get('hold', {}).get('portfolio_healthy', {}).get('default', [])
-        return _pick(tmpls, 'empty') or 'No action signals detected.'
+        return _healthy_sentence(caution_score)
 
     # Prefer diversification CTAs — pick the first (largest dollar amount)
     top = None
@@ -99,6 +115,11 @@ def compose(cta_list: list[dict], pool_results: dict) -> str:
     # Fall back to highest-priority CTA
     if top is None:
         top = cta_list[0]
+
+    # A lone "portfolio_healthy" CTA with elevated caution means the tier
+    # suppressed every trade — acknowledge the risk rather than claim health.
+    if top.get('reason') == 'portfolio_healthy':
+        return _healthy_sentence(caution_score)
 
     sorted_tickers = sorted(
         pool_results.get('_positions_summary', {}).get('ticker_weights', {}).keys()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from vector.constants import INDEX_ETFS
+from vector.constants import INDEX_ETFS, sector_for
 
 _log = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def analyze(
 
         # Sub-signal B: accumulate sector weights (exclude index ETFs)
         if not is_index:
-            sector = pos.get('sector') or 'Unknown'
+            sector = sector_for(t, pos.get('sector'))
             sector_weights[sector] = sector_weights.get(sector, 0.0) + current_value
         else:
             index_current_value += current_value
@@ -102,16 +102,34 @@ def analyze(
     # Sector over-concentration (portfolio level)
     sector_total = sum(sector_weights.values()) or 1.0
     sector_pcts = {s: v / sector_total * 100 for s, v in sector_weights.items()}
-    known_sectors = [s for s in sector_pcts if s != 'Unknown']
-    sector_count = len(known_sectors) or len(sector_pcts)
 
-    heaviest_sector = max(sector_pcts, key=sector_pcts.get) if sector_pcts else 'Unknown'
-    heaviest_pct = sector_pcts.get(heaviest_sector, 0.0)
+    # 'Unknown' is missing sector data, not a real sector. Derive the
+    # diversification picture from KNOWN sectors only, and never report the
+    # Unknown bucket as the over-concentrated sector. When too much of the book
+    # is Unknown the COUNT-based escalation (≤1 sector ⇒ high) is unreliable —
+    # missing metadata would otherwise fabricate a high-severity flag on an
+    # otherwise diversified portfolio — so in that case escalate only on a known
+    # sector's own weight.
+    unknown_pct = sector_pcts.get('Unknown', 0.0)
+    known_pcts = {s: p for s, p in sector_pcts.items() if s != 'Unknown'}
+    sector_count = len(known_pcts)
+
+    if known_pcts:
+        heaviest_sector = max(known_pcts, key=known_pcts.get)
+        heaviest_pct = known_pcts[heaviest_sector]
+    else:
+        heaviest_sector = 'Unknown'
+        heaviest_pct = 0.0
 
     sector_mod = thresholds.get('sector_moderate', 50)
-    if heaviest_pct > 60 or sector_count <= 1:
+    reliable = unknown_pct <= 20.0 and sector_count > 0
+    if heaviest_pct > 60:
         sector_sev = 'high'
-    elif heaviest_pct > sector_mod or sector_count <= 2:
+    elif heaviest_pct > sector_mod:
+        sector_sev = 'moderate'
+    elif reliable and sector_count <= 1:
+        sector_sev = 'high'
+    elif reliable and sector_count <= 2:
         sector_sev = 'moderate'
     elif heaviest_pct > 40:
         sector_sev = 'low'
