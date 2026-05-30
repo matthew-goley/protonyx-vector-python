@@ -3,7 +3,9 @@
     "allow": [
       "Bash(*)",
       "WebSearch",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "PowerShell(git check-ignore *)",
+      "PowerShell($tracked = git ls-files auth/; \"TRACKED:`n$tracked\"; \"---\"; $ig = git check-ignore auth/session.json; \"IGNORED: $ig\")"
     ]
   },
   "dangerouslySkipPermissions": true

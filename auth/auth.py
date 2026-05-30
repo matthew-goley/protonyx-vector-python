@@ -13,7 +13,7 @@ from typing import Optional
 import requests
 
 
-API_URL = 'http://localhost:3000'
+API_URL = 'https://protonyx-monorepo-production.up.railway.app'
 
 _REQUEST_TIMEOUT = 15
 

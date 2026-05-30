@@ -6,3 +6,4 @@ dist/
 build/
 *.spec
 output.md
+session.json
