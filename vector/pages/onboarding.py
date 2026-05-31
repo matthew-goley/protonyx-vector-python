@@ -35,7 +35,7 @@ from ..eula_gate import _AcceptWorker
 from ..paths import resource_path
 from ..scale import sc, scpt
 from ..store import DataStore
-from ..widgets import BlurrableStack, CardFrame, DimOverlay, EmptyState, LoadingButton
+from ..widgets import BlurrableStack, CardFrame, DimOverlay, EmptyState, LoadingButton, OutlineButton
 
 if TYPE_CHECKING:
     from vector.app import VectorMainWindow
@@ -291,8 +291,13 @@ class EditPositionDialog(QDialog):
 # ──────────────────────────────────────────────────────────────────────────────
 
 class PositionCard(CardFrame):
-    def __init__(self, position: dict[str, Any], currency_formatter, parent: QWidget | None = None) -> None:
+    def __init__(self, position: dict[str, Any], currency_formatter,
+                 on_delete=None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._position = position
+        self._on_delete = on_delete   # callable(position) invoked on click in delete mode
+        self._delete_mode = False
+        self._hover = False
         layout = QVBoxLayout(self)
         layout.setContentsMargins(sc(18), sc(18), sc(18), sc(18))
         layout.setSpacing(sc(8))
@@ -314,6 +319,50 @@ class PositionCard(CardFrame):
             layout.addWidget(row)
         layout.addStretch(1)
         self.setFixedWidth(sc(220))
+
+    # ── Delete mode ─────────────────────────────────────────────────────────
+
+    def set_delete_mode(self, enabled: bool) -> None:
+        self._delete_mode = enabled
+        self.setCursor(
+            Qt.CursorShape.PointingHandCursor if enabled else Qt.CursorShape.ArrowCursor
+        )
+        self._apply_delete_style()
+
+    def _apply_delete_style(self) -> None:
+        # Off: clear the local sheet so the global #cardFrame style applies.
+        if not self._delete_mode:
+            self.setStyleSheet('')
+            return
+        app = QApplication.instance()
+        is_dark = app is not None and '#0b1020' in (app.styleSheet() or '')
+        if self._hover:
+            bg = '#2a1a1f' if is_dark else '#fdecec'
+        else:
+            bg = '#161b26' if is_dark else '#ffffff'
+        self.setStyleSheet(
+            f'QFrame#cardFrame {{ background: {bg};'
+            f' border: 2px solid #ff4d4d; border-radius: 16px; }}'
+        )
+
+    def enterEvent(self, event) -> None:  # noqa: N802
+        self._hover = True
+        if self._delete_mode:
+            self._apply_delete_style()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+        self._hover = False
+        if self._delete_mode:
+            self._apply_delete_style()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        if (self._delete_mode and event.button() == Qt.MouseButton.LeftButton
+                and self._on_delete is not None):
+            self._on_delete(self._position)
+            return
+        super().mousePressEvent(event)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -510,6 +559,9 @@ class OnboardingPage(QWidget):
         self._next_btn: LoadingButton | None = None
         self.cards_container: QWidget | None = None
         self._cards_scroll: QScrollArea | None = None
+        # Portfolio-step delete toggle: when ON, clicking a position card removes it.
+        self._remove_toggle_btn: OutlineButton | None = None
+        self._delete_mode_active: bool = False
         # EULA step state. When the EULA is already accepted server-side (or no
         # backend session / a failed network check), the EULA step is left in the
         # stack but is never shown — onboarding starts on the Risk Profile step.
@@ -860,12 +912,40 @@ class OnboardingPage(QWidget):
 
         layout.addSpacing(sc(8))
 
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 0, 0, 0)
+        btn_row.setSpacing(sc(12))
+
+        _btn_h = sc(40)   # shared height so Add and Remove line up
+
         add_btn = QPushButton('Add Position  (a)')
         add_btn.setStyleSheet(_ADD_BTN_QSS)
         add_btn.setFixedWidth(sc(200))
+        add_btn.setFixedHeight(_btn_h)
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.clicked.connect(self.open_add_modal)
-        layout.addWidget(add_btn)
+        btn_row.addWidget(add_btn)
+
+        # Delete toggle: while checked, clicking a position card removes it.
+        # Disabled until there is at least one position to remove.
+        self._remove_toggle_btn = OutlineButton('Remove Position', color='#ff4d4d')
+        self._remove_toggle_btn.setCheckable(True)
+        self._remove_toggle_btn.setFixedWidth(sc(200))
+        self._remove_toggle_btn.setFixedHeight(_btn_h)
+        # Red text at the same 12px size as the Add button (which keeps transparent
+        # fills so OutlineButton's painted border still shows).
+        self._remove_toggle_btn.setStyleSheet(
+            'QPushButton { background: transparent; border: none; border-radius: 12px;'
+            ' padding: 10px 16px; font-weight: 600; color: #ff4d4d; font-size: 12px; }'
+            'QPushButton:hover { background: transparent; }'
+            'QPushButton:pressed { background: transparent; }'
+        )
+        self._remove_toggle_btn.setEnabled(False)
+        self._remove_toggle_btn.toggled.connect(self._on_delete_toggle)
+        btn_row.addWidget(self._remove_toggle_btn)
+
+        btn_row.addStretch(1)
+        layout.addLayout(btn_row)
 
         layout.addSpacing(sc(6))
 
@@ -1088,8 +1168,15 @@ class OnboardingPage(QWidget):
                 )
             )
         for position in self.pending_positions:
-            self.cards_layout.addWidget(PositionCard(position, self.window.format_currency))
+            card = PositionCard(position, self.window.format_currency,
+                                on_delete=self._delete_position)
+            if self._delete_mode_active:
+                card.set_delete_mode(True)
+            self.cards_layout.addWidget(card)
         self.cards_layout.addStretch(1)
+        # The toggle is only usable while at least one position exists.
+        if self._remove_toggle_btn is not None:
+            self._remove_toggle_btn.setEnabled(bool(self.pending_positions))
         # Drive horizontal scrolling: set the container's minimum width to the
         # real (scaled) content width so the scroll area exposes a scrollbar and
         # the cards keep their gaps. Must use sc() — the cards are sc(220) wide
@@ -1112,6 +1199,34 @@ class OnboardingPage(QWidget):
         if self._cards_scroll is not None:
             self._cards_scroll.updateGeometry()
         self.cards_container.update()
+
+    # ── Delete-position toggle ─────────────────────────────────────────────
+
+    def _on_delete_toggle(self, checked: bool) -> None:
+        self._delete_mode_active = checked
+        self._set_cards_delete_mode(checked)
+
+    def _set_cards_delete_mode(self, enabled: bool) -> None:
+        if not self.cards_layout:
+            return
+        for i in range(self.cards_layout.count()):
+            widget = self.cards_layout.itemAt(i).widget()
+            if isinstance(widget, PositionCard):
+                widget.set_delete_mode(enabled)
+
+    def _delete_position(self, position: dict[str, Any]) -> None:
+        # No confirmation by design: onboarding is fast, throwaway data.
+        try:
+            self.pending_positions.remove(position)
+        except ValueError:
+            ticker = position.get('ticker')
+            self.pending_positions = [
+                p for p in self.pending_positions if p.get('ticker') != ticker
+            ]
+        self.refresh_cards()
+        # Nothing left to delete: drop out of delete mode automatically.
+        if not self.pending_positions and self._remove_toggle_btn is not None:
+            self._remove_toggle_btn.setChecked(False)
 
     def _select_risk_tier(self, tier_key: str) -> None:
         self._selected_risk_tier = tier_key

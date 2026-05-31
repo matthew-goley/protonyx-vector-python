@@ -406,6 +406,13 @@ class OutlineButton(QPushButton):
         path.addRoundedRect(border_rect, r, r)
         if self._hover:
             painter.fillPath(path, QColor(255, 255, 255, 14))
+        # Checkable buttons show a translucent fill in their own outline colour
+        # while toggled on, so an active (pressed-in) state is clearly visible.
+        # Non-checkable buttons (the default) are unaffected.
+        if self.isCheckable() and self.isChecked():
+            tint = QColor('#38bdf8') if self._gradient else QColor(self._color)
+            tint.setAlpha(48)
+            painter.fillPath(path, tint)
         pen = QPen(self._border_brush(), bw)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
