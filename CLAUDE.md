@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Vector** is a PyQt6 desktop portfolio analytics app for stock investors. It tracks positions, fetches market data via Yahoo Finance (yfinance), and displays analytics (trend direction, volatility, sector allocation, Sharpe ratio, beta, dividends) in a customisable dark/light themed dashboard. Data is persisted locally in `%LOCALAPPDATA%/Protonyx/Vector/` (falls back to `~/Vector/data/`) as JSON files.
 
-Current version: **0.4.7**
+Current version: **0.4.8**
 
 ## Debug / Development Helpers
 
@@ -41,7 +41,7 @@ Use `build.bat` (release) or `build-debug.bat` (console-enabled for tracebacks).
 
 ```bash
 python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 ^
-  --output-filename="Vector-v0.4.7.exe" ^
+  --output-filename="Vector-v0.4.8.exe" ^
   --include-data-dir=assets=assets ^
   --include-data-dir=vector/lens/templates=vector/lens/templates ^
   --include-package=vector.lens --include-package=vector.lens.analyzers ^
@@ -205,7 +205,7 @@ Terms of Service and EULA acceptance are tracked **server side only** (no local 
 3. `MainShell` hosts an `sc(220)` px sidebar + `QStackedWidget` with `DashboardPage`, `VectorLensPage`, `ProfilePage`, `SettingsPage` (all base sizes scaled — see **UI Scaling**). Header contains a "?" icon button (`sc(48)`², rounded) that opens the keyboard-shortcuts modal. On window resize, `self.notifications.reposition_all()` keeps the toast stack pinned to the top-right.
 4. `DashboardPage` has a permanent `LensDisplay` at the top, followed by a free-form grid of `VectorWidget` instances; grid layout is loaded from / saved to `dashboard_layout.json`. Beneath the grid, a muted "Last updated N minutes ago" label updates every 30 s from a second `QTimer`.
 5. `DashboardPage.update_dashboard()` calls `compute_portfolio_analytics()` → refreshes the lens, calls `widget.refresh()` on each placed widget, and stamps `_last_refresh` (used by `_update_refresh_label()`).
-6. Edit mode (toolbar button) enables drag-to-reposition and right-click delete on grid widgets (the lens is not affected).
+6. Edit mode (Edit button) enables drag-to-reposition and right-click delete on grid widgets (the lens is not affected). A separate **Delete button** (trash icon, third in the col-0 button stack below Add/Edit) toggles **delete mode**: every grid widget gets a red outline (mirroring edit mode's teal outline via `QFrame#vectorWidget[deleting="true"]`) and a single left-click on a widget pops the "Delete Widget" confirm menu. Edit and delete modes are **mutually exclusive** — entering one leaves the other. Both modes are driven by `VectorWidget.set_edit_mode`/`set_delete_mode` (and `DashboardGrid`'s same-named fan-out methods); the shared `_show_delete_menu()` backs both the delete-mode click and the edit-mode right-click.
 7. A `QTimer` drives auto-refresh at the interval set in `SettingsPage` (1 min / 5 min / 15 min / manual).
 
 ### Keyboard Shortcuts

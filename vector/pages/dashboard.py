@@ -74,6 +74,7 @@ class DashboardGrid(QWidget):
         self._items: list[dict] = []
         self._snap = _SnapIndicator(self)
         self._edit_mode = False
+        self._delete_mode = False
         self.resize(_CONTENT_W(), _CELL())
 
     @staticmethod
@@ -171,6 +172,8 @@ class DashboardGrid(QWidget):
             widget.refresh()
             if self._edit_mode:
                 widget.set_edit_mode(True)
+            if self._delete_mode:
+                widget.set_delete_mode(True)
             row = entry['row']
             col = entry['col']
             # Migrate layouts saved before the lens was expanded to _LENS_ROWSPAN rows:
@@ -213,6 +216,15 @@ class DashboardGrid(QWidget):
                 w.set_edit_mode(enabled)
         if not enabled:
             self._snap.hide()
+
+    def set_delete_mode(self, enabled: bool) -> None:
+        self._delete_mode = enabled
+        for item in self._items:
+            if item.get('fixed'):
+                continue
+            w = item['widget']
+            if hasattr(w, 'set_delete_mode'):
+                w.set_delete_mode(enabled)
 
     def _on_drag_move(self, widget: QWidget) -> None:
         item = next((i for i in self._items if i['widget'] is widget), None)
@@ -403,6 +415,7 @@ class DashboardPage(QWidget):
         super().__init__()
         self.window = window
         self._edit_mode = False
+        self._delete_mode = False
         self._last_refresh: datetime | None = None
         self._build_ui()
         self._refresh_timer = QTimer(self)
@@ -431,8 +444,16 @@ class DashboardPage(QWidget):
         self._edit_btn.setStyleSheet(_circle_btn_style(scpt(13)))
         self._edit_btn.clicked.connect(self._toggle_edit_mode)
 
+        self._delete_btn = QPushButton('Del')
+        self._delete_btn.setFixedSize(sc(64), sc(64))
+        self._delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._delete_btn.setStyleSheet(_circle_btn_style(scpt(13)))
+        self._delete_btn.setToolTip('Delete widgets')
+        self._delete_btn.clicked.connect(self._toggle_delete_mode)
+
         self._dash_grid.add_widget(self._add_btn, row=0, col=0, fixed=True)
         self._dash_grid.add_widget(self._edit_btn, row=1, col=0, fixed=True)
+        self._dash_grid.add_widget(self._delete_btn, row=2, col=0, fixed=True)
 
         self._lens = LensDisplay(window=self.window, show_button=True)
         self._lens.open_lens_clicked.connect(self._navigate_to_lens)
@@ -523,8 +544,23 @@ class DashboardPage(QWidget):
 
     def _toggle_edit_mode(self) -> None:
         self._edit_mode = not self._edit_mode
+        # Edit and delete modes are mutually exclusive — both restyle widgets
+        # and intercept clicks, so entering one leaves the other.
+        if self._edit_mode and self._delete_mode:
+            self._delete_mode = False
+            self._dash_grid.set_delete_mode(False)
+            self._delete_btn.setStyleSheet(_circle_btn_style(scpt(13)))
         self._dash_grid.set_edit_mode(self._edit_mode)
         self._edit_btn.setStyleSheet(_circle_btn_style(scpt(13), active=self._edit_mode))
+
+    def _toggle_delete_mode(self) -> None:
+        self._delete_mode = not self._delete_mode
+        if self._delete_mode and self._edit_mode:
+            self._edit_mode = False
+            self._dash_grid.set_edit_mode(False)
+            self._edit_btn.setStyleSheet(_circle_btn_style(scpt(13)))
+        self._dash_grid.set_delete_mode(self._delete_mode)
+        self._delete_btn.setStyleSheet(_circle_btn_style(scpt(13), active=self._delete_mode))
 
     def update_dashboard(self, positions: list[dict[str, Any]], analytics: dict[str, Any]) -> None:
         self._lens.refresh()

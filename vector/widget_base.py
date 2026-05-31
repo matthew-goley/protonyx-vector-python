@@ -27,16 +27,18 @@ class VectorWidget(QFrame):
         self.setObjectName('vectorWidget')
         self._window = window   # VectorMainWindow reference — access store, positions, settings
         self._edit_mode = False
+        self._delete_mode = False
         self._drag_offset = QPoint()
-        self._apply_style(False)
+        self._apply_style()
 
     def refresh(self) -> None:
         """Called by DashboardPage whenever data is refreshed. Override to update display."""
 
     # -- styling (subclasses may override) ------------------------------------
 
-    def _apply_style(self, edit: bool) -> None:
-        self.setProperty('editing', 'true' if edit else 'false')
+    def _apply_style(self) -> None:
+        self.setProperty('editing', 'true' if self._edit_mode else 'false')
+        self.setProperty('deleting', 'true' if self._delete_mode else 'false')
         self.style().unpolish(self)
         self.style().polish(self)
         self.update()
@@ -45,15 +47,35 @@ class VectorWidget(QFrame):
 
     def set_edit_mode(self, enabled: bool) -> None:
         self._edit_mode = enabled
-        self._apply_style(enabled)
+        self._apply_style()
         self.setCursor(
             Qt.CursorShape.SizeAllCursor if enabled else Qt.CursorShape.ArrowCursor
         )
 
+    # -- delete mode ----------------------------------------------------------
+
+    def set_delete_mode(self, enabled: bool) -> None:
+        self._delete_mode = enabled
+        self._apply_style()
+        self.setCursor(
+            Qt.CursorShape.PointingHandCursor if enabled else Qt.CursorShape.ArrowCursor
+        )
+
+    def _show_delete_menu(self, global_pos: QPoint) -> None:
+        menu = QMenu(self)
+        delete_action = menu.addAction('Delete Widget')
+        if menu.exec(global_pos) == delete_action:
+            parent = self.parent()
+            if hasattr(parent, 'remove_widget'):
+                parent.remove_widget(self)
+
     # -- drag (works automatically when edit mode is on) ----------------------
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
-        if self._edit_mode and event.button() == Qt.MouseButton.LeftButton:
+        if self._delete_mode and event.button() == Qt.MouseButton.LeftButton:
+            self._show_delete_menu(event.globalPosition().toPoint())
+            event.accept()
+        elif self._edit_mode and event.button() == Qt.MouseButton.LeftButton:
             self._drag_offset = event.pos()
             self.raise_()
             event.accept()
@@ -80,12 +102,7 @@ class VectorWidget(QFrame):
             super().mouseReleaseEvent(event)
 
     def contextMenuEvent(self, event) -> None:  # noqa: N802
-        if not self._edit_mode:
+        if not (self._edit_mode or self._delete_mode):
             super().contextMenuEvent(event)
             return
-        menu = QMenu(self)
-        delete_action = menu.addAction('Delete Widget')
-        if menu.exec(event.globalPos()) == delete_action:
-            parent = self.parent()
-            if hasattr(parent, 'remove_widget'):
-                parent.remove_widget(self)
+        self._show_delete_menu(event.globalPos())

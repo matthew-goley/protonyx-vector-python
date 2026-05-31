@@ -155,6 +155,7 @@ QFrame#vectorWidget {
     border-radius: 12px;
 }
 QFrame#vectorWidget[editing="true"] { border-color: #2dd4bf; }
+QFrame#vectorWidget[deleting="true"] { border-color: #ff4d4d; }
 QPushButton#navButton {
     background: transparent;
     border: 1px solid transparent;
@@ -285,6 +286,7 @@ QFrame#vectorWidget {
     border-radius: 12px;
 }
 QFrame#vectorWidget[editing="true"] { border-color: #2dd4bf; }
+QFrame#vectorWidget[deleting="true"] { border-color: #ff4d4d; }
 QPushButton#navButton {
     background: transparent;
     border: 1px solid transparent;
