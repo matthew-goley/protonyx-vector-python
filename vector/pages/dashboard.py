@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from datetime import datetime
@@ -25,6 +26,8 @@ from ..widget_registry import discover_widgets, get_widget_class
 
 if TYPE_CHECKING:
     from vector.app import VectorMainWindow
+
+_log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Grid constants
@@ -563,7 +566,15 @@ class DashboardPage(QWidget):
         self._delete_btn.setStyleSheet(_circle_btn_style(scpt(13), active=self._delete_mode))
 
     def update_dashboard(self, positions: list[dict[str, Any]], analytics: dict[str, Any]) -> None:
-        self._lens.refresh()
+        # Each refresh is isolated: a RuntimeError means the widget's C++ wrapper
+        # was deleted (skip it); any other exception is a bug in that one widget
+        # and must not take down the whole dashboard refresh.
+        try:
+            self._lens.refresh()
+        except RuntimeError:
+            pass
+        except Exception:  # noqa: BLE001
+            _log.exception('Lens widget failed to refresh')
         self._dash_grid.prune_dead()
         for item in self._dash_grid._items:
             w = item['widget']
@@ -571,6 +582,9 @@ class DashboardPage(QWidget):
                 if hasattr(w, 'refresh'):
                     w.refresh()
             except RuntimeError:
+                continue
+            except Exception:  # noqa: BLE001
+                _log.exception('Widget failed to refresh: %s', type(w).__name__)
                 continue
         self._last_refresh = datetime.now()
         self._update_refresh_label()

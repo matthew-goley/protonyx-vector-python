@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import Qt, QRect, QRectF, QTimer
@@ -22,6 +23,9 @@ from ..scale import sc, scpt
 
 if TYPE_CHECKING:
     from vector.app import VectorMainWindow
+
+
+_log = logging.getLogger(__name__)
 
 
 _CAUTION_TIERS = [
@@ -1137,16 +1141,31 @@ class VectorLensPage(QWidget):
         store = self.window.store
         settings = self.window.settings
 
-        self._lens_result = generate_lens_full(positions, store, settings)
+        # A lens-engine failure must not crash the app-wide refresh. On error,
+        # fall back to an empty result — every _update_* below reads via .get()
+        # with defaults, so the page degrades to its no-data state.
+        try:
+            self._lens_result = generate_lens_full(positions, store, settings)
+        except Exception:  # noqa: BLE001
+            _log.exception('Lens engine failed; rendering Lens page empty')
+            self._lens_result = {}
 
-        # Refresh the brief display (still uses the 7-tuple path internally)
+        # Refresh the brief display (still uses the 7-tuple path internally;
+        # LensDisplay.refresh guards its own generate_lens call).
         self._lens.refresh()
 
-        # Update all sections from the full result
-        self._update_cta_report()
-        self._update_graphs()
-        self._update_insights()
-        self._update_pies()
+        # Update all sections from the full result. Each is wrapped so a
+        # rendering failure in one section can't take down the whole refresh.
+        for _update in (
+            self._update_cta_report,
+            self._update_graphs,
+            self._update_insights,
+            self._update_pies,
+        ):
+            try:
+                _update()
+            except Exception:  # noqa: BLE001
+                _log.exception('Lens page section failed to render: %s', _update.__name__)
 
     def _update_cta_report(self) -> None:
         full_report = self._lens_result.get('full_report', [])

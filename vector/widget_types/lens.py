@@ -251,6 +251,11 @@ class LensDisplay(QFrame):
             return
         pt = self._fit_pt(self._tw_plain)
         self._apply_font(pt)
+        # _refit runs from resize/show events; the timer's C++ wrapper can be
+        # torn down during reparenting, so route through the defensive guard
+        # before touching it (matches _tw_step / _start_typewrite).
+        if not self._ensure_tw_timer():
+            return
         if not self._tw_timer.isActive():
             self._text_lbl.setTextFormat(Qt.TextFormat.RichText)
             self._text_lbl.setText(self._tw_html)

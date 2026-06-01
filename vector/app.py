@@ -8,7 +8,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QThread, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QKeySequence, QPainter, QPainterPath, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -517,6 +517,56 @@ class _ShortcutsDialog(QDialog):
         layout.addWidget(got_it, alignment=Qt.AlignmentFlag.AlignRight)
 
 
+class _RefreshWorker(QThread):
+    """Fetches quotes + price history off the UI thread so the window never
+    freezes during a refresh (network can be slow / rate-limited).
+
+    Reads only a snapshot of (ticker, ) taken at construction time and returns
+    plain data via ``done``; the main thread applies it to ``self.positions``.
+    Never raises — per-ticker failures are collected into ``failed``.
+    """
+
+    done = pyqtSignal(dict)
+
+    def __init__(self, store, positions, refresh_interval, lookback,
+                 lookback_period, parent=None) -> None:
+        super().__init__(parent)
+        self._store = store
+        self._tickers = [p.get('ticker') for p in positions if p.get('ticker')]
+        self._refresh_interval = refresh_interval
+        self._lookback = lookback
+        self._lookback_period = lookback_period
+
+    def run(self) -> None:  # noqa: D401 — QThread API
+        snapshots: dict[str, dict] = {}
+        failed: list[str] = []
+        for ticker in self._tickers:
+            try:
+                snap = self._store.get_snapshot(ticker, self._refresh_interval)
+                snapshots[ticker] = {'price': snap['price'], 'sector': snap['sector']}
+            except Exception:  # noqa: BLE001 — collect, never crash the thread
+                failed.append(ticker)
+
+        history_failed = False
+        try:
+            histories = self._store.build_histories(
+                self._tickers, self._refresh_interval, self._lookback,
+            )
+        except Exception:  # noqa: BLE001
+            history_failed = True
+            histories = {
+                t: {'6mo': [], '1mo': [], self._lookback_period: []}
+                for t in self._tickers
+            }
+
+        self.done.emit({
+            'snapshots': snapshots,
+            'histories': histories,
+            'failed': failed,
+            'history_failed': history_failed,
+        })
+
+
 class VectorMainWindow(QMainWindow):
     def __init__(
         self,
@@ -554,6 +604,11 @@ class VectorMainWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # noqa: N802
         if self.shell:
             self.shell.dashboard_page.save_layout()
+        # Let an in-flight refresh finish (briefly) so its QThread isn't
+        # destroyed mid-run on shutdown.
+        worker = getattr(self, '_refresh_worker', None)
+        if worker is not None and worker.isRunning():
+            worker.wait(3000)
         super().closeEvent(event)
 
     def resizeEvent(self, event) -> None:  # noqa: N802
@@ -680,25 +735,65 @@ class VectorMainWindow(QMainWindow):
     def refresh_data(self) -> None:
         if not self.positions or not self.shell:
             return
+        # Guard against overlapping refreshes — the auto-refresh timer, the 'R'
+        # shortcut, and add/remove flows can all fire while a fetch is in flight.
+        worker = getattr(self, '_refresh_worker', None)
+        if worker is not None and worker.isRunning():
+            return
         refresh_interval = self.settings.get('refresh_interval', '5 min')
+        worker = _RefreshWorker(
+            self.store,
+            self.positions,
+            refresh_interval,
+            self.settings['volatility']['lookback'],
+            self.settings['volatility']['lookback_period'],
+            self,
+        )
+        worker.done.connect(self._on_refresh_complete)
+        worker.finished.connect(worker.deleteLater)
+        self._refresh_worker = worker
+        worker.start()
+
+    def _on_refresh_complete(self, payload: dict) -> None:
+        """Apply fetched data on the UI thread and update every page.
+
+        Runs in the main thread (Qt delivers the worker's signal here), so all
+        Qt widget access below is safe.
+        """
+        self._refresh_worker = None
+        if not self.shell:
+            return
+
+        snapshots = payload.get('snapshots', {})
+        histories = payload.get('histories', {})
+        failed = payload.get('failed', [])
+        history_failed = payload.get('history_failed', False)
+
         for position in self.positions:
-            try:
-                snapshot = self.store.get_snapshot(position['ticker'], refresh_interval)
-                position['current_price'] = snapshot['price']
-                position['sector'] = snapshot['sector']
-                position['equity'] = position['shares'] * position['current_price']
-            except Exception as exc:  # noqa: BLE001
-                QMessageBox.warning(self, 'Refresh Warning', f"Could not refresh {position['ticker']}: {exc}")
+            snap = snapshots.get(position.get('ticker'))
+            if snap is not None:
+                position['current_price'] = snap['price']
+                position['sector'] = snap['sector']
+                position['equity'] = position.get('shares', 0.0) * position['current_price']
         self.store.save_positions(self.positions)
-        try:
-            histories = self.store.build_histories(
-                [position['ticker'] for position in self.positions],
-                refresh_interval,
-                self.settings['volatility']['lookback'],
-            )
-        except Exception as exc:  # noqa: BLE001
-            QMessageBox.warning(self, 'Refresh Warning', f'Could not refresh price history: {exc}')
-            histories = {position['ticker']: {'6mo': [], '1mo': [], self.settings['volatility']['lookback_period']: []} for position in self.positions}
+
+        # One aggregated, non-blocking toast instead of a modal per failed ticker.
+        if (failed or history_failed) and getattr(self, 'notifications', None) is not None:
+            if failed:
+                shown = ', '.join(failed[:5])
+                if len(failed) > 5:
+                    shown += f' +{len(failed) - 5} more'
+                count = len(failed)
+                self.notifications.show(
+                    f"Couldn't refresh {count} position{'s' if count != 1 else ''}",
+                    f'{shown} — check your connection and try again.',
+                )
+            elif history_failed:
+                self.notifications.show(
+                    'Price history unavailable',
+                    'Could not refresh price history — check your connection and try again.',
+                )
+
         analytics = compute_portfolio_analytics(
             self.positions,
             histories,
@@ -767,6 +862,11 @@ class VectorMainWindow(QMainWindow):
                 self.shell.dashboard_page.save_layout()
             except Exception:  # noqa: BLE001 — restart should not be blocked by save errors
                 pass
+        # Let an in-flight refresh finish (briefly) so its QThread isn't
+        # destroyed mid-run when we quit (logout bypasses closeEvent).
+        worker = getattr(self, '_refresh_worker', None)
+        if worker is not None and worker.isRunning():
+            worker.wait(3000)
         try:
             from auth.auth import clear_token
             clear_token()
