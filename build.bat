@@ -1,17 +1,17 @@
 @echo off
-REM Vector v0.4.8 Nuitka build
+REM Vector v0.4.9 Nuitka build
 REM Run from project root with .venv activated.
 
-if exist "Vector-v0.4.8.dist" (
-    echo Removing stale Vector-v0.4.8.dist...
-    rmdir /s /q "Vector-v0.4.8.dist"
+if exist "Vector-v0.4.9.dist" (
+    echo Removing stale Vector-v0.4.9.dist...
+    rmdir /s /q "Vector-v0.4.9.dist"
 )
 
 python -m nuitka ^
   --standalone ^
   --windows-console-mode=disable ^
   --enable-plugin=pyqt6 ^
-  --output-filename="Vector-v0.4.8.exe" ^
+  --output-filename="Vector-v0.4.9.exe" ^
   --include-data-dir=assets=assets ^
   --include-data-dir=vector/lens/templates=vector/lens/templates ^
   --include-data-files=debug_test.json=debug_test.json ^

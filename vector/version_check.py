@@ -3,10 +3,14 @@ from __future__ import annotations
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QWidget
 
+from auth.auth import API_URL
+
 from .constants import APP_VERSION
 
 
-_VERSION_URL = 'http://localhost:3000/version'
+# Reuse the single backend host defined in auth.auth so the update check can
+# never drift away from the production API URL.
+_VERSION_URL = f'{API_URL}/version'
 _REQUEST_TIMEOUT_S = 4
 
 

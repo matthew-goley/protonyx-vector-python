@@ -7,3 +7,10 @@ build/
 *.spec
 output.md
 session.json
+
+# Dev scratch notes / scratch artifacts (not part of the product)
+diagnosis.md
+lens.md
+
+# Claude Code session transcripts (dated YYYY-MM-DD-HHMMSS-*.txt)
+20??-??-??-*.txt

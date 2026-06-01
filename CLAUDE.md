@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Vector** is a PyQt6 desktop portfolio analytics app for stock investors. It tracks positions, fetches market data via Yahoo Finance (yfinance), and displays analytics (trend direction, volatility, sector allocation, Sharpe ratio, beta, dividends) in a customisable dark/light themed dashboard. Data is persisted locally in `%LOCALAPPDATA%/Protonyx/Vector/` (falls back to `~/Vector/data/`) as JSON files.
 
-Current version: **0.4.8**
+Current version: **0.4.9**
 
 ## Debug / Development Helpers
 
@@ -41,7 +41,7 @@ Use `build.bat` (release) or `build-debug.bat` (console-enabled for tracebacks).
 
 ```bash
 python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyqt6 ^
-  --output-filename="Vector-v0.4.8.exe" ^
+  --output-filename="Vector-v0.4.9.exe" ^
   --include-data-dir=assets=assets ^
   --include-data-dir=vector/lens/templates=vector/lens/templates ^
   --include-package=vector.lens --include-package=vector.lens.analyzers ^
@@ -64,13 +64,13 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | Module | Role |
 |---|---|
 | `main.py` | Bootstrapper — creates `QApplication`, runs the auth gate, paints the splash, then imports `vector.app` and calls `main(app, splash, t_start, token, user_data)`. See **Startup & Splash Screen**. |
-| `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = http://localhost:3000`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`, plus the legal-gate calls `check_eula_status` (GET `/legal/status`, returns both `tos_accepted`/`eula_accepted`) and `accept_legal_document(token, document)` (POST `/legal/accept`) with thin `accept_eula`/`accept_tos` wrappers - all return `dict` or `None` on any failure, never raise - and the private `_legal_status_code` helper (GET `/legal/status`, returns the HTTP status code, used to classify a 401 vs a transient failure). Token persisted to `auth/session.json`. |
+| `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = https://protonyx-monorepo-production.up.railway.app`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`, plus the legal-gate calls `check_eula_status` (GET `/legal/status`, returns both `tos_accepted`/`eula_accepted`) and `accept_legal_document(token, document)` (POST `/legal/accept`) with thin `accept_eula`/`accept_tos` wrappers - all return `dict` or `None` on any failure, never raise - and the private `_legal_status_code` helper (GET `/legal/status`, returns the HTTP status code, used to classify a 401 vs a transient failure). Token persisted to `auth/session.json`. |
 | `auth/login_window.py` | `LoginWindow` `QDialog` (Login / Sign Up tabs) shown when no valid saved token exists. Background `QThread` workers call the auth functions; emits `login_successful(token, user_data)`. |
 | `vector/eula_gate.py` | `LegalGateOverlay` `QWidget` (+ `_AcceptWorker`) - parameterized full-window legal acceptance gate for TOS and EULA (`EulaGateOverlay` is a back-compat alias). See **Legal Acceptance Gate (TOS + EULA)**. |
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `_ShortcutsDialog`, `main()` — all page classes live in `vector/pages/` |
 | `vector/scale.py` | **Width-driven UI scaling** (see **UI Scaling** below). `init_scale(app)` sets a single global factor = `available_screen_width / UI_BASE_WIDTH` (clamped to `[UI_SCALE_MIN, UI_SCALE_MAX]`), or a fixed `DEBUG_SCREEN_SCALE` override. Helpers: `sc(px)` scales a pixel dimension (int), `scf(px)` returns a float, `scpt(pt)` scales a font point size (floored at `UI_MIN_POINT_SIZE`), `scale_factor()` returns the raw factor. Used **app-wide** — every page, widget, dialog, and the shell chrome routes its sizes/fonts through these. |
 | `vector/notifications.py` | `NotificationManager` + `NotificationToast` — top-right slide-in toast stack. `window.notifications` is the live instance; repositioned on window resize. |
-| `vector/version_check.py` | `check_version(parent, token)` — background `QThread` that GETs `http://localhost:3000/version`; if the latest differs from `APP_VERSION`, shows an "out of date" toast. Never crashes the app on failure. |
+| `vector/version_check.py` | `check_version(parent, token)` — background `QThread` that GETs `{API_URL}/version` (imports `API_URL` from `auth.auth` so it can never drift from the production backend host); if the latest differs from `APP_VERSION`, shows an "out of date" toast. Never crashes the app on failure. |
 | `vector/yfinance_counter.py` | `yf_count()` / `get_count()` — running tally of yfinance API calls, rendered in-place to stderr only when it's a TTY (silent in release builds). |
 | `vector/pages/dashboard.py` | `DashboardPage`, `DashboardGrid`, `WidgetPickerDialog`, grid constants (`_UNIT`, `_GAP`, `_CELL`, `_CONTENT_W`) |
 | `vector/pages/lens_page.py` | `VectorLensPage`, `_GraphCard`, `_PieCard`, `_CTAReportCard`, `_CautionCard`, `_MCContextCard`, `_LensHistoryDialog`, `_LensHistoryCard`, `_CautionBadge` |
@@ -160,7 +160,7 @@ Rules when adding/editing GUI:
 
 ### Authentication
 
-Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fastify) at `API_URL = http://localhost:3000` — swapping deployments only requires changing that constant. The token is saved to `auth/session.json` next to the module.
+Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fastify) at `API_URL = https://protonyx-monorepo-production.up.railway.app` — swapping deployments only requires changing that constant (`version_check.py` imports it, so the update check follows automatically). The token is saved to `auth/session.json` next to the module.
 
 - On launch `main.py` calls `_run_auth_gate()`: tries `load_token()` → `get_me(token)`; on success it proceeds, otherwise it shows `LoginWindow` (Login / Sign Up tabs). If the user closes the dialog without authenticating, the process exits cleanly (status 0).
 - The resolved `(token, user_data)` is threaded into `VectorMainWindow`; `ProfilePage` displays it (username, email, plan, member-since, beta flag, downloads) and offers **Logout** (clears the session and returns to login).
@@ -337,20 +337,6 @@ Returns `projected_positions` (list) and `net_cta_delta` (net cash flow: buys mi
 
 `LensDisplay.refresh()` in `widget_types/lens.py` handles all tuple lengths (7, 6, 5, 4, 3, 2) for backwards compatibility.
 
-### Swapping in an updated Lens engine from `lens_standalone/`
-
-`lens_standalone/lens/` is a self-contained copy of the engine used for offline testing (`python -m lens_standalone`). When you've iterated on it and want to promote those changes back into the app, the process is:
-
-1. **Copy `vector/lens/debug_runner.py` into `lens_standalone/lens/`** — it's the only file the standalone tree is missing. The app's Settings page imports it via `from vector.lens.debug_runner import run_debug_tests` (see `vector/pages/settings.py`), so without it the debug-tests button breaks. You can either:
-   - Rewire its imports (`from vector.lens.lens_output` → `from .lens_output`, `from vector.paths` → `..paths`), or
-   - Leave it untouched — after the move, `vector.lens.lens_output` resolves to the new code anyway.
-2. **Replace `vector/lens/` with the contents of `lens_standalone/lens/`** (the `lens/` subfolder only — not `runner.py`, `data_shim.py`, `__main__.py`, `debug_test.json`, `constants.py`, `analytics.py`, or `paths.py` — those are standalone-only shims).
-3. **No app code changes needed.** The standalone files use relative imports (`..constants`, `..analytics`, `..paths`) which resolve to `vector.constants` / `vector.analytics` / `vector.paths` once moved. All symbols Lens reads from those modules (`INDEX_ETFS`, `LOW_BETA_BY_SECTOR`, `SECTOR_SUGGESTIONS`, `DEFAULT_RISK_PROFILES`, `INDEX_FUND_TYPES`, `linear_regression_slope_percent`, `portfolio_daily_returns`, `portfolio_beta`, `resource_path`) already exist in the app.
-
-Signature compatibility: `build_lens_output()` and `run_analysis()` in the standalone copy add an optional `progress_cb` kwarg (default `None`) used by the CLI runner — the app's existing call sites pass nothing and behave identically. The lazy `from vector.paths import user_file` inside `_save_snapshot()` is the intentional hook: it stays inert in standalone mode (which passes `save_history=False`) and works normally inside the app.
-
-Behavioral diff to be aware of: two `print('[lens DEBUG] ...')` calls (winner-drift in `cta_engine.py`, weight-sum warning in `analysis_pool.py`) were converted to `_log.debug(...)` in the standalone copy, so stdout is quieter unless DEBUG logging is enabled. Engine output is unchanged.
-
 ### Vector Lens Page Layout (`pages/lens_page.py`)
 
 Top-to-bottom order inside the scroll container:
@@ -437,7 +423,7 @@ Opened from the History button on the Lens page. Shows `lens_history.json` snaps
 
 ### Settings Page (`pages/settings.py`)
 
-Seven accordion sections plus static sections:
+Six accordion sections plus static sections:
 
 | Section | Type | Contents |
 |---|---|---|
@@ -448,12 +434,15 @@ Seven accordion sections plus static sections:
 | Volatility | Accordion | Lookback period, low/high vol cutoffs |
 | Lens Signal Thresholds | Accordion | Stock/sector concentration %, steep downtrend %, high beta, vol %, dead weight %, loss alert %, winner drift multiple. Shows active risk tier note. |
 | Monte Carlo | Accordion | Projection period combo, simulation count combo |
+| Developer | Accordion | **Run Lens Test** button — runs the Lens engine across the mock portfolios in `debug_test.json` and writes `output.md` (via `_DebugTestWorker` → `vector.lens.debug_runner.run_debug_tests`), opening the result. **Pro-gated:** blurred + "Get Vector Professional" lock overlay on free accounts (see below). |
 | Positions | Static card | Holdings list, then three buttons below it (in order): **Add New Position** (`OutlineButton`, Vector gradient outline), **Remove Selected Position** (`OutlineButton`, red outline), **Edit Selected Holding** (plain `LoadingButton`). Edit opens `EditPositionDialog` for the selected ticker. |
 | About | Static card | Version, brand, credits |
 
 **Export Positions to CSV:** `SettingsPage._export_to_csv()` opens a `QFileDialog.getSaveFileName` and writes 11 columns: `ticker, name, sector, shares, entry_price, current_price, cost_basis, current_value, unrealized_pnl_dollar, unrealized_pnl_pct, added_at`.
 
 **Investment Style pro-gate:** `SettingsPage.apply_risk_gate(gated)` mirrors `DashboardPage.apply_lens_gate` exactly — the Investment Style card is wrapped in a `QStackedLayout` (`StackAll`); on free accounts it applies `QGraphicsBlurEffect(radius=50)` to the card's child widgets and shows a `StackAll` "🔒 Get Vector Professional" `QLabel` overlay on top (which also blocks clicks). The plan is read via `SettingsPage._is_gated()` (same `user_data['user']['plan'] != 'pro'` check as `MainShell._is_gated`, defaulting to gated if `user_data` is absent). Called once during `_build_ui`.
+
+**Developer pro-gate:** `SettingsPage.apply_dev_gate(gated)` is the exact same pattern as `apply_risk_gate` applied to the **Developer** accordion (`_dev_section` wrapped in a `StackAll` `QStackedLayout` with the same blur + "Get Vector Professional" `_dev_overlay`; overlay blocks clicks). Free accounts see the blurred, locked section; Pro accounts get the unblurred, fully-functional Lens-test tool. Also read via `_is_gated()` and called once during `_build_ui`. `debug_test.json` is tracked and bundled into the build (`--include-data-files` in `build.bat`/`build-debug.bat`) so the tool works in packaged builds; `debug_runner._resolve_debug_test_path()` resolves user-dir → dev-root → bundled resource.
 
 **Edit a holding:** `SettingsPage.edit_selected_position()` reads the selected `remove_list` item, finds the matching position, and opens `EditPositionDialog` (asks "How many total shares of `<ticker>` do you own?", prefilled with the current count, live equity preview). On save it updates `position['shares']` and calls `refresh_data()`, which recomputes `equity = shares × current_price` for every position. Add and remove keep their existing handlers (`window.add_position_from_settings`, `remove_selected_position`).
 

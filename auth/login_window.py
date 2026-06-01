@@ -8,7 +8,10 @@ global theme) has been constructed.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Optional
+
+import requests
 
 from PyQt6.QtCore import Qt, QThread, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices, QIcon, QPixmap
@@ -30,11 +33,16 @@ from vector.constants import FORGOT_PASSWORD_URL, TASKBAR_LOGO_PATH
 from .auth import get_me, login, save_token, signup
 
 
+# Lightweight client-side email sanity check (the backend remains the source of
+# truth). Catches obvious typos before a round-trip.
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+
 # ---------------------------------------------------------------------------
 # DEMO BYPASS — remove this entire block before shipping a production build.
 # Type "demo" as the username (any password) to skip the backend entirely
 # and log in as a local demo account with Pro access.
-_DEMO_BYPASS_ENABLED = True
+_DEMO_BYPASS_ENABLED = False
 _DEMO_BYPASS_TRIGGER = 'demo'
 _DEMO_TOKEN = 'demo-bypass-token'
 _DEMO_USER_DATA: dict = {
@@ -183,8 +191,13 @@ class _ApiWorker(QThread):
     def run(self) -> None:  # noqa: D401 — QThread API
         try:
             payload = self._fn(*self._args)
-        except Exception as exc:  # noqa: BLE001 — surface server / network errors verbatim
-            self.error.emit(str(exc) or exc.__class__.__name__)
+        except requests.RequestException:
+            # Network/transport failures carry long urllib3 internals that must
+            # not be shown to the user — collapse them to a generic message.
+            self.error.emit('Unable to reach the server. Check your connection and try again.')
+            return
+        except Exception as exc:  # noqa: BLE001 — server-provided 4xx messages are user-facing
+            self.error.emit(str(exc) or 'Something went wrong. Please try again.')
             return
         if isinstance(payload, dict):
             self.result.emit(payload)
@@ -439,6 +452,15 @@ class LoginWindow(QDialog):
         password = self._signup_pw.text()
         if not username or not email or not password:
             self._set_status(self._signup_status, 'Fill in every field to create an account.', error=True)
+            return
+        if not _EMAIL_RE.match(email):
+            self._set_status(self._signup_status, 'Enter a valid email address.', error=True)
+            return
+        if len(username) < 3:
+            self._set_status(self._signup_status, 'Username must be at least 3 characters.', error=True)
+            return
+        if len(password) < 8:
+            self._set_status(self._signup_status, 'Password must be at least 8 characters.', error=True)
             return
         self._set_status(self._signup_status, 'Creating account…')
         self._set_inputs_enabled(False)

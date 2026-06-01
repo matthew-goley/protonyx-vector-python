@@ -8,7 +8,7 @@ Not just *what is my portfolio worth*, but *where is it going*, *how much risk a
 
 ## What it does
 
-Vector is a desktop portfolio analytics app built with PyQt6. It pulls live market data via Yahoo Finance, runs it through a local analytics engine, and surfaces clear verdicts on your portfolio's health — no accounts, no cloud, no subscription.
+Vector is a desktop portfolio analytics app built with PyQt6. It pulls live market data via Yahoo Finance, runs it through a local analytics engine, and surfaces clear verdicts on your portfolio's health. Vector requires a free Protonyx account to sign in; some features are reserved for the Pro plan. Your portfolio data itself stays on your own machine.
 
 ### The dashboard answers six questions
 
@@ -37,7 +37,7 @@ The Vector Lens generates a three-sentence verdict: one that explains the outloo
 - **Sector allocation** — pie breakdown of equity by sector with diversification suggestions
 - **Smart caching** — market data is cached locally with per-type TTLs; no redundant fetches
 - **Dark & light themes** — full stylesheet toggle in Settings
-- **Fully local** — all data stored on your machine, no accounts or internet required beyond market fetches
+- **Local portfolio storage** — your holdings, settings, and layout are stored on your own machine; only sign-in and market fetches require the network
 
 ---
 
@@ -66,7 +66,7 @@ All files are stored in `%LOCALAPPDATA%\Protonyx\Vector\` (falls back to `~/Vect
 | `market_data.json` | Cached quotes, price history, meta, dividends, earnings |
 | `dashboard_layout.json` | Your saved widget layout |
 
-Nothing is sent externally. Market data is fetched from Yahoo Finance on demand and cached locally.
+Your portfolio files never leave your machine. The app does communicate with the Protonyx backend for authentication (sign-in, account/plan status, and legal-document acceptance) and with Yahoo Finance for market data, which is cached locally.
 
 ---
 

@@ -463,7 +463,11 @@ class SettingsPage(QWidget):
         monte_carlo.addRow('Projection period', self.mc_period_combo)
         monte_carlo.addRow('Simulations', self.mc_sims_combo)
 
-        developer = self._add_accordion(layout, 'Developer')
+        # ── Developer (Pro-gated) ──
+        # Built as an accordion like the others, but wrapped in the same
+        # blur + 'Get Vector Professional' overlay used by Investment Style.
+        self._dev_section = _AccordionSection('Developer')
+        developer = self._dev_section.form()
         dev_desc = QLabel(
             'Run the Lens engine across mock portfolios from <code>debug_test.json</code> '
             'and write the results to <code>output.md</code>. Useful for testing CTA '
@@ -482,6 +486,27 @@ class SettingsPage(QWidget):
         developer.addRow('', self.run_lens_test_button)
         developer.addRow('', self._lens_test_status)
         self._lens_test_worker: _DebugTestWorker | None = None
+
+        dev_wrapper = QWidget()
+        dev_stack = QStackedLayout(dev_wrapper)
+        dev_stack.setStackingMode(QStackedLayout.StackingMode.StackAll)
+        dev_stack.setContentsMargins(0, 0, 0, 0)
+        dev_stack.addWidget(self._dev_section)
+        self._dev_overlay = QLabel()
+        self._dev_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._dev_overlay.setTextFormat(Qt.TextFormat.RichText)
+        self._dev_overlay.setText(
+            f'<div align="center" style="font-size:{scpt(18)}pt;">\U0001F512</div>'
+            f'<div align="center" style="font-size:{scpt(13)}pt; font-weight:700; color:#ffffff;">'
+            'Get Vector Professional</div>'
+        )
+        self._dev_overlay.setStyleSheet(
+            'QLabel { background-color: rgba(11, 16, 32, 140); border-radius: 16px; color: #ffffff; }'
+        )
+        self._dev_overlay.hide()
+        dev_stack.addWidget(self._dev_overlay)
+        layout.addWidget(dev_wrapper)
+        self.apply_dev_gate(self._is_gated())
 
         positions = self._add_section(layout, 'Positions')
         add_position = OutlineButton('Add New Position', gradient=True)
@@ -591,6 +616,25 @@ class SettingsPage(QWidget):
             self._style_overlay.raise_()
         else:
             self._style_overlay.hide()
+
+    def apply_dev_gate(self, gated: bool) -> None:
+        """Blur the Developer section + show a 'Get Vector Professional'
+        overlay on free accounts (mirrors apply_risk_gate). Pro accounts get
+        the unblurred, fully interactive Lens-test tool."""
+        card = getattr(self, '_dev_section', None)
+        targets = list(card.findChildren(QWidget)) if card is not None else []
+        for child in targets:
+            if gated:
+                blur = QGraphicsBlurEffect(child)
+                blur.setBlurRadius(50)
+                child.setGraphicsEffect(blur)
+            else:
+                child.setGraphicsEffect(None)
+        if gated:
+            self._dev_overlay.show()
+            self._dev_overlay.raise_()
+        else:
+            self._dev_overlay.hide()
 
     def _select_risk_tier(self, tier_key: str) -> None:
         self._current_risk_tier = tier_key
