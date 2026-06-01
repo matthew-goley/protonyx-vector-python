@@ -347,10 +347,11 @@ class SettingsPage(QWidget):
 
         general = self._add_section(layout, 'General')
         self.theme_combo = QComboBox(); self.theme_combo.addItems(['Dark', 'Light'])
-        self.currency_combo = QComboBox(); self.currency_combo.addItems(['USD', 'EUR', 'GBP'])
+        # Theme applies immediately (textActivated fires only on user choice, not
+        # on programmatic setCurrentText during load_from_settings).
+        self.theme_combo.textActivated.connect(self._on_theme_changed)
         self.date_combo = QComboBox(); self.date_combo.addItems(['MM/DD/YYYY', 'DD/MM/YYYY'])
         general.addRow('Theme', self.theme_combo)
-        general.addRow('Default Currency', self.currency_combo)
         general.addRow('Date Format', self.date_combo)
 
         # ── Investment Style ──
@@ -547,7 +548,6 @@ class SettingsPage(QWidget):
 
     def load_from_settings(self, settings: dict[str, Any], positions: list[dict[str, Any]]) -> None:
         self.theme_combo.setCurrentText(settings['theme'])
-        self.currency_combo.setCurrentText(settings['currency'])
         self.date_combo.setCurrentText(settings['date_format'])
         self.refresh_combo.setCurrentText(settings['refresh_interval'])
         # Risk tier
@@ -636,11 +636,16 @@ class SettingsPage(QWidget):
         else:
             self._dev_overlay.hide()
 
+    def _on_theme_changed(self, theme: str) -> None:
+        """Apply + persist the theme the moment the user picks it (no Save needed)."""
+        self.window.settings['theme'] = theme
+        self.window.store.save_settings(self.window.settings)
+        self.window.apply_theme()
+
     def _select_risk_tier(self, tier_key: str) -> None:
         self._current_risk_tier = tier_key
         for key, opt in self._tier_options.items():
             opt.set_selected(key == tier_key)
-        # Update the lens tier note — no save yet, waits for Save Settings
         tier_name = _TIER_DISPLAY_NAME.get(tier_key, 'Moderate')
         self._lens_tier_note.setText(
             f'Your investment style is set to <b>{tier_name}</b>. '
@@ -648,13 +653,17 @@ class SettingsPage(QWidget):
             f'overrides the default for that specific threshold.'
         )
         self._style_note.setVisible(False)
+        # Persist + apply immediately (mirrors onboarding); the Lens recomputes
+        # on the following refresh from cached data.
+        self.window.settings['risk_tier'] = tier_key
+        self.window.store.save_settings(self.window.settings)
+        self.window.refresh_data()
 
     def save_settings(self) -> None:
         self.save_button.start_loading('Saving...')
         QApplication.processEvents()
         settings = self.window.settings
         settings['theme'] = self.theme_combo.currentText()
-        settings['currency'] = self.currency_combo.currentText()
         settings['date_format'] = self.date_combo.currentText()
         settings['refresh_interval'] = self.refresh_combo.currentText()
         settings['risk_tier'] = getattr(self, '_current_risk_tier', 'regular')

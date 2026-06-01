@@ -478,7 +478,7 @@ class LoginWindow(QDialog):
         self._set_inputs_enabled(True)
         self._signup_button.setText('Sign Up')
         username = self._signup_user.text().strip()
-        self._set_status(self._signup_status, 'Account created — please sign in.', error=False, ok=True)
+        self._set_status(self._signup_status, 'Account created. Check your email to verify, then sign in.', error=False, ok=True)
         self._signup_pw.clear()
         # Pre-fill the login tab so the user only needs to type their password.
         if username and not self._login_user.text().strip():

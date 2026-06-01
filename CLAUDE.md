@@ -211,7 +211,7 @@ Terms of Service and EULA acceptance are tracked **server side only** (no local 
 
 ### Keyboard Shortcuts
 
-Registered in `VectorMainWindow._register_shortcuts()`. All use `QShortcutContext.ApplicationShortcut` unless otherwise noted.
+Registered in `VectorMainWindow._register_shortcuts()`. These are single-key shortcuts with the **default `WindowShortcut`** context (not `ApplicationShortcut`). They are kept in `self._single_key_shortcuts` and **auto-disabled whenever an editable control has focus** — `_update_shortcut_enabled` (wired to `QApplication.focusChanged`) disables them while the focused widget is a `QLineEdit` / `QAbstractSpinBox` / `QComboBox`, so e.g. `D`/`L` don't hijack Theme-combo type-ahead and `R`/`S` don't fire while editing a threshold spin box. Re-enabled when focus leaves the control.
 
 | Key | Action |
 |---|---|
@@ -219,7 +219,7 @@ Registered in `VectorMainWindow._register_shortcuts()`. All use `QShortcutContex
 | **L** | Open Lens page |
 | **D** | Open Dashboard page |
 | **S** | Open Settings page |
-| **A** | Open Add Position dialog (only active on onboarding page; widget-scoped) |
+| **A** | Open Add Position dialog — **app-wide** (on the onboarding page it routes to the onboarding add flow; everywhere else it opens the Settings add-position dialog, via `add_position_from_settings`). The in-app shortcuts modal lists it simply as "Add new position". |
 | **?** / **Shift+/** | Open Keyboard Shortcuts modal (`_ShortcutsDialog`) — both sequences are registered |
 | **Esc** | Close any open modal |
 | **Space** | Advance to next onboarding step (widget-scoped on `OnboardingPage`; ignored if focus is a `QLineEdit`) |
@@ -427,8 +427,8 @@ Six accordion sections plus static sections:
 
 | Section | Type | Contents |
 |---|---|---|
-| General | Static card | Theme, currency, date format |
-| Investment Style | Static card | Risk tier selection (Conservative/Moderate/Aggressive) — immediate save on click. **Pro-gated:** blurred + "Get Vector Professional" lock overlay on free accounts (see below). |
+| General | Static card | Theme (**applies + persists immediately** on change via `theme_combo.textActivated` → `_on_theme_changed`, no Save needed), date format (saved on Save). There is **no currency selector** — it was removed for beta because it only swapped the symbol without converting USD values (`format_currency` still defaults to USD). |
+| Investment Style | Static card | Risk tier selection (Conservative/Moderate/Aggressive) — **saves immediately on click** (`_select_risk_tier` writes `settings.json` → `risk_tier` and triggers a refresh so the Lens recomputes), no Save needed. **Pro-gated:** blurred + "Get Vector Professional" lock overlay on free accounts (see below). |
 | Data & Refresh | Accordion | Auto-refresh interval, clear cache, reset all data, **Export Positions to CSV** |
 | Portfolio Direction Thresholds | Accordion | Strong/steady/neutral/weak/depreciating slope cutoffs |
 | Volatility | Accordion | Lookback period, low/high vol cutoffs |

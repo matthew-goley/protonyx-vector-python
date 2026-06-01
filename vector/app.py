@@ -11,12 +11,15 @@ from typing import Any
 from PyQt6.QtCore import QThread, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QKeySequence, QPainter, QPainterPath, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
+    QComboBox,
     QDialog,
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QSplashScreen,
     QMainWindow,
     QMessageBox,
@@ -701,13 +704,28 @@ class VectorMainWindow(QMainWindow):
         if getattr(self, '_shortcuts_registered', False):
             return
         self._shortcuts_registered = True
-        QShortcut(QKeySequence('R'), self, activated=self.refresh_data)
-        QShortcut(QKeySequence('L'), self, activated=lambda: self._switch_page('Vector Lens'))
-        QShortcut(QKeySequence('D'), self, activated=lambda: self._switch_page('Dashboard'))
-        QShortcut(QKeySequence('S'), self, activated=lambda: self._switch_page('Settings'))
-        QShortcut(QKeySequence('A'), self, activated=self.add_position_from_settings)
-        QShortcut(QKeySequence('?'), self, activated=self.show_shortcuts_modal)
-        QShortcut(QKeySequence('Shift+/'), self, activated=self.show_shortcuts_modal)
+        # Single-key shortcuts (WindowShortcut context). Kept in a list so they
+        # can be disabled while a text input / combo / spin box has focus —
+        # otherwise e.g. 'D'/'L' would hijack type-ahead in the Theme combo and
+        # 'R'/'S' would fire while editing a threshold spin box.
+        self._single_key_shortcuts = [
+            QShortcut(QKeySequence('R'), self, activated=self.refresh_data),
+            QShortcut(QKeySequence('L'), self, activated=lambda: self._switch_page('Vector Lens')),
+            QShortcut(QKeySequence('D'), self, activated=lambda: self._switch_page('Dashboard')),
+            QShortcut(QKeySequence('S'), self, activated=lambda: self._switch_page('Settings')),
+            QShortcut(QKeySequence('A'), self, activated=self.add_position_from_settings),
+            QShortcut(QKeySequence('?'), self, activated=self.show_shortcuts_modal),
+            QShortcut(QKeySequence('Shift+/'), self, activated=self.show_shortcuts_modal),
+        ]
+        app = QApplication.instance()
+        if app is not None:
+            app.focusChanged.connect(self._update_shortcut_enabled)
+
+    def _update_shortcut_enabled(self, _old, now) -> None:
+        """Disable single-key shortcuts while an editable control has focus."""
+        editing = isinstance(now, (QLineEdit, QAbstractSpinBox, QComboBox))
+        for shortcut in getattr(self, '_single_key_shortcuts', []):
+            shortcut.setEnabled(not editing)
 
     def _switch_page(self, page_name: str) -> None:
         if self.shell is not None:
