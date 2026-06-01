@@ -35,6 +35,7 @@ from .pages.lens_page import VectorLensPage
 from .pages.onboarding import OnboardingPage, PositionDialog
 from .pages.profile import ProfilePage
 from .pages.settings import SettingsPage
+from .pages.ticker_detail import TickerDetailPage
 from .store import DataStore
 from .widgets import GradientBorderFrame, GradientLine
 
@@ -324,6 +325,10 @@ class MainShell(QWidget):
         self.lens_page = VectorLensPage(window)
         self.profile_page = ProfilePage(window)
         self.settings_page = SettingsPage(window)
+        self.detail_page = TickerDetailPage(window)
+        # Page the user was on before opening a ticker detail (for "Back").
+        self._current_page_name = 'Dashboard'
+        self._detail_prev_page = 'Dashboard'
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -398,6 +403,8 @@ class MainShell(QWidget):
         self.page_stack.addWidget(self.lens_page)
         self.page_stack.addWidget(self.profile_page)
         self.page_stack.addWidget(self.settings_page)
+        # Ticker detail page — index 4, no sidebar entry (reached via a ticker click).
+        self.page_stack.addWidget(self.detail_page)
         content.addWidget(self.page_stack, stretch=1)
         content_wrapper = QWidget()
         content_wrapper.setLayout(content)
@@ -419,6 +426,7 @@ class MainShell(QWidget):
             return
         mapping = {'Dashboard': 0, 'Vector Lens': 1, 'Profile': 2, 'Settings': 3}
         self.page_stack.setCurrentIndex(mapping[page_name])
+        self._current_page_name = page_name
         self.header_title.setText(page_name)
         self.header_breadcrumb.setText(f'Vector / {page_name}')
         for name, button in self.sidebar_buttons.items():
@@ -429,6 +437,27 @@ class MainShell(QWidget):
             self.dashboard_page._lens.refresh()
         elif page_name == 'Vector Lens':
             self.lens_page.refresh()
+
+    _DETAIL_INDEX = 4
+
+    def show_ticker_detail(self, ticker: str) -> None:
+        """Switch to the ticker detail page for ``ticker``, recording the page
+        the user came from so the detail page's Back button can return there."""
+        if self.page_stack.currentIndex() != self._DETAIL_INDEX:
+            self._detail_prev_page = self._current_page_name
+        self.detail_page.set_ticker(ticker)
+        self.page_stack.setCurrentIndex(self._DETAIL_INDEX)
+        self.header_title.setText(ticker)
+        self.header_breadcrumb.setText(f'Vector / {self._detail_prev_page} / {ticker}')
+        # The detail page has no sidebar entry, so deselect every nav button.
+        for button in self.sidebar_buttons.values():
+            button.setProperty('active', 'false')
+            button.style().unpolish(button)
+            button.style().polish(button)
+
+    def go_back(self) -> None:
+        """Return from the ticker detail page to the previously shown page."""
+        self.set_page(self._detail_prev_page)
 
 
 class _ShortcutsDialog(QDialog):
@@ -629,6 +658,11 @@ class VectorMainWindow(QMainWindow):
         if self.shell is not None:
             self.shell.set_page(page_name)
 
+    def show_ticker_detail(self, ticker: str) -> None:
+        """Public entry point: open the detail page for a clicked ticker."""
+        if self.shell is not None and ticker:
+            self.shell.show_ticker_detail(ticker)
+
     def show_shortcuts_modal(self) -> None:
         dialog = _ShortcutsDialog(self)
         dialog.exec()
@@ -676,6 +710,9 @@ class VectorMainWindow(QMainWindow):
         self.shell.lens_page.refresh()
         self.shell.profile_page.update_profile(self.state, self.positions, analytics, self.user_data)
         self.shell.settings_page.load_from_settings(self.settings, self.positions)
+        # Keep the ticker detail page current only when it's the visible page.
+        if self.shell.page_stack.currentWidget() is self.shell.detail_page:
+            self.shell.detail_page.refresh()
         self._setup_auto_refresh()
 
     def add_position_from_settings(self) -> None:

@@ -20,9 +20,13 @@ def _title_font(size: int = 22) -> QFont:
 
 
 class _PositionRow(QFrame):
-    def __init__(self, pos: dict, fmt_currency, fmt_pct, parent=None) -> None:
+    def __init__(self, pos: dict, fmt_currency, fmt_pct, owner=None, parent=None) -> None:
         super().__init__(parent)
         self.setProperty('role', 'row-divider')
+        self._owner = owner
+        self._ticker = pos.get('ticker', '')
+        if owner is not None and self._ticker:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
         row = QHBoxLayout(self)
         row.setContentsMargins(0, sc(8), 0, sc(8))
         row.setSpacing(sc(8))
@@ -82,6 +86,25 @@ class _PositionRow(QFrame):
         change_lbl.setStyleSheet(f'color: {color}; font-size: {scpt(12)}pt; font-weight: 700; border: none;')
         change_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         row.addWidget(change_lbl, stretch=1)
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        # Navigate to the ticker detail page on a plain left-click. While the
+        # parent widget is in edit/delete mode, ignore the event so it bubbles
+        # up to VectorWidget (which handles drag / delete-confirm).
+        owner = self._owner
+        if (
+            owner is not None
+            and self._ticker
+            and event.button() == Qt.MouseButton.LeftButton
+            and not getattr(owner, '_edit_mode', False)
+            and not getattr(owner, '_delete_mode', False)
+        ):
+            window = getattr(owner, '_window', None)
+            if window is not None and hasattr(window, 'show_ticker_detail'):
+                window.show_ticker_detail(self._ticker)
+                event.accept()
+                return
+        event.ignore()
 
 
 class PositionsListWidget(VectorWidget):
@@ -158,6 +181,6 @@ class PositionsListWidget(VectorWidget):
         self._count_lbl.setText(f'{len(positions)} position{"s" if len(positions) != 1 else ""}')
 
         for pos in positions:
-            self._rows_layout.addWidget(_PositionRow(pos, fmt, None))
+            self._rows_layout.addWidget(_PositionRow(pos, fmt, None, owner=self))
 
         self._rows_layout.addStretch(1)

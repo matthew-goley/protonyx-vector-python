@@ -308,6 +308,9 @@ class SettingsPage(QWidget):
         self.window = window
         self.remove_list = QListWidget()
         self.remove_list.setMinimumHeight(sc(200))
+        # Double-click a holding to open its ticker detail page (single click
+        # still selects, so the Remove/Edit buttons keep working).
+        self.remove_list.itemDoubleClicked.connect(self._on_holding_double_clicked)
         self._build_ui()
 
     def _add_section(self, parent: QVBoxLayout, title: str) -> QFormLayout:
@@ -750,6 +753,11 @@ class SettingsPage(QWidget):
             self.window.store.save_positions(self.window.positions)
             self.window.refresh_data()
             self.load_from_settings(self.window.settings, self.window.positions)
+
+    def _on_holding_double_clicked(self, item: QListWidgetItem) -> None:
+        ticker = item.data(Qt.ItemDataRole.UserRole)
+        if ticker and hasattr(self.window, 'show_ticker_detail'):
+            self.window.show_ticker_detail(ticker)
 
     def edit_selected_position(self) -> None:
         item = self.remove_list.currentItem()
