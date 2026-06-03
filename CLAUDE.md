@@ -44,18 +44,34 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
   --output-filename="Vector-v0.5.0.exe" ^
   --include-data-dir=assets=assets ^
   --include-data-dir=vector/lens/templates=vector/lens/templates ^
+  --include-data-files=debug_test.json=debug_test.json ^
   --include-package=vector.lens --include-package=vector.lens.analyzers ^
   --include-package=yfinance --include-package=pandas --include-package=numpy ^
   --include-package=lxml --include-package=bs4 --include-package=requests ^
-  --include-package=urllib3 --include-package=certifi ^
+  --include-package=urllib3 --include-package=certifi --include-package-data=certifi ^
+  --include-package=matplotlib --include-package-data=matplotlib ^
+  --include-package=curl_cffi --include-package-data=curl_cffi ^
+  --include-package=websockets --include-package=google.protobuf ^
+  --include-package=multitasking --include-package=frozendict --include-package=peewee ^
+  --include-package=platformdirs ^
+  --include-package=pytz --include-package=tzdata --include-package-data=tzdata ^
+  --include-package=dateutil --include-package=charset_normalizer ^
   main.py
 ```
 
 - `--include-data-dir=assets=assets` copies the entire `assets/` folder next to the exe
 - `--include-data-dir=vector/lens/templates=...` bundles `sentences.json` — required or all Lens sentences come back empty
+- `--include-data-files=debug_test.json=...` bundles the Developer Lens-test fixture (resolved via `debug_runner._resolve_debug_test_path()`)
 - `--include-package=yfinance|pandas|numpy|lxml|bs4|requests|urllib3|certifi` — yfinance runtime deps Nuitka misses statically; without these, onboarding crashes on ticker validation
-- `--include-package=vector.lens|vector.lens.analyzers` — belt-and-suspenders for the Lens subpackages
-- `resource_path()` automatically resolves assets correctly in all three environments: dev, PyInstaller, and Nuitka standalone (see `vector/paths.py`). `vector/lens/_templates.py` uses it with a package-local fallback, so `sentences.json` loads regardless of where the packager placed it.
+- `--include-package-data=certifi` — bundles `cacert.pem`; without it every HTTPS call (auth + yfinance) fails to verify SSL in standalone
+- `--include-package=matplotlib --include-package-data=matplotlib` — charts on the Lens and Ticker Detail pages; the data flag ships `mpl-data` (fonts/styles/`matplotlibrc`), without which the first chart render raises FileNotFoundError. The `--enable-plugin=pyqt6` provides the Qt6Agg backend; no code calls `matplotlib.use()`, so the backend is auto-selected.
+- `--include-package=curl_cffi --include-package-data=curl_cffi` — yfinance >=0.2.54 uses curl_cffi as its HTTP backend (a compiled extension that bundles libcurl + its own cacert.pem as package data)
+- `--include-package=websockets` and `--include-package=google.protobuf` — **`import yfinance` eagerly imports `yfinance.live`** (which imports `websockets`) **and `yfinance.pricing_pb2`** (which imports `google.protobuf`); missing either crashes the very first `import yfinance`
+- `--include-package=multitasking|frozendict|peewee|platformdirs` — yfinance transitive deps that use patterns Nuitka can miss statically
+- `--include-package=pytz|tzdata|dateutil` (+ `--include-package-data=tzdata`) — timezone data for pandas/yfinance tz-aware datetime ops; on Windows `zoneinfo` has no system tz database and falls back to the `tzdata` package data
+- `--include-package=charset_normalizer` — requests transitive dependency
+- `--include-package=vector.lens|vector.lens.analyzers` — belt-and-suspenders for the Lens subpackages. All dashboard widgets are statically imported in `widget_registry.py` (no dynamic/directory-scan discovery), so they need no extra flag.
+- `resource_path()` automatically resolves assets correctly in all three environments: dev, PyInstaller, and Nuitka standalone (see `vector/paths.py`). `vector/lens/_templates.py` uses it with a package-local fallback, so `sentences.json` loads regardless of where the packager placed it. The session token (`session.json`) and all app data write through `user_data_dir()` / `user_file()` to `%LOCALAPPDATA%`, never into the read-only frozen bundle.
 
 ## Architecture
 
@@ -64,7 +80,7 @@ python -m nuitka --standalone --windows-console-mode=disable --enable-plugin=pyq
 | Module | Role |
 |---|---|
 | `main.py` | Bootstrapper — creates `QApplication`, runs the auth gate, paints the splash, then imports `vector.app` and calls `main(app, splash, t_start, token, user_data)`. See **Startup & Splash Screen**. |
-| `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = https://protonyx-monorepo-production.up.railway.app`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`, plus the legal-gate calls `check_eula_status` (GET `/legal/status`, returns both `tos_accepted`/`eula_accepted`) and `accept_legal_document(token, document)` (POST `/legal/accept`) with thin `accept_eula`/`accept_tos` wrappers - all return `dict` or `None` on any failure, never raise - and the private `_legal_status_code` helper (GET `/legal/status`, returns the HTTP status code, used to classify a 401 vs a transient failure). Token persisted to `auth/session.json`. |
+| `auth/auth.py` | REST client for the backend (Fastify API at `API_URL = https://protonyx-monorepo-production.up.railway.app`): `login`, `signup`, `get_me`, `save_token`/`load_token`/`clear_token`, plus the legal-gate calls `check_eula_status` (GET `/legal/status`, returns both `tos_accepted`/`eula_accepted`) and `accept_legal_document(token, document)` (POST `/legal/accept`) with thin `accept_eula`/`accept_tos` wrappers - all return `dict` or `None` on any failure, never raise - and the private `_legal_status_code` helper (GET `/legal/status`, returns the HTTP status code, used to classify a 401 vs a transient failure). Token persisted to `session.json` in the **user data dir** (`user_file('session.json')`), not next to the module - a `Path(__file__)`-relative path would land inside the read-only frozen bundle under Nuitka and fail to persist. |
 | `auth/login_window.py` | `LoginWindow` `QDialog` (Login / Sign Up tabs) shown when no valid saved token exists. Background `QThread` workers call the auth functions; emits `login_successful(token, user_data)`. |
 | `vector/eula_gate.py` | `LegalGateOverlay` `QWidget` (+ `_AcceptWorker`) - parameterized full-window legal acceptance gate for TOS and EULA (`EulaGateOverlay` is a back-compat alias). See **Legal Acceptance Gate (TOS + EULA)**. |
 | `vector/app.py` | Thin shell: `DARK_STYLESHEET`, `LIGHT_STYLESHEET`, `MainShell`, `VectorMainWindow`, `_ShortcutsDialog`, `main()` — all page classes live in `vector/pages/` |
@@ -160,7 +176,7 @@ Rules when adding/editing GUI:
 
 ### Authentication
 
-Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fastify) at `API_URL = https://protonyx-monorepo-production.up.railway.app` — swapping deployments only requires changing that constant (`version_check.py` imports it, so the update check follows automatically). The token is saved to `auth/session.json` next to the module.
+Vector is gated behind a login. `auth/auth.py` talks to a backend REST API (Fastify) at `API_URL = https://protonyx-monorepo-production.up.railway.app` — swapping deployments only requires changing that constant (`version_check.py` imports it, so the update check follows automatically). The token is saved to `session.json` in the writable user data dir (`user_file('session.json')` → `%LOCALAPPDATA%/Protonyx/Vector/`), **not** next to the module - under Nuitka standalone a `Path(__file__)`-relative path resolves inside the read-only frozen bundle and would fail to persist.
 
 - On launch `main.py` calls `_run_auth_gate()`: tries `load_token()` → `get_me(token)`; on success it proceeds, otherwise it shows `LoginWindow` (Login / Sign Up tabs). If the user closes the dialog without authenticating, the process exits cleanly (status 0).
 - The resolved `(token, user_data)` is threaded into `VectorMainWindow`; `ProfilePage` displays it (username, email, plan, member-since, beta flag, downloads) and offers **Logout** (clears the session and returns to login).

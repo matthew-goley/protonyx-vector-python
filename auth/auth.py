@@ -12,12 +12,20 @@ from typing import Optional
 
 import requests
 
+from vector.paths import user_file
+
 
 API_URL = 'https://protonyx-monorepo-production.up.railway.app'
 
 _REQUEST_TIMEOUT = 15
 
-_SESSION_FILE = Path(__file__).resolve().parent / 'session.json'
+# Session token is written to the writable user-data dir (%LOCALAPPDATA%/
+# Protonyx/Vector), NOT next to this module. Under Nuitka standalone the module
+# lives inside the frozen .dist folder (e.g. Program Files), which is typically
+# read-only, so a Path(__file__)-relative session.json would fail to persist and
+# break login. user_file() resolves to the same writable location as all other
+# app data in every environment (dev, PyInstaller, Nuitka).
+_SESSION_FILE = user_file('session.json')
 
 
 def _extract_error(response: 'requests.Response') -> str:

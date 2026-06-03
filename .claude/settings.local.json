@@ -6,7 +6,11 @@
       "mcp__ide__getDiagnostics",
       "PowerShell(git check-ignore *)",
       "PowerShell($tracked = git ls-files auth/; \"TRACKED:`n$tracked\"; \"---\"; $ig = git check-ignore auth/session.json; \"IGNORED: $ig\")",
-      "PowerShell(python -c \"import ast; ast.parse\\(open\\('vector/pages/dashboard.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('vector/pages/lens_page.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
+      "PowerShell(python -c \"import ast; ast.parse\\(open\\('vector/pages/dashboard.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('vector/pages/lens_page.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "PowerShell(Get-Content *)",
+      "PowerShell(python -c \"from auth.auth import _SESSION_FILE; print\\(_SESSION_FILE\\)\")",
+      "PowerShell(python -c \"import importlib; [print\\(m, 'OK'\\) for m in ['matplotlib','matplotlib.backends.backend_qtagg','curl_cffi','websockets','google.protobuf','multitasking','frozendict','peewee','platformdirs','pytz','tzdata','dateutil','charset_normalizer'] if importlib.import_module\\(m\\)]\")",
+      "PowerShell(*)"
     ]
   },
   "dangerouslySkipPermissions": true

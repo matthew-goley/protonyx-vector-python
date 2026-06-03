@@ -7,6 +7,15 @@ if exist "Vector-v0.5.0-debug.dist" (
     rmdir /s /q "Vector-v0.5.0-debug.dist"
 )
 
+REM Nuitka standalone include flags (why each is required):
+REM   certifi data        - cacert.pem SSL bundle for requests/urllib3/yfinance
+REM   matplotlib + data   - Lens/ticker charts; mpl-data ships fonts/styles/matplotlibrc
+REM   curl_cffi + data     - yfinance >=0.2.54 HTTP backend (compiled ext + bundled libcurl/cacert)
+REM   websockets           - imported eagerly by yfinance.live at "import yfinance"
+REM   google.protobuf      - yfinance.pricing_pb2 imports it eagerly at "import yfinance"
+REM   multitasking/frozendict/peewee/platformdirs - yfinance runtime deps Nuitka can miss
+REM   pytz/tzdata(+data)/dateutil - timezone data for pandas/yfinance tz-aware ops on Windows
+REM   charset_normalizer   - requests transitive dep
 python -m nuitka ^
   --standalone ^
   --enable-plugin=pyqt6 ^
@@ -24,4 +33,20 @@ python -m nuitka ^
   --include-package=requests ^
   --include-package=urllib3 ^
   --include-package=certifi ^
+  --include-package-data=certifi ^
+  --include-package=matplotlib ^
+  --include-package-data=matplotlib ^
+  --include-package=curl_cffi ^
+  --include-package-data=curl_cffi ^
+  --include-package=websockets ^
+  --include-package=google.protobuf ^
+  --include-package=multitasking ^
+  --include-package=frozendict ^
+  --include-package=peewee ^
+  --include-package=platformdirs ^
+  --include-package=pytz ^
+  --include-package=tzdata ^
+  --include-package-data=tzdata ^
+  --include-package=dateutil ^
+  --include-package=charset_normalizer ^
   main.py
