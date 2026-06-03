@@ -9,6 +9,8 @@ output.md
 session.json
 CLAUDE.md
 .claude/
+main.dist/
+main.build/
 
 # Dev scratch notes / scratch artifacts (not part of the product)
 diagnosis.md
