@@ -1080,6 +1080,17 @@ class VectorLensPage(QWidget):
         self._lens.setFixedHeight(sc(200))
         self._container_layout.addWidget(self._lens)
 
+        disclaimer = QLabel(
+            'Vector Lens is an analytics tool, not a financial advisor. '
+            'Everything here — readings, caution scores and projections — is '
+            'informational only and not investment advice. Do your own '
+            'research before making any investment decision.'
+        )
+        disclaimer.setWordWrap(True)
+        disclaimer.setProperty('role', 'muted')
+        disclaimer.setStyleSheet(f'font-size: {scpt(9)}pt; color: #8d98af;')
+        self._container_layout.addWidget(disclaimer)
+
         # Row 2: Caution Score (left, narrow) + All Projections (right, wide)
         self._cta_report = _CTAReportCard()
         self._cta_report.setSizePolicy(
@@ -1124,6 +1135,18 @@ class VectorLensPage(QWidget):
         pies_layout.addWidget(self._pie_a)
         pies_layout.addWidget(self._pie_b)
         self._container_layout.addWidget(pies_row)
+
+        footer = QLabel(
+            'Projections are statistical estimates of possible outcomes, not '
+            'predictions or guarantees. Vector Lens does not provide financial '
+            'advice — review your own situation and do your own research before '
+            'acting on anything shown here.'
+        )
+        footer.setWordWrap(True)
+        footer.setProperty('role', 'muted')
+        footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        footer.setStyleSheet(f'font-size: {scpt(8)}pt; color: #8d98af;')
+        self._container_layout.addWidget(footer)
 
         self._container_layout.addStretch(1)
         scroll.setWidget(container)

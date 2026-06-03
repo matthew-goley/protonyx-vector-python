@@ -5,7 +5,8 @@
       "WebSearch",
       "mcp__ide__getDiagnostics",
       "PowerShell(git check-ignore *)",
-      "PowerShell($tracked = git ls-files auth/; \"TRACKED:`n$tracked\"; \"---\"; $ig = git check-ignore auth/session.json; \"IGNORED: $ig\")"
+      "PowerShell($tracked = git ls-files auth/; \"TRACKED:`n$tracked\"; \"---\"; $ig = git check-ignore auth/session.json; \"IGNORED: $ig\")",
+      "PowerShell(python -c \"import ast; ast.parse\\(open\\('vector/pages/dashboard.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('vector/pages/lens_page.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   },
   "dangerouslySkipPermissions": true

@@ -501,6 +501,18 @@ class DashboardPage(QWidget):
 
         outer.addWidget(self._scroll, stretch=1)
 
+        self._disclaimer_label = QLabel(
+            'Vector Lens provides analytics and projections to inform your '
+            'thinking — it is not a financial advisor and does not provide '
+            'investment advice. Always do your own research before investing.'
+        )
+        self._disclaimer_label.setWordWrap(True)
+        self._disclaimer_label.setStyleSheet(
+            f'color: #8d98af; font-size: {scpt(8)}pt; padding: {sc(4)}px {sc(6)}px;'
+        )
+        self._disclaimer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        outer.addWidget(self._disclaimer_label)
+
         saved = self.window.store.load_layout()
         layout = saved if saved else _DEFAULT_LAYOUT
         layout = [e for e in layout if e.get('type') != 'RecommendationWidget']
