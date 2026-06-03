@@ -21,7 +21,7 @@ UI_MIN_POINT_SIZE: int = 7
 
 APP_NAME = 'Vector'
 COMPANY_NAME = 'Protonyx'
-APP_VERSION = '0.4.9'
+APP_VERSION = '0.5.0'
 # Chronological version of the Lens engine (vector/lens/*). This is a simple
 # monotonic change counter, NOT app/semver — bump the last number by one on ANY
 # change to Lens logic (analyzers, CTA engine, sentence composers, caution
