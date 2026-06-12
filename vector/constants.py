@@ -3,7 +3,7 @@ from .paths import resource_path, user_data_dir
 # Debug: override the global UI scale factor used for window/UI sizing.
 # None = use the width-driven scale computed in vector/scale.py (normal behaviour).
 # Set to a float to force a fixed factor, e.g.:
-#   0.9  → the "perfect fit" 1080p feel   1.35 → a roomy 1080p@100% feel
+#   0.9  → the "perfect fit" 1080p feel   1.35 → a roomy 1080p@100% feel | 0.93 is the perfect 1080p feel for product pics and vids
 DEBUG_SCREEN_SCALE: float | None = None
 
 # UI scaling (see vector/scale.py). The dashboard is authored for UI_BASE_WIDTH
